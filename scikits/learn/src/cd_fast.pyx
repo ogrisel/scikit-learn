@@ -41,13 +41,18 @@ def lasso_coordinate_descent(np.ndarray[DOUBLE, ndim=1] w,
                              double alpha,
                              np.ndarray[DOUBLE, ndim=2, mode="fortran"] X,
                              np.ndarray[DOUBLE, ndim=1] y,
-                             int maxit, double tol):
+                             int maxit, double tol,
+                             int update_start, int update_stop):
     """Cython version of the coordinate descent algorithm
         for Lasso regression
 
     Notes
     -----
     tolerance (tol) is scaled by ||y||^2
+
+    update_start and update_stop are used to specify a range of coordinate
+    indices to restrict the optimization to.
+
     """
 
     # get the data information into easy vars
@@ -55,6 +60,11 @@ def lasso_coordinate_descent(np.ndarray[DOUBLE, ndim=1] w,
     cdef unsigned int nsamples = X.shape[0]
     cdef unsigned int nfeatures = X.shape[1]
     cdef unsigned int nclasses = w.shape[1]
+
+    if update_start < 0:
+        update_start = 0
+    if update_stop < 0 or update_stop > nfeatures:
+        update_stop = nfeatures
 
     cdef np.ndarray[DOUBLE, ndim=1] norm_cols_X
     cdef np.ndarray[DOUBLE, ndim=1] R = y - np.dot(X, w) # Init residual
@@ -71,7 +81,7 @@ def lasso_coordinate_descent(np.ndarray[DOUBLE, ndim=1] w,
 
     for n_iter in range(maxit):
         d_w_max = 0.0
-        for ii in xrange(nfeatures): # Loop over coordinates
+        for ii in xrange(update_start, update_stop): # Loop over coordinates
             w_ii = w[ii] # Store previous value
 
             if w_ii != 0.0:

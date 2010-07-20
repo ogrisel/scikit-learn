@@ -12,6 +12,9 @@ Generalized Linear models.
 
 import warnings
 
+from multiprocessing import Pool
+from multiprocessing import cpu_count
+
 import numpy as np
 import scipy.linalg 
 import scipy.sparse as sp # needed by LeastAngleRegression
@@ -554,7 +557,7 @@ class Lasso(LinearModel):
         X = np.asfortranarray(X) # make data contiguous in memory
         self.coef_, self.dual_gap_, self.eps_ = \
                     cd_fast.lasso_coordinate_descent(self.coef_,
-                    alpha, X, Y, maxit, tol)
+                    alpha, X, Y, maxit, tol, -1, -1)
 
         self.intercept_ = self._ymean - np.dot(self._xmean, self.coef_)
 
@@ -567,6 +570,60 @@ class Lasso(LinearModel):
 
         # return self for chaining fit and predict calls
         return self
+
+
+class ParallelLasso(Lasso):
+
+    def fit(self, X, Y, maxit=1000, tol=1e-4, **params):
+        self._set_params(**params)
+
+        X = np.asanyarray(X, dtype=np.float64)
+        Y = np.asanyarray(Y, dtype=np.float64)
+
+        if self.fit_intercept:
+            self._xmean = X.mean(axis=0)
+            self._ymean = Y.mean(axis=0)
+            X = X - self._xmean
+            Y = Y - self._ymean
+        else:
+            self._xmean = np.zeros(X.shape[1])
+            self._ymean = np.zeros(X.shape[0])
+
+        nsamples = X.shape[0]
+        alpha = self.alpha * nsamples
+
+        if self.coef_ is None:
+            self.coef_ = np.zeros(X.shape[1], dtype=np.float64)
+
+        X = np.asfortranarray(X) # make data contiguous in memory
+        p = Pool()
+
+        indices
+
+        n_batches = 10
+        batch_maxit = maxit / batch_maxit
+        for b in range(n_batches):
+            results = p.map(lasso_cd_job_func, lasso_cd_job_args)
+
+        # sequential fine tuning of all coordinate at ones (sharing a single
+        # version of the residuals)
+        self.coef_, self.dual_gap_, self.eps_ = \
+                    cd_fast.lasso_coordinate_descent(self.coef_,
+                    alpha, X, Y, maxit, tol, -1, -1)
+
+        self.intercept_ = self._ymean - np.dot(self._xmean, self.coef_)
+
+        if self.dual_gap_ > self.eps_:
+            warnings.warn('Objective did not converge, you might want '
+                                'to increase the number of interations')
+
+        # Store explained variance for __str__
+        self.explained_variance_ = self._explained_variance(X, Y)
+
+        # return self for chaining fit and predict calls
+        return self
+
+
 
 
 class ElasticNet(Lasso):
