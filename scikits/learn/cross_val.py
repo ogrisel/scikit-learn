@@ -9,8 +9,9 @@ Utilities for cross validation.
 from math import ceil
 import numpy as np
 
+from .base import ClassifierMixin
 from .utils.extmath import factorial, combinations
-from .grid_search import GridSearchCV
+from .externals.joblib import Parallel, delayed
 
 ##############################################################################
 class LeaveOneOut(object):
@@ -448,8 +449,68 @@ class LeavePLabelOut(object):
         return factorial(self.n_labels) / factorial(self.n_labels - self.p) \
                / factorial(self.p)
 
+    
+##############################################################################
+
+def _cross_val_score(estimator, X, y, score_func, train, test):
+    """ Inner loop for cross validation.
+    """
+    if score_func is None:
+        score_func = lambda self, *args: estimator.score(*args)
+    if y is None:
+        return score_func(estimator.fit(X[train]), X[test])
+    return score_func(estimator.fit(X[train], y[train]), X[test], y[test])
 
 
+def cross_val_score(estimator, X, y=None, score_func=None, cv=None, 
+                n_jobs=1, verbose=0):
+    """ Evaluate a score by cross-validation.
+
+        Parameters
+        ===========
+        estimator: estimator object implementing 'fit'
+            The object to use to fit the data
+        X: array-like of shape at least 2D
+            The data to fit.
+        y: array-like, optional
+            The target variable to try to predict in the case of
+            supervised learning.
+        score_func: callable, optional
+            callable taking as arguments the fitted estimator, the
+            test data (X_test) and the test target (y_test) if y is
+            not None.
+        cv: cross-validation generator, optional
+            A cross-validation generator. If None, a 3-fold cross
+            validation is used or 3-fold stratified cross-validation
+            when y is supplied.
+        n_jobs: integer, optional
+            The number of CPUs to use to do the computation. -1 means
+            'all CPUs'.
+        verbose: integer, optional
+            The verbosity level
+    """
+    # XXX: should have a n_jobs to be able to do this in parallel.
+    n_samples = len(X)
+    if cv is None:
+        if y is not None and isinstance(estimator, ClassifierMixin):
+            cv = StratifiedKFold(y, k=3)
+        else:
+            cv = KFold(n_samples, k=3)
+    if score_func is None:
+        assert hasattr(estimator, 'score'), ValueError(
+                "If no score_func is specified, the estimator passed "
+                "should have a 'score' method. The estimator %s "
+                "does not." % estimator
+                )
+    scores = Parallel(n_jobs=n_jobs, verbose=verbose)(
+                delayed(_cross_val_score)(estimator, X, y, score_func, 
+                                                        train, test)
+                for train, test in cv)
+    return np.array(scores)
+
+
+################################################################################
+# Depreciated
 def split(train_indices, test_indices, *args):
     """
     For each arg return a train and test subsets defined by indexes provided
