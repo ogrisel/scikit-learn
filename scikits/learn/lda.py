@@ -12,10 +12,10 @@ class LDA(BaseEstimator, ClassifierMixin):
 
     Parameters
     ----------
-    X : array-like, shape = [nsamples, nfeatures]
-        Training vector, where nsamples in the number of samples and
-        nfeatures is the number of features.
-    y : array, shape = [nsamples]
+    X : array-like, shape = [n_samples, n_features]
+        Training vector, where n_samples in the number of samples and
+        n_features is the number of features.
+    y : array, shape = [n_samples]
         Target vector relative to X
 
     priors : array, optional, shape = [n_classes]
@@ -51,8 +51,7 @@ class LDA(BaseEstimator, ClassifierMixin):
     >>> y = np.array([1, 1, 1, 2, 2, 2])
     >>> clf = LDA()
     >>> clf.fit(X, y)
-    LDA(priors=None,
-        use_svd=True)
+    LDA(priors=None, use_svd=True)
     >>> print clf.predict([[-0.8, -1]])
     [1]
 
@@ -75,10 +74,10 @@ class LDA(BaseEstimator, ClassifierMixin):
 
         Parameters
         ----------
-        X : array-like, shape = [nsamples, nfeatures]
-            Training vector, where nsamples in the number of samples and
-            nfeatures is the number of features.
-        y : array, shape = [nsamples]
+        X : array-like, shape = [n_samples, n_features]
+            Training vector, where n_samples in the number of samples and
+            n_features is the number of features.
+        y : array, shape = [n_samples]
             Target values (integers)
         store_covariance : boolean
             If True the covariance matrix (shared by all classes) is computed
