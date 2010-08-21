@@ -12,3 +12,4 @@ doc/auto_examples/
 pip-log.txt
 scikits.learn.egg-info/
 .coverage
+access_token.txt
