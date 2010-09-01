@@ -293,6 +293,7 @@ class SparseHashingVectorizer(object):
         tf_idf = sp.lil_matrix(coo.shape)
         idf = self.get_idf()
         data, row, col = coo.data, coo.row, coo.col
+        # TODO: this for loop is slow as hell
         for i in xrange(len(data)):
             tf_idf[row[i], col[i]] = data[i] * idf[col[i]]
         return tf_idf.tocsr()
@@ -323,6 +324,6 @@ class SparseHashingVectorizer(object):
         if self.use_idf:
             return self.get_tfidf()
         else:
-            return self.tf_vectors
+            return self.tf_vectors.tocsr()
 
 

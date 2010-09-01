@@ -14,7 +14,7 @@ from nltk.corpus import europarl_raw
 
 class BreakNested(Exception): pass
 
-def build_datasets_from_europarl(shuffle=True, seed=42, dim=50000,
+def build_datasets_from_europarl(shuffle=True, seed=42, dim=100000,
                                  max_samples_by_lang=1000):
     """Build the training and test set out of the Europarl corpus from nltk"""
 
@@ -44,7 +44,7 @@ def build_datasets_from_europarl(shuffle=True, seed=42, dim=50000,
     labels = np.asarray(labels)
     hv = SparseHashingVectorizer(dim=dim,
                                  analyzer=CharNGramAnalyzer(min_n=2, max_n=4),
-                                 use_idf=True)
+                                 use_idf=False)
     hv.vectorize(sentences)
     features = hv.get_vectors()
 
