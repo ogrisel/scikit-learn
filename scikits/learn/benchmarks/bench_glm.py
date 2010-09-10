@@ -57,12 +57,12 @@ def make_data(n_samples=100, n_tests=100, n_features=100, k=10,
     return X, Y, X_test, Y_test, coef_
 
 
-def bench(factory, X, Y, X_test, Y_test, ref_coef):
+def bench(factory, params, X, Y, X_test, Y_test, ref_coef):
     gc.collect()
 
     # start time
     tstart = time()
-    clf = factory(alpha=alpha).fit(X, Y)
+    clf = factory(alpha=alpha, **params).fit(X, Y)
     delta = (time() - tstart)
     # stop time
 
@@ -74,10 +74,12 @@ def bench(factory, X, Y, X_test, Y_test, ref_coef):
 if __name__ == '__main__':
     from glmnet.elastic_net import Lasso as GlmnetLasso
     from scikits.learn.glm import Lasso as ScikitLasso
+    from scikits.learn.glm import ElasticNet as ScikitElasticNet
     # Delayed import of pylab
     import pylab as pl
 
-    scikit_results = []
+    scikit_lasso_results = []
+    scikit_enet_results = []
     glmnet_results = []
     n = 20
     step = 500
@@ -92,15 +94,18 @@ if __name__ == '__main__':
             n_samples=(i * step), n_tests=n_tests, n_features=n_features,
             noise=0.1, k=k)
 
-        print "benching scikit: "
-        scikit_results.append(bench(ScikitLasso, X, Y, X_test, Y_test, coef_))
+        print "benching scikit lasso:"
+        scikit_lasso_results.append(bench(ScikitLasso, {}, X, Y, X_test, Y_test, coef_))
+        print "benching scikit enet:"
+        scikit_enet_results.append(bench(ScikitElasticNet, {'rho': 1.0}, X, Y, X_test, Y_test, coef_))
         print "benching glmnet: "
-        glmnet_results.append(bench(GlmnetLasso, X, Y, X_test, Y_test, coef_))
+        glmnet_results.append(bench(GlmnetLasso, {}, X, Y, X_test, Y_test, coef_))
 
     pl.clf()
     xx = range(0, n*step, step)
     pl.title('Lasso regression on sample dataset (%d features)' % n_features)
-    pl.plot(xx, scikit_results, 'b-', label='scikit-learn')
+    pl.plot(xx, scikit_lasso_results, 'b-', label='scikit-learn-lasso')
+    pl.plot(xx, scikit_enet_results,'g-', label='scikit-learn-enet with rho=1')
     pl.plot(xx, glmnet_results,'r-', label='glmnet')
     pl.legend()
     pl.xlabel('number of samples to classify')
@@ -110,7 +115,8 @@ if __name__ == '__main__':
     # now do a bench where the number of points is fixed
     # and the variable is the number of features
 
-    scikit_results = []
+    scikit_lasso_results = []
+    scikit_enet_results = []
     glmnet_results = []
     n = 20
     step = 100
@@ -126,15 +132,18 @@ if __name__ == '__main__':
             n_samples=n_samples, n_tests=n_tests, n_features=n_features,
             noise=0.1, k=k)
 
-        print "benching scikit: "
-        scikit_results.append(bench(ScikitLasso, X, Y, X_test, Y_test, coef_))
+        print "benching scikit lasso:"
+        scikit_lasso_results.append(bench(ScikitLasso, {}, X, Y, X_test, Y_test, coef_))
+        print "benching scikit enet:"
+        scikit_enet_results.append(bench(ScikitElasticNet, {'rho': 1.0}, X, Y, X_test, Y_test, coef_))
         print "benching glmnet: "
-        glmnet_results.append(bench(GlmnetLasso, X, Y, X_test, Y_test, coef_))
+        glmnet_results.append(bench(GlmnetLasso, {}, X, Y, X_test, Y_test, coef_))
 
     xx = np.arange(100, 100 + n * step, step)
     pl.figure()
     pl.title('Regression in high dimensional spaces (%d samples)' % n_samples)
-    pl.plot(xx, scikit_results, 'b-', label='scikit-learn')
+    pl.plot(xx, scikit_lasso_results, 'b-', label='scikit-learn-lasso')
+    pl.plot(xx, scikit_enet_results,'g-', label='scikit-learn-enet with rho=1')
     pl.plot(xx, glmnet_results,'r-', label='glmnet')
     pl.legend()
     pl.xlabel('number of features')
