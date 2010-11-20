@@ -18,16 +18,23 @@ Usage:
 import os
 import sys
 import webbrowser
-import time
+from time import time
 from pprint import pprint
 from cPickle import dump
 from cPickle import load
+
+import numpy as np
 
 from tweepy import API
 from tweepy import Cursor
 from tweepy import OAuthHandler
 
-from scikits.learn.svm.sparse import LinearSVC
+from scikits.learn.feature_extraction.text.sparse import CountVectorizer
+from scikits.learn.feature_extraction.text.sparse import TfidfTransformer
+from scikits.learn.sgd.sparse import SGD
+from scikits.learn.grid_search import GridSearchCV
+from scikits.learn.pipeline import Pipeline
+from scikits.learn.metrics import f1_score
 
 CONSUMER_KEY = '1Mc9h175eBX8tjt8GOQvQ'
 CONSUMER_SECRET = 'zk1tVhgFUcjlFbDx40Ue5KR3x7HxWdrJzRM82OsEQ'
@@ -86,8 +93,68 @@ def collect(cli_args, interesting_filename="interesting.pickle",
             dump(boring, file(boring_filename, 'w'))
 
 
-def build_model(cli_args):
-    print "Implement me!"
+def build_model(cli_args, interesting_filename="interesting.pickle",
+                boring_filename="boring.pickle",
+                model_filename="twitter-model.pickle", seed=42):
+    interesting = load(file(interesting_filename))
+    boring = load(file(boring_filename))
+
+    # build the dataset as numpy arrays for text input and target
+    text = np.asarray(interesting + boring)
+    target = np.asarray([1] * len(interesting) + [-1] * len(boring))
+
+    n_samples = text.shape[0]
+
+    # shuffle the dataset
+    indices = np.arange(n_samples)
+    rng = np.random.RandomState(seed)
+    rng.shuffle(indices)
+
+    text = text[indices]
+    target = target[indices]
+
+    # build a grid search for hyperparameters of both the feature extractor and
+    # the classifier
+    pipeline = Pipeline([
+        ('vect', CountVectorizer()),
+        ('tfidf', TfidfTransformer()),
+        ('clf', SGD()),
+    ])
+
+    parameters = {
+    # uncommenting more parameters will give better exploring power but will
+    # increase processing time in a combinatorial way
+        'vect__max_df': (0.5, 0.75, 1.0),
+        'vect__analyzer__max_n': (1, 2), # words or bigrams
+        'tfidf__use_idf': (True, False),
+        'clf__alpha': (0.00001, 0.000001),
+        'clf__penalty': ('l2', 'elasticnet'),
+        'clf__n_iter': (10, 50, 80),
+    }
+
+    # find the best parameters for both the feature extraction and the
+    # classifier
+    grid_search = GridSearchCV(pipeline, parameters,
+                               score_func=f1_score, n_jobs=-1)
+
+    print "Performing grid search..."
+    print "pipeline:", [name for name, _ in pipeline.steps]
+    print "parameters:"
+    pprint(parameters)
+    t0 = time()
+    grid_search.fit(text, target)
+    print "done in %0.3fs" % (time() - t0)
+    print
+
+    print "Best score: %0.3f" % grid_search.best_score
+    print "Best parameters set:"
+    model = grid_search.best_estimator
+    best_parameters = model._get_params()
+    for param_name in sorted(parameters.keys()):
+        print "\t%s: %r" % (param_name, best_parameters[param_name])
+
+    dump(model, file(model_filename, 'w'))
+
 
 
 def predict(cli_args):
