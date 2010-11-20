@@ -19,6 +19,7 @@ import os
 import sys
 import webbrowser
 from time import time
+from time import sleep
 from pprint import pprint
 from cPickle import dump
 from cPickle import load
@@ -89,7 +90,7 @@ def collect(cli_args, interesting_filename="interesting.pickle",
         for i in range(n_pages):
             print "page: %d/%d" % (i + 1, n_pages)
             boring += [s.text for s in api.public_timeline()]
-            time.sleep(0.500)
+            sleep(0.500)
             dump(boring, file(boring_filename, 'w'))
 
 
