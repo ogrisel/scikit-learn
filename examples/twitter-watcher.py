@@ -32,8 +32,8 @@ CONSUMER_SECRET = 'zk1tVhgFUcjlFbDx40Ue5KR3x7HxWdrJzRM82OsEQ'
 
 ACCESS_TOKEN_FILENAME = "access_token.txt"
 
-
-def build_model(cli_args, n_samples=100):
+def get_api():
+    """Perform OAuth credential checks to get an API instance"""
     auth = OAuthHandler(CONSUMER_KEY, CONSUMER_SECRET)
 
     if os.path.exists(ACCESS_TOKEN_FILENAME):
@@ -57,8 +57,12 @@ def build_model(cli_args, n_samples=100):
         with open(ACCESS_TOKEN_FILENAME, "w") as f:
             f.write(auth.access_token.key + "\n")
             f.write(auth.access_token.secret + "\n")
+    return API(auth)
 
-    api = API(auth)
+
+def build_model(cli_args, n_samples=100):
+    """Train a model"""
+    api = get_api()
 
     n = n_samples / 4
     interesting = [s.text for s in Cursor(api.user_timeline).items(n)]
