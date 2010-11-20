@@ -25,9 +25,7 @@ from tweepy import API
 from tweepy import Cursor
 from tweepy import OAuthHandler
 
-from scikits.learn.features.text import SparseHashingVectorizer
-from scikits.learn.features.text import WordNGramAnalyzer
-from scikits.learn.sparse.svm import LinearSVC
+from scikits.learn.svm.sparse import LinearSVC
 
 CONSUMER_KEY = '1Mc9h175eBX8tjt8GOQvQ'
 CONSUMER_SECRET = 'zk1tVhgFUcjlFbDx40Ue5KR3x7HxWdrJzRM82OsEQ'
@@ -46,7 +44,7 @@ def build_model(cli_args, n_samples=100):
     else:
         auth_url = auth.get_authorization_url()
         pid = os.fork()
-        if pid:
+        if not pid:
             # child runs browser then quits.
             webbrowser.open_new_tab(auth_url)
             sys.exit(0)
