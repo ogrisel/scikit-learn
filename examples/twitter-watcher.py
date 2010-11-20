@@ -9,7 +9,7 @@ to train a statistical model that is able to find wether a new tweet is likely
 to be of interest or not.
 
 To access your tweeting history you will need a web access to use the twitter
-OAuth interface thanks to 
+OAuth interface thanks to
 
 Usage:
 
@@ -20,6 +20,8 @@ import sys
 import webbrowser
 import time
 from pprint import pprint
+from cPickle import dump
+from cPickle import load
 
 from tweepy import API
 from tweepy import Cursor
@@ -60,28 +62,32 @@ def get_api():
     return API(auth)
 
 
-def build_model(cli_args, n_samples=100):
-    """Train a model"""
+def collect(cli_args, interesting_filename="interesting.pickle",
+            boring_filename="boring.pickle", n_samples=1000):
+    """Collect some data to train a model"""
     api = get_api()
 
-    n = n_samples / 4
-    interesting = [s.text for s in Cursor(api.user_timeline).items(n)]
-    interesting += [s.text for s in Cursor(api.retweeted_by_me).items(n)]
-    print "successfully collected %d interesting tweets" % len(interesting)
 
-    n_pages = n_samples / 20
-    boring = []
-    for i in range(n_pages):
-        boring += [s.text for s in api.public_timeline()]
-        time.sleep(0.500)
-    print "successfully collected %d boring tweets" % len(boring)
+    if not os.path.exists(interesting_filename):
+        n = n_samples / 2
+        print "collecting positive tweets"
+        interesting = [s.text for s in Cursor(api.user_timeline).items(n)]
+        interesting += [s.text for s in Cursor(api.retweeted_by_me).items(n)]
+        dump(interesting, file(interesting_filename, 'w'))
 
-    print "interesting:"
-    pprint(interesting)
-    print
-    print "boring:"
-    pprint(boring)
-    print
+    if not os.path.exists(boring_filename):
+        n_pages = n_samples / 20
+        print "collecting boring tweets"
+        boring = []
+        for i in range(n_pages):
+            print "page: %d/%d" % (i + 1, n_pages)
+            boring += [s.text for s in api.public_timeline()]
+            time.sleep(0.500)
+            dump(boring, file(boring_filename, 'w'))
+
+
+def build_model(cli_args):
+    print "Implement me!"
 
 
 def predict(cli_args):
@@ -93,6 +99,7 @@ def watch_stream(cli_args):
 
 
 command_handlers = {
+    'collect': collect,
     'train': build_model,
     'predict': predict,
     'watch': watch_stream,
