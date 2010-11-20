@@ -75,23 +75,20 @@ def collect(cli_args, interesting_filename="interesting.pickle",
     """Collect some data to train a model"""
     api = get_api()
 
-
-    if not os.path.exists(interesting_filename):
+    if (not os.path.exists(interesting_filename) or
+        not os.path.exists(boring_filename)):
         n = n_samples / 2
-        print "collecting positive tweets"
-        interesting = [s.text for s in Cursor(api.user_timeline).items(n)]
-        interesting += [s.text for s in Cursor(api.retweeted_by_me).items(n)]
-        dump(interesting, file(interesting_filename, 'w'))
+        print "collecting interesting tweets"
+        interesting = [s for s in Cursor(api.user_timeline).items(n)]
+        interesting += [s for s in Cursor(api.retweeted_by_me).items(n)]
 
-    if not os.path.exists(boring_filename):
-        n_pages = n_samples / 20
+        interesting_ids = set(s.id_str for s in interesting)
+        dump([s.text for s in interesting], file(interesting_filename, 'w'))
+
         print "collecting boring tweets"
-        boring = []
-        for i in range(n_pages):
-            print "page: %d/%d" % (i + 1, n_pages)
-            boring += [s.text for s in api.public_timeline()]
-            sleep(0.500)
-            dump(boring, file(boring_filename, 'w'))
+        boring = [s for s in Cursor(api.home_timeline).items(n_samples)
+                  if s.id_str not in interesting_ids]
+        dump([s.text for s in boring], file(boring_filename, 'w'))
 
 
 def build_model(cli_args, interesting_filename="interesting.pickle",
