@@ -113,7 +113,7 @@ class ClassifierSGD(ClassifierBaseSGD):
 
         Parameters
         ----------
-        X : scipy sparse matrix of shape [n_samples,n_features]
+        X : scipy sparse matrix of shape [n_samples, n_features]
             Training data
 
         y : numpy array of shape [n_samples]
@@ -157,8 +157,7 @@ class ClassifierSGD(ClassifierBaseSGD):
         return self
 
     def _fit_binary(self, X, y, coef_init, intercept_init):
-        """Fit a binary classifier.
-        """
+        """Fit a binary classifier"""
         # encode original class labels as 1 (classes[1]) or -1 (classes[0]).
         y_new = np.ones(y.shape, dtype=np.float64) * -1.0
         y_new[y == self.classes[1]] = 1.0
@@ -401,20 +400,28 @@ class RegressorSGD(RegressorBaseSGD):
         y = np.asanyarray(y, dtype=np.float64)
 
         n_samples, n_features = X.shape[0], X.shape[1]
-        self.coef_ = np.zeros(n_features, dtype=np.float64, order="C")
-        self.intercept_ = np.zeros(1, dtype=np.float64, order="C")
         if coef_init is not None:
             coef_init = np.asanyarray(coef_init)
             if coef_init.shape != (n_features,):
-                raise ValueError("Provided coef_init does not match dataset.")
+                raise ValueError(
+                    "Provided coef_init with shape %r "
+                     "does not match dataset, expected: (%d,)"
+                    % (coef_init.shape, n_features))
             self.coef_ = coef_init
+        else:
+            self.coef_ = np.zeros(n_features, dtype=np.float64, order="C")
+
         if intercept_init is not None:
             intercept_init = np.asanyarray(intercept_init)
             if intercept_init.shape != (1,):
-                raise ValueError("Provided intercept_init " \
-                                 "does not match dataset.")
+                raise ValueError(
+                    "Provided intercept_init with shape %r "
+                     "does not match dataset, expected: (1,)"
+                    % (intercept_init.shape,))
             else:
                 self.intercept_ = intercept_init
+        else:
+            self.intercept_ = np.zeros(1, dtype=np.float64, order="C")
 
         X_data = np.array(X.data, dtype=np.float64, order="C")
         X_indices = X.indices
