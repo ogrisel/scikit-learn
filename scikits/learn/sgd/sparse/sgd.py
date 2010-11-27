@@ -115,13 +115,17 @@ class ClassifierSGD(ClassifierBaseSGD):
         ----------
         X : scipy sparse matrix of shape [n_samples,n_features]
             Training data
+
         y : numpy array of shape [n_samples]
             Target values
-        coef_init : array, shape = [n_features] if n_classes == 2 else [n_classes,
-        n_features]
+
+        coef_init : array, shape = [n_features]             if n_classes == 2
+                                   [n_classes, n_features]  else
             The initial coeffients to warm-start the optimization.
+
         intercept_init : array, shape = [1] if n_classes == 2 else [n_classes]
             The initial intercept to warm-start the optimization.
+
         class_weight : dict, {class_label : weight} or "auto"
             Weights associated with classes. If not given, all classes
             are supposed to have weight one.
@@ -136,7 +140,7 @@ class ClassifierSGD(ClassifierBaseSGD):
         self._set_params(**params)
         X = sparse.csr_matrix(X)
         y = np.asanyarray(y, dtype=np.float64)
-        
+
         # largest class id is positive class
         self.classes = np.unique(y)
 
@@ -356,7 +360,7 @@ class RegressorSGD(RegressorBaseSGD):
     RegressorSGD(loss='squared_loss', shuffle=False, verbose=0, n_iter=5,
            epsilon=0.1, fit_intercept=True, penalty='l2', rho=1.0,
            alpha=0.0001)
-    
+
     See also
     --------
     LinearRegression, RidgeRegression, SVR
@@ -387,7 +391,7 @@ class RegressorSGD(RegressorBaseSGD):
         coef_init : array, shape = [n_features]
             The initial coeffients to warm-start the optimization.
         intercept_init : array, shape = [1]
-        
+
         Returns
         -------
         self : returns an instance of self.

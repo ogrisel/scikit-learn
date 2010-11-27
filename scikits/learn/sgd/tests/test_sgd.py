@@ -271,3 +271,4 @@ class SparseClassifierSGDTestCase(DenseRegressorSGDTestCase):
     """Run exactly the same tests using the sparse representation variant"""
 
     factory = sgd.sparse.RegressorSGD
+
