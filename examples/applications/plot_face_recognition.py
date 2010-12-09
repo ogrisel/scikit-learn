@@ -14,13 +14,13 @@ Expected results for the top 5 most represented people in the dataset::
 
                      precision    recall  f1-score   support
 
-      George_W_Bush       0.84      0.88      0.86       129
-       Colin_Powell       0.80      0.84      0.82        58
-         Tony_Blair       0.66      0.62      0.64        34
-    Donald_Rumsfeld       0.87      0.79      0.83        33
-  Gerhard_Schroeder       0.75      0.64      0.69        28
+  Gerhard_Schroeder       0.91      0.75      0.82        28
+    Donald_Rumsfeld       0.84      0.82      0.83        33
+         Tony_Blair       0.65      0.82      0.73        34
+       Colin_Powell       0.78      0.88      0.83        58
+      George_W_Bush       0.93      0.86      0.90       129
 
-        avg / total       0.81      0.81      0.81       282
+        avg / total       0.86      0.84      0.85       282
 
 """
 print __doc__
@@ -31,6 +31,7 @@ from gzip import GzipFile
 import numpy as np
 import pylab as pl
 
+from scikits.learn.grid_search import GridSearchCV
 from scikits.learn.metrics import classification_report
 from scikits.learn.metrics import confusion_matrix
 from scikits.learn.pca import PCA
@@ -109,11 +110,12 @@ X_train, X_test = X[:split], X[split:]
 y_train, y_test = y[:split], y[split:]
 
 ################################################################################
-# Compute a PCA (eigenfaces) on the training set
-n_components = 200
+# Compute a PCA (eigenfaces) on the face dataset (treated as unlabeled
+# dataset): unsupervised feature extraction / dimensionality reduction
+n_components = 150
 
 print "Extracting the top %d eigenfaces" % n_components
-pca = PCA(n_comp=n_components, do_fast_svd=True).fit(X_train)
+pca = PCA(n_comp=n_components, whiten=True, do_fast_svd=True).fit(X_train)
 
 eigenfaces = pca.components_.T.reshape((n_components, 64, 64))
 
@@ -126,7 +128,15 @@ X_test_pca = pca.transform(X_test)
 # Train a SVM classification model
 
 print "Fitting the classifier to the training set"
-clf = SVC(C=100).fit(X_train_pca, y_train, class_weight="auto")
+param_grid = {
+ 'C': [1, 5, 10, 50, 100],
+ 'gamma': [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.1],
+}
+clf = GridSearchCV(SVC(kernel='rbf'), param_grid,
+                   fit_params={'class_weight': 'auto'})
+clf = clf.fit(X_train_pca, y_train)
+print "Best estimator found by grid search:"
+print clf.best_estimator
 
 
 ################################################################################
