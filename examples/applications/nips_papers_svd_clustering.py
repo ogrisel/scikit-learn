@@ -27,13 +27,12 @@ from pprint import pprint
 import os
 
 import numpy as np
-from scipy.linalg import svd
 
 from scikits.learn.cluster import KMeans
 from scikits.learn.cluster import MeanShift
 from scikits.learn.feature_extraction.text import WordNGramAnalyzer
 from scikits.learn.feature_extraction.text.sparse import Vectorizer
-from scikits.learn.utils.extmath import fast_svd
+from scikits.learn.pca import RandomizedPCA
 
 url = "http://books.nips.cc/papers/files/nips23/nips2010_pdf.tgz"
 directoy_name = "nips2010_pdf"
@@ -99,45 +98,43 @@ print
 
 ################################################################################
 # Project on the first 100 singular vectors
-# TODO: make the PCA module support sparse data insted of using the fast_svd API
-# directly
 
 print "Extracting top %d singular vectors" % n_components
 t0 = time()
-u, s, v = fast_svd(X_tfidf, n_components, p=50, q=3)
+pca = RandomizedPCA(n_components=50, copy=False, whiten=True).fit(X_tfidf)
 print "done in %fs" % (time() - t0)
 print
 
 names = dict((v, k) for k, v in vectorizer.tc.vocabulary.iteritems())
 
-for i in range(10):
-    print "Main components singular vector #%d:" % i
-    top_10 = list(reversed(np.abs(v[i]).argsort()))[:10]
-    pprint([names[i] for i in top_10])
+def print_top_features(vectors, vector_type, max_vector, max_features, names):
+    for i, v_i in enumerate(vectors[:max_vector]):
+        print "Main components %s vector #%d:" % (vector_type, i)
+        top_features = list(reversed(v_i.argsort()))[:max_features]
+        print '\n'.join([names[j].ljust(30) + "%0.3f" % v_i[j]
+                         for j in top_features])
+
+print_top_features(pca.components_, 'singular', 5, 20, names)
 print
 
 # transform the data by linear projection in the topic space
-X_svd = X_tfidf * v.T
+X_pca = pca.transform(X_tfidf)
 
 
 ################################################################################
 # Cluster the projected data
 print "Clustering the projected vectors"
 t0 = time()
-#clusterer = KMeans(k=n_clusters, init='k-means++').fit(X_svd)
-clusterer = MeanShift(0.35).fit(X_svd)
+#clusterer = KMeans(k=n_clusters, init='k-means++').fit(X_pca)
+clusterer = MeanShift(17).fit(X_pca)
 print "done in %fs" % (time() - t0)
 print
 
 
 # project back the centroids to the original TF-IDF space
-centers_tfidf = np.dot(clusterer.cluster_centers_, v)
+centers_tfidf = np.dot(clusterer.cluster_centers_, pca.components_.T)
 
-for i in range(centers_tfidf.shape[0]):
-    print "Main components of centroid #%d:" % i
-    top_10 = list(reversed(np.abs(centers_tfidf[i]).argsort()))[:10]
-    pprint([names[i] for i in top_10])
-
+print_top_features(centers_tfidf, 'centroid', 5, 20, names)
 print
 
 # TODO: print the titles for each cluster
