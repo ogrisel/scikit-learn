@@ -292,7 +292,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         n_samples = X.shape[0]
 
         if self.image_size is None:
-            if len(X.shape) > 3:
+            if len(X.shape) >= 3:
                 self.image_size = X.shape[1:3]
             else:
                 # assume square images
