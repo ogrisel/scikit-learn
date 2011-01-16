@@ -311,8 +311,9 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         X = self._check_images(X)
 
         # step 1: extract the patches
-        offsets = [(o, o)
-                   for o in range(0, self.patch_size - 1, self.step_size)]
+        offsets = [(o1, o2)
+                   for o1 in range(0, self.patch_size - 1, self.step_size)
+                   for o2 in range(0, self.patch_size - 1, self.step_size)]
         patch_size = (self.patch_size, self.patch_size)
 
         # this list of patches does not copy the memory allocated for raw
@@ -325,6 +326,8 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         patches = patches_by_offset[0]
         patches = patches.reshape((patches.shape[0], -1))
 
+        patches = patches[:10000]
+
         if self.whiten:
             self.pca = PCA(whiten=True, n_components=self.n_components)
             self.pca.fit(patches)
@@ -335,7 +338,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         # step 3: compute the KMeans centers
         kmeans = KMeans(k=self.n_centers, init='k-means++',
                         max_iter=self.max_iter, n_init=self.n_init)
-        # TODO: when whitening is enabled, implement curriculum learnin by
+        # TODO: when whitening is enabled, implement curriculum learning by
         # starting the kmeans on a the projection to the first singular
         # components and increase the number component with warm restarts by
         # padding previous centroids with zeros to keep up with the increasing
@@ -345,8 +348,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
         # step 4: project back the centers in original, non-whitened space
         if self.whiten:
-            self.kernels_ = (np.dot(kmeans.cluster_centers_,
-                                    self.pca.components_.T) + self.pca.mean_)
+            self.kernels_ = self.pca.inverse_transform(kmeans.cluster_centers_)
         else:
             self.kernels_ = kmeans.cluster_centers_
         return self
