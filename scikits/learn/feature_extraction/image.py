@@ -265,6 +265,9 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         number equal size areas to perform the sum-pooling of features
         over: pools=2 means 4 quadrants, pools=3 means 6 areas and so on
 
+    local_contrast: boolean, optional: default True
+        perform local contrast normalization on the extracted patch
+
     Reference
     ---------
     An Analysis of Single-Layer Networks in Unsupervised Feature Learning
@@ -275,7 +278,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
     def __init__(self, n_centers=400, image_size=None, patch_size=6,
                  step_size=1, whiten=True, n_components=None,
-                 pools=2, max_iter=1, n_init=1):
+                 pools=2, max_iter=1, n_init=1, local_contrast=True):
         self.n_centers = n_centers
         self.patch_size = patch_size
         self.step_size = step_size
@@ -285,6 +288,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         self.max_iter = max_iter
         self.n_init = n_init
         self.n_components = n_components
+        self.local_contrast = local_contrast
 
     def _check_images(self, X):
         """Check that X can seen as a consistent collection of images"""
@@ -305,6 +309,18 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
                 self.image_size = (size, size)
 
         return X.reshape((n_samples, -1))
+
+    def local_contrast_normalization(self, patches):
+        # center all colour channels together
+        patches = patches.reshape((patches.shape[0], -1))
+        patches -= patches.mean(axis=1)[:,None]
+
+        patches_std = patches.std(axis=1)
+        # TODO: explain the use of min_divisor
+        min_divisor = (2 * patches_std.min() + patches_std.mean()) / 3
+        patches /= np.maximum(min_divisor, patches_std).reshape(
+            (patches.shape[0], 1))
+        return patches
 
     def fit(self, X):
         """Fit the feature extractor on a collection of 2D images"""
@@ -327,6 +343,8 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         patches = patches.reshape((patches.shape[0], -1))
 
         patches = patches[:10000]
+        if self.local_contrast:
+            patches = self.local_contrast_normalization(patches)
 
         if self.whiten:
             self.pca = PCA(whiten=True, n_components=self.n_components)
