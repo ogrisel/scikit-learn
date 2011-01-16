@@ -37,7 +37,6 @@ from scikits.learn.metrics import confusion_matrix
 from scikits.learn.feature_extraction.image import ConvolutionalKMeansEncoder
 from scikits.learn.svm import SVC
 from scikits.learn.svm import LinearSVC
-from scikits.learn.preprocessing import Scaler
 
 ################################################################################
 # Download the data, if not already on disk
@@ -94,31 +93,28 @@ y_train = y_train[:n_samples]
 X_train = X_train.reshape((X_train.shape[0], 3, 32, 32)).transpose(0, 2, 3, 1)
 X_test = X_test.reshape((X_test.shape[0], 3, 32, 32)).transpose(0, 2, 3, 1)
 
+# bring the int8 color data to the [0.0, 1.0] float range that is expected by
+# the matplotlib image viewer when working with float data
+X_train /= 255.
+X_test /= 255.
+
 ## convert to graylevel images for now
 #X_train = X_train.mean(axis=-1)
 #X_test = X_test.mean(axis=-1)
-#pl.imshow(X_train[0], interpolation='nearest'); pl.show()
-
-# scale dataset
-print "scaling images to centered, unit variance vectors"
-scaler = Scaler().fit(X_train)
-X_train = scaler.transform(X_train)
-X_test = scaler.transform(X_test)
-
 
 ################################################################################
 # Extract filters
 
 whiten = True # perform whitening or not before kmeans
-n_components = 10 # number of singular vectors to keep when whitening
+n_components = 30 # number of singular vectors to keep when whitening
 
 n_centers = 400 # kmeans centers: convolutional filters
 patch_size = 6  # size of the side of one filter
-max_iter = 5 # kmeans EM iteration
+max_iter = 100 # kmeans EM iteration
 
 extractor = ConvolutionalKMeansEncoder(
     n_centers=n_centers, patch_size=patch_size, whiten=whiten,
-    n_components=n_components, max_iter=max_iter)
+    n_components=n_components, max_iter=max_iter, n_init=1)
 
 print "training convolutional whitened kmeans feature extractor..."
 t0 = time()
@@ -134,7 +130,12 @@ print "kmeans remaining inertia: %0.3fe6" % (extractor.inertia_ / 1e6)
 ################################################################################
 # Qualitative evaluation of the extracted filters
 
-filters = extractor.kernels_
+filters = extractor.kernels_.copy()
+
+# rescale filters for display with imshow
+filters -= filters.min()
+filters /= filters.max()
+filters = np.array(filters * 255, np.int8)
 
 #from scikits.learn.feature_extraction.image import extract_patches2d
 #filters = extract_patches2d(X_train, (32, 32), (6, 6))
@@ -146,7 +147,7 @@ pl.figure()
 for i in range(n_row * n_col):
     pl.subplot(n_row, n_col, i + 1)
     pl.imshow(filters[i].reshape((patch_size, patch_size, 3)),
-              cmap=pl.cm.gray, interpolation="nearest")
+              interpolation="nearest")
     pl.xticks(())
     pl.yticks(())
 
