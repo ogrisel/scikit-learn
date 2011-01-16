@@ -127,30 +127,33 @@ if whiten:
     print vr
 print "kmeans remaining inertia: %0.3fe6" % (extractor.inertia_ / 1e6)
 
+
 ################################################################################
 # Qualitative evaluation of the extracted filters
 
-filters = extractor.kernels_.copy()
+def plot_filters(filters, local_scaling=True):
+    n_filters = filters.shape[0]
+    n_row = int(math.sqrt(n_centers))
+    n_col = int(math.sqrt(n_centers))
 
-# rescale filters for display with imshow
-filters -= filters.min()
-filters /= filters.max()
-filters = np.array(filters * 255, np.int8)
+    filters = filters.copy()
+    if local_scaling:
+        # local rescaling filters for display with imshow
+        filters -= filters.min(axis=1).reshape((filters.shape[0], 1))
+        filters /= filters.max(axis=1).reshape((filters.shape[0], 1))
+    else:
+        # global rescaling
+        filters -= filters.min()
+        filters /= filters.max()
 
-#from scikits.learn.feature_extraction.image import extract_patches2d
-#filters = extract_patches2d(X_train, (32, 32), (6, 6))
+    pl.figure()
+    for i in range(n_row * n_col):
+        pl.subplot(n_row, n_col, i + 1)
+        pl.imshow(filters[i].reshape((patch_size, patch_size, 3)),
+                  interpolation="nearest")
+        pl.xticks(())
+        pl.yticks(())
 
-n_row = int(math.sqrt(n_centers))
-n_col = int(math.sqrt(n_centers))
+    pl.show()
 
-pl.figure()
-for i in range(n_row * n_col):
-    pl.subplot(n_row, n_col, i + 1)
-    pl.imshow(filters[i].reshape((patch_size, patch_size, 3)),
-              interpolation="nearest")
-    pl.xticks(())
-    pl.yticks(())
-
-pl.show()
-
-
+plot_filters(extractor.kernels_)
