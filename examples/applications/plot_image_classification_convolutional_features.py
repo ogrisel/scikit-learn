@@ -137,8 +137,8 @@ print "kmeans remaining inertia: %0.3fe6" % (extractor.inertia_ / 1e6)
 
 def plot_filters(filters, local_scaling=True):
     n_filters = filters.shape[0]
-    n_row = int(math.sqrt(n_centers))
-    n_col = int(math.sqrt(n_centers))
+    n_row = int(math.sqrt(n_filters))
+    n_col = int(math.sqrt(n_filters))
 
     filters = filters.copy()
     if local_scaling:
@@ -160,4 +160,7 @@ def plot_filters(filters, local_scaling=True):
 
     pl.show()
 
-plot_filters(extractor.kernels_, local_scaling=True)
+# matplotlib is slow on large number of filters: restrict to the top 100 by
+# default
+plot_filters(extractor.kernels_[:100], local_scaling=True)
+
