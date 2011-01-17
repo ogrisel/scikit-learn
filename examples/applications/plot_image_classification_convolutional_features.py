@@ -64,6 +64,7 @@ if not os.path.exists(folder_name):
 
 X_train = []
 y_train = []
+dataset = None
 
 for filename in sorted(os.listdir(folder_name)):
     filepath = os.path.join(folder_name, filename)
@@ -79,13 +80,15 @@ for filename in sorted(os.listdir(folder_name)):
         dataset = cPickle.load(file(filepath, 'rb'))
         label_neams = dataset['label_names']
 
+del dataset
+
 X_train = np.asarray(np.concatenate(X_train), dtype=np.float32)
 y_train = np.concatenate(y_train)
 
 #n_samples = X_train.shape[0]
 
 # restrict training size for faster runtime as a demo
-n_samples = 1000
+n_samples = 2000
 X_train = X_train[:n_samples]
 y_train = y_train[:n_samples]
 
@@ -106,15 +109,16 @@ X_test /= 255.
 # Extract filters
 
 whiten = True # perform whitening or not before kmeans
-n_components = 30 # number of singular vectors to keep when whitening
+n_components = 30 # singular vectors to keep when whitening
 
 n_centers = 400 # kmeans centers: convolutional filters
 patch_size = 6  # size of the side of one filter
-max_iter = 100 # kmeans EM iteration
+max_iter = 500 # max number of kmeans EM iterations
 
 extractor = ConvolutionalKMeansEncoder(
     n_centers=n_centers, patch_size=patch_size, whiten=whiten,
-    n_components=n_components, max_iter=max_iter, n_init=1)
+    n_components=n_components, max_iter=max_iter, n_init=1,
+    local_contrast=False)
 
 print "training convolutional whitened kmeans feature extractor..."
 t0 = time()
@@ -156,4 +160,4 @@ def plot_filters(filters, local_scaling=True):
 
     pl.show()
 
-plot_filters(extractor.kernels_)
+plot_filters(extractor.kernels_, local_scaling=True)
