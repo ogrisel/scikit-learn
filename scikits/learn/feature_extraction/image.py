@@ -278,7 +278,8 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
     def __init__(self, n_centers=400, image_size=None, patch_size=6,
                  step_size=1, whiten=True, n_components=None,
-                 pools=2, max_iter=1, n_init=1, local_contrast=True):
+                 pools=2, max_iter=100, n_init=1, n_prefit=15,
+                 local_contrast=True):
         self.n_centers = n_centers
         self.patch_size = patch_size
         self.step_size = step_size
@@ -289,6 +290,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         self.n_init = n_init
         self.n_components = n_components
         self.local_contrast = local_contrast
+        self.n_prefit = n_prefit
 
     def _check_images(self, X):
         """Check that X can seen as a consistent collection of images"""
@@ -311,12 +313,16 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         return X.reshape((n_samples, -1))
 
     def local_contrast_normalization(self, patches):
+        """Normalize the patch-wise variance of the signal"""
         # center all colour channels together
         patches = patches.reshape((patches.shape[0], -1))
-        patches -= patches.mean(axis=1)[:,None]
+        patches -= patches.mean(axis=1)[:, None]
 
         patches_std = patches.std(axis=1)
-        # TODO: explain the use of min_divisor
+        # Cap the divisor to avoid amplifying patches that are essentially
+        # a flat surface into full-contrast salt-and-pepper garbage.
+        # the actual value is a wild guess
+        # This trick is credited to N. Pinto
         min_divisor = (2 * patches_std.min() + patches_std.mean()) / 3
         patches /= np.maximum(min_divisor, patches_std).reshape(
             (patches.shape[0], 1))
@@ -337,38 +343,54 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         patches_by_offset = [extract_patches2d(
             X, self.image_size, patch_size, offsets=o) for o in offsets]
 
-        # TODO: compute pca and kmeans taking other offsets into account to
-        # step 2: whiten the patch space
+        # select a subset of the patches to do the actual filter extraction
         patches = patches_by_offset[0]
         patches = patches.reshape((patches.shape[0], -1))
-
         patches = patches[:10000]
+
+        # normalize each patch individually
         if self.local_contrast:
             patches = self.local_contrast_normalization(patches)
 
-        if self.whiten:
-            self.pca = PCA(whiten=True, n_components=self.n_components)
-            self.pca.fit(patches)
-            patches = self.pca.transform(patches)
-        else:
-            self.pca = None
-
-        # step 3: compute the KMeans centers
+        # kmeans model to find the filters
         kmeans = KMeans(k=self.n_centers, init='k-means++',
                         max_iter=self.max_iter, n_init=self.n_init)
-        # TODO: when whitening is enabled, implement curriculum learning by
-        # starting the kmeans on a the projection to the first singular
-        # components and increase the number component with warm restarts by
-        # padding previous centroids with zeros to keep up with the increasing
-        # dim
-        kmeans.fit(patches)
-        self.inertia_ = kmeans.inertia_
 
-        # step 4: project back the centers in original, non-whitened space
         if self.whiten:
+            # whiten the patch space
+            self.pca = PCA(whiten=True, n_components=self.n_components)
+            self.pca.fit(patches)
+            # TODO: implement a band-pass filter by dropping the first eigen
+            # values too, e.g.:
+            # self.pca.components_[:, :3] = 0.0
+            patches = self.pca.transform(patches)
+
+            # compute the KMeans centers
+            if 0 < self.n_prefit < patches.shape[1]:
+                # starting the kmeans on a the projection to the first singular
+                # components: curriculum learning trick by Andrej Karpathy
+                kmeans.fit(patches[:, :self.n_prefit])
+
+                # warm restart by padding previous centroids with zeros
+                # with full dimensionality this time
+                kmeans.init = np.zeros((self.n_centers, patches.shape[1]),
+                                       dtype=kmeans.cluster_centers_.dtype)
+                kmeans.init[:, :self.n_prefit] = kmeans.cluster_centers_
+                kmeans.fit(patches, n_init=1)
+            else:
+                # regular kmeans fit (without the curriculum trick)
+                kmeans.fit(patches)
+
+            # project back the centers in original, non-whitened space
             self.kernels_ = self.pca.inverse_transform(kmeans.cluster_centers_)
         else:
+            # find the kernel in the raw original dimensional space
+            # TODO: experiment with component wise scaling too
+            self.pca = None
+            kmeans.fit(patches)
             self.kernels_ = kmeans.cluster_centers_
+
+        self.inertia_ = kmeans.inertia_
         return self
 
     def transform(self, X):
