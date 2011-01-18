@@ -5,6 +5,7 @@ Utilities to extract features from images.
 # Authors: Emmanuelle Gouillart <emmanuelle.gouillart@normalesup.org>
 #          Gael Varoquaux <gael.varoquaux@normalesup.org>
 #          Olivier Grisel <olivier.grisel@ensta.org>
+#          James Bergstra <james.bergstra@umontreal.ca>
 # License: BSD
 
 import numpy as np
@@ -14,7 +15,7 @@ from ..utils.fixes import in1d
 from ..base import BaseEstimator
 from ..pca import PCA
 from ..cluster import KMeans
-from ..metrics.pairwise import euclidian_distances
+from ..metrics.pairwise import euclidean_distances
 
 ################################################################################
 # From an image to a graph
@@ -416,10 +417,12 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
                 if self.local_contrast:
                     patches = self.local_contrast_normalization(patches)
 
+                # TODO: should we PCA input patches or not and compute distances
+                # with whitened filters or not?
                 #if self.whiten:
                 #    patches = self.pca.transform(patches)
 
-                distances = euclidian_distances(patches, self.kernels_)
+                distances = euclidean_distances(patches, self.kernels_)
 
                 # triangle features
                 features = np.maximum(
