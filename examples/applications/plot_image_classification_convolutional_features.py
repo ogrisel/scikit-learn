@@ -62,6 +62,8 @@ if not os.path.exists(folder_name):
 ################################################################################
 # Load dataset in memory
 
+print "Loading CIFAR-10 in memory"
+
 X_train = []
 y_train = []
 dataset = None
@@ -91,6 +93,8 @@ y_train = np.concatenate(y_train)
 n_samples = 2000
 X_train = X_train[:n_samples]
 y_train = y_train[:n_samples]
+X_test = X_test[:n_samples]
+y_test = y_test[:n_samples]
 
 # reshape pictures to there natural dimension
 X_train = X_train.reshape((X_train.shape[0], 3, 32, 32)).transpose(0, 2, 3, 1)
@@ -106,7 +110,7 @@ X_test /= 255.
 #X_test = X_test.mean(axis=-1)
 
 ################################################################################
-# Extract filters
+# Learn filters from data
 
 whiten = True # perform whitening or not before kmeans
 n_components = 30 # singular vectors to keep when whitening
@@ -131,6 +135,18 @@ if whiten:
     print vr
 print "kmeans remaining inertia: %0.3fe6" % (extractor.inertia_ / 1e6)
 
+################################################################################
+# Extract the filters for training an test sets
+
+print "Extracting features on training set..."
+t0 = time()
+X_train_features = extractor.transform(X_train)
+print "done in %0.3fs" % (time() - t0)
+
+print "Extracting features on test set..."
+t0 = time()
+X_test_features = extractor.transform(X_test)
+print "done in %0.3fs" % (time() - t0)
 
 ################################################################################
 # Qualitative evaluation of the extracted filters
@@ -162,5 +178,5 @@ def plot_filters(filters, local_scaling=True):
 
 # matplotlib is slow on large number of filters: restrict to the top 100 by
 # default
-plot_filters(extractor.kernels_[:100], local_scaling=True)
+#plot_filters(extractor.kernels_[:100], local_scaling=True)
 

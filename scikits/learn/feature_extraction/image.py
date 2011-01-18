@@ -14,6 +14,7 @@ from ..utils.fixes import in1d
 from ..base import BaseEstimator
 from ..pca import PCA
 from ..cluster import KMeans
+from ..metrics.pairwise import euclidian_distances
 
 ################################################################################
 # From an image to a graph
@@ -261,9 +262,9 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
     whiten: boolean, optional: default True
         perform a whitening PCA on the patches at feature extraction time
 
-    pools: int, optional: default 2
+    n_pools: int, optional: default 2
         number equal size areas to perform the sum-pooling of features
-        over: pools=2 means 4 quadrants, pools=3 means 6 areas and so on
+        over: n_pools=2 means 4 quadrants, n_pools=3 means 6 areas and so on
 
     local_contrast: boolean, optional: default True
         perform local contrast normalization on the extracted patch
@@ -278,13 +279,13 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
     def __init__(self, n_centers=400, image_size=None, patch_size=6,
                  step_size=1, whiten=True, n_components=None,
-                 pools=2, max_iter=100, n_init=1, n_prefit=15,
+                 n_pools=2, max_iter=100, n_init=1, n_prefit=15,
                  local_contrast=True):
         self.n_centers = n_centers
         self.patch_size = patch_size
         self.step_size = step_size
         self.whiten = whiten
-        self.pools = pools
+        self.n_pools = n_pools
         self.image_size = image_size
         self.max_iter = max_iter
         self.n_init = n_init
@@ -395,6 +396,38 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
     def transform(self, X):
         """Map a collection of 2D images into the feature space"""
-        X = self._check_images(X)
-        raise NotImplementedError("implement me!")
+        #X = self._check_images(X)
+        n_samples, n_rows, n_cols, n_channels = X.shape
+        n_filters = self.kernels_.shape[0]
+        if n_channels != 3:
+            raise NotImplementedError("Only RGB is implemented right now")
+
+        pooled_features = np.zeros((X.shape[0], self.n_pools, self.n_pools,
+                                    n_filters), dtype=X.dtype)
+
+        n_rows_adjusted = n_rows - self.patch_size + 1
+        n_cols_adjusted = n_cols - self.patch_size + 1
+
+        for r in xrange(n_rows_adjusted):
+            for c in xrange(n_cols_adjusted):
+                patches = X[:, r:r + self.patch_size, c:c + self.patch_size, :]
+                patches = patches.reshape((patches.shape[0], -1))
+
+                if self.local_contrast:
+                    patches = self.local_contrast_normalization(patches)
+
+                #if self.whiten:
+                #    patches = self.pca.transform(patches)
+
+                distances = euclidian_distances(patches, self.kernels_)
+
+                # triangle features
+                features = np.maximum(
+                    0, distances.mean(axis=1)[:, None] - distances)
+
+                # features are pooled over image quadrants
+                out_r = 1 if r > (n_rows_adjusted / self.n_pools) else 0
+                out_c = 1 if c > (n_cols_adjusted / self.n_pools) else 0
+                pooled_features[:, out_r, out_c, :] += features
+        return pooled_features
 
