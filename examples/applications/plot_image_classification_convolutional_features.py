@@ -25,7 +25,6 @@ print __doc__
 import os
 import math
 import cPickle
-from gzip import GzipFile
 from time import time
 
 import numpy as np
@@ -77,10 +76,10 @@ for filename in sorted(os.listdir(folder_name)):
     elif filename == 'test_batch':
         dataset = cPickle.load(file(filepath, 'rb'))
         X_test = np.asarray(dataset['data'], dtype=np.float32)
-        y_test = dataset['labels']
-    elif filename == 'batch.meta':
+        y_test = np.asarray(dataset['labels'])
+    elif filename == 'batches.meta':
         dataset = cPickle.load(file(filepath, 'rb'))
-        label_neams = dataset['label_names']
+        label_names = dataset['label_names']
 
 del dataset
 
@@ -90,7 +89,7 @@ y_train = np.concatenate(y_train)
 #n_samples = X_train.shape[0]
 
 # restrict training size for faster runtime as a demo
-n_samples = 2000
+n_samples = 5000
 X_train = X_train[:n_samples]
 y_train = y_train[:n_samples]
 X_test = X_test[:n_samples]
@@ -113,18 +112,18 @@ X_test /= 255.
 # Learn filters from data
 
 whiten = True # perform whitening or not before kmeans
-n_components = 30 # singular vectors to keep when whitening
+n_components = 90 # singular vectors to keep when whitening
 
-n_centers = 400 # kmeans centers: convolutional filters
-patch_size = 6  # size of the side of one filter
-max_iter = 500 # max number of kmeans EM iterations
+n_centers = 800 # kmeans centers: convolutional filters
+patch_size = 8  # size of the side of one filter
+max_iter = 200 # max number of kmeans EM iterations
 
 extractor = ConvolutionalKMeansEncoder(
     n_centers=n_centers, patch_size=patch_size, whiten=whiten,
     n_components=n_components, max_iter=max_iter, n_init=1,
-    local_contrast=False)
+    local_contrast=True, verbose=True)
 
-print "training convolutional whitened kmeans feature extractor..."
+print "Training convolutional whitened kmeans feature extractor"
 t0 = time()
 extractor.fit(X_train)
 print "done in %0.3fs" % (time() - t0)
@@ -138,15 +137,43 @@ print "kmeans remaining inertia: %0.3fe6" % (extractor.inertia_ / 1e6)
 ################################################################################
 # Extract the filters for training an test sets
 
-print "Extracting features on training set..."
+print "Extracting features on training set"
 t0 = time()
 X_train_features = extractor.transform(X_train)
 print "done in %0.3fs" % (time() - t0)
 
-print "Extracting features on test set..."
+print "Extracting features on test set"
 t0 = time()
 X_test_features = extractor.transform(X_test)
 print "done in %0.3fs" % (time() - t0)
+
+
+################################################################################
+# Train a SVM classification model
+
+print "Fitting the classifier to the training set"
+t0 = time()
+#param_grid = {
+# 'C': [1, 10, 100],
+# #'gamma': [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.1],
+#}
+#clf = GridSearchCV(SVC(kernel='linear'), param_grid,
+#                   fit_params={'class_weight': 'auto'})
+clf = SVC(kernel='linear', C=10).fit(X_train_features, y_train)
+print "done in %0.3fs" % (time() - t0)
+#print "Best estimator found by grid search:"
+#print clf.best_estimator
+
+
+################################################################################
+# Quantitative evaluation of the model quality on the test set
+
+y_pred = clf.predict(X_test_features)
+print classification_report(y_test, y_pred, labels=range(len(label_names)),
+                            class_names=label_names)
+
+print confusion_matrix(y_test, y_pred)
+
 
 ################################################################################
 # Qualitative evaluation of the extracted filters
@@ -178,5 +205,5 @@ def plot_filters(filters, local_scaling=True):
 
 # matplotlib is slow on large number of filters: restrict to the top 100 by
 # default
-#plot_filters(extractor.kernels_[:100], local_scaling=True)
+#plot_filters(extractor.filters_[:100], local_scaling=True)
 

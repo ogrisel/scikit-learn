@@ -281,7 +281,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
     def __init__(self, n_centers=400, image_size=None, patch_size=6,
                  step_size=1, whiten=True, n_components=None,
                  n_pools=2, max_iter=100, n_init=1, n_prefit=15,
-                 local_contrast=True):
+                 local_contrast=True, verbose=False):
         self.n_centers = n_centers
         self.patch_size = patch_size
         self.step_size = step_size
@@ -293,6 +293,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         self.n_components = n_components
         self.local_contrast = local_contrast
         self.n_prefit = n_prefit
+        self.verbose = verbose
 
     def _check_images(self, X):
         """Check that X can seen as a consistent collection of images"""
@@ -348,18 +349,26 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         # select a subset of the patches to do the actual filter extraction
         patches = patches_by_offset[0]
         patches = patches.reshape((patches.shape[0], -1))
-        patches = patches[:10000]
+        patches = patches[:100000]
+
+        if self.verbose:
+            print "Extracting filters from %d patches" % patches.shape[0]
 
         # normalize each patch individually
         if self.local_contrast:
+            if self.verbose:
+                print "Local contrast normalization of the patches"
             patches = self.local_contrast_normalization(patches)
 
         # kmeans model to find the filters
         kmeans = KMeans(k=self.n_centers, init='k-means++',
-                        max_iter=self.max_iter, n_init=self.n_init)
+                        max_iter=self.max_iter, n_init=self.n_init,
+                        verbose=self.verbose)
 
         if self.whiten:
             # whiten the patch space
+            if self.verbose:
+                print "Whitening PCA of the patches"
             self.pca = PCA(whiten=True, n_components=self.n_components)
             self.pca.fit(patches)
             # TODO: implement a band-pass filter by dropping the first eigen
@@ -369,6 +378,8 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
             # compute the KMeans centers
             if 0 < self.n_prefit < patches.shape[1]:
+                if self.verbose:
+                    print "First KMeans in simplified curriculum space"
                 # starting the kmeans on a the projection to the first singular
                 # components: curriculum learning trick by Andrej Karpathy
                 kmeans.fit(patches[:, :self.n_prefit])
@@ -378,20 +389,25 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
                 kmeans.init = np.zeros((self.n_centers, patches.shape[1]),
                                        dtype=kmeans.cluster_centers_.dtype)
                 kmeans.init[:, :self.n_prefit] = kmeans.cluster_centers_
+                if self.verbose:
+                    print "Second KMeans in full whitened patch space"
                 kmeans.fit(patches, n_init=1)
             else:
+                if self.verbose:
+                    print "KMeans in full original patch space"
                 # regular kmeans fit (without the curriculum trick)
                 kmeans.fit(patches)
 
             # project back the centers in original, non-whitened space
-            self.kernels_ = self.pca.inverse_transform(kmeans.cluster_centers_)
+            self.filters_ = self.pca.inverse_transform(kmeans.cluster_centers_)
         else:
             # find the kernel in the raw original dimensional space
             # TODO: experiment with component wise scaling too
             self.pca = None
             kmeans.fit(patches)
-            self.kernels_ = kmeans.cluster_centers_
+            self.filters_ = kmeans.cluster_centers_
 
+        self.kmeans = kmeans
         self.inertia_ = kmeans.inertia_
         return self
 
@@ -399,7 +415,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         """Map a collection of 2D images into the feature space"""
         #X = self._check_images(X)
         n_samples, n_rows, n_cols, n_channels = X.shape
-        n_filters = self.kernels_.shape[0]
+        n_filters = self.filters_.shape[0]
         if n_channels != 3:
             raise NotImplementedError("Only RGB is implemented right now")
 
@@ -419,18 +435,22 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
                 # TODO: should we PCA input patches or not and compute distances
                 # with whitened filters or not?
-                #if self.whiten:
-                #    patches = self.pca.transform(patches)
+                if self.whiten:
+                    patches = self.pca.transform(patches)
 
-                distances = euclidean_distances(patches, self.kernels_)
+                distances = euclidean_distances(
+                    patches, self.kmeans.cluster_centers_)
 
                 # triangle features
                 features = np.maximum(
                     0, distances.mean(axis=1)[:, None] - distances)
 
                 # features are pooled over image quadrants
+                # FIXME: this is broken for n_pools != 2
                 out_r = 1 if r > (n_rows_adjusted / self.n_pools) else 0
                 out_c = 1 if c > (n_cols_adjusted / self.n_pools) else 0
                 pooled_features[:, out_r, out_c, :] += features
-        return pooled_features
+
+        # downstream classifiers expect a 2 dim shape
+        return pooled_features.reshape(pooled_features.shape[0], -1)
 
