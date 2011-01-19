@@ -80,11 +80,11 @@ def test_convolutional_kmeans_encoder():
 
     # TODO: make ConvolutionalKMeansEncoder and KMeans rng seedable
     np.random.seed(0)
-    encoder = ConvolutionalKMeansEncoder(n_centers=n_centers, pools=pools)
+    encoder = ConvolutionalKMeansEncoder(n_centers=n_centers, n_pools=pools)
     encoder.fit(images)
 
     assert_almost_equal(encoder.inertia_ / 1e6, .04, 2)
-    assert_equal(encoder.kernels_.shape, (n_centers, 6 * 6))
+    assert_equal(encoder.filters_.shape, (n_centers, 6 * 6))
 
     #encoded = encoder.transform(images)
     #assert_equal(encoded.shape, (n_samples, n_features))
