@@ -280,7 +280,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
     def __init__(self, n_centers=400, image_size=None, patch_size=6,
                  step_size=1, whiten=True, n_components=None,
-                 n_pools=2, max_iter=100, n_init=1, n_prefit=15,
+                 n_pools=2, max_iter=100, n_init=1, n_prefit=5,
                  local_contrast=True, verbose=False):
         self.n_centers = n_centers
         self.patch_size = patch_size
@@ -445,10 +445,9 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
                 features = np.maximum(
                     0, distances.mean(axis=1)[:, None] - distances)
 
-                # features are pooled over image quadrants
-                # FIXME: this is broken for n_pools != 2
-                out_r = 1 if r > (n_rows_adjusted / self.n_pools) else 0
-                out_c = 1 if c > (n_cols_adjusted / self.n_pools) else 0
+                # features are pooled over image regions
+                out_r = r * self.n_pools / n_rows_adjusted
+                out_c = c * self.n_pools / n_cols_adjusted
                 pooled_features[:, out_r, out_c, :] += features
 
         # downstream classifiers expect a 2 dim shape
