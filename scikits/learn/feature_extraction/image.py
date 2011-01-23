@@ -281,7 +281,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
     def __init__(self, n_centers=400, image_size=None, patch_size=6,
                  step_size=1, whiten=True, n_components=None,
                  n_pools=2, max_iter=100, n_init=1, n_prefit=5, tol=1e-1,
-                 local_contrast=True, verbose=False):
+                 local_contrast=True, n_drop_components=0, verbose=False):
         self.n_centers = n_centers
         self.patch_size = patch_size
         self.step_size = step_size
@@ -295,6 +295,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         self.n_prefit = n_prefit
         self.verbose = verbose
         self.tol = tol
+        self.n_drop_components = n_drop_components
 
     def _check_images(self, X):
         """Check that X can seen as a consistent collection of images"""
@@ -336,19 +337,19 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         """Fit the feature extractor on a collection of 2D images"""
         X = self._check_images(X)
 
-        # step 1: extract the patches
-        offsets = [(o1, o2)
-                   for o1 in range(0, self.patch_size - 1, self.step_size)
-                   for o2 in range(0, self.patch_size - 1, self.step_size)]
+        ## step 1: extract the patches
         patch_size = (self.patch_size, self.patch_size)
+        #offsets = [(o1, o2)
+        #           for o1 in range(0, self.patch_size - 1, self.step_size)
+        #           for o2 in range(0, self.patch_size - 1, self.step_size)]
 
-        # this list of patches does not copy the memory allocated for raw
-        # image data
-        patches_by_offset = [extract_patches2d(
-            X, self.image_size, patch_size, offsets=o) for o in offsets]
+        ## this list of patches does not copy the memory allocated for raw
+        ## image data
+        #patches_by_offset = [extract_patches2d(
+        #    X, self.image_size, patch_size, offsets=o) for o in offsets]
 
         # select a subset of the patches to do the actual filter extraction
-        patches = patches_by_offset[0]
+        patches = extract_patches2d(X, self.image_size, patch_size)
         patches = patches.reshape((patches.shape[0], -1))
         patches = patches[:100000]
 
@@ -370,12 +371,15 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
             # whiten the patch space
             if self.verbose:
                 print "Whitening PCA of the patches"
-            self.pca = PCA(whiten=True, n_components=self.n_components)
-            self.pca.fit(patches)
+            self.pca = pca = PCA(whiten=True, n_components=self.n_components)
+            pca.fit(patches)
             # TODO: implement a band-pass filter by dropping the first eigen
             # values too, e.g.:
-            # self.pca.components_[:, :3] = 0.0
-            patches = self.pca.transform(patches)
+            drop = self.n_drop_components
+            if drop:
+                pca.components_ = pca.components_[:, drop:]
+                pca.components_coefs_ = pca.components_coefs_[drop:]
+            patches = pca.transform(patches)
 
             # compute the KMeans centers
             if 0 < self.n_prefit < patches.shape[1]:

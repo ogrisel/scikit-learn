@@ -26,6 +26,7 @@ import os
 import math
 import cPickle
 from time import time
+from pprint import pprint
 
 import numpy as np
 import pylab as pl
@@ -112,28 +113,32 @@ X_test /= 255.
 ################################################################################
 # Learn filters from data
 
-whiten = True # perform whitening or not before kmeans
-n_components = 100 # singular vectors to keep when whitening
-
-n_centers = 400 # kmeans centers: convolutional filters
-patch_size = 8  # size of the side of one filter
-max_iter = 200 # max number of kmeans EM iterations
-n_pools = 3 # square root of number of 2D image areas for pooling
+parameters = {
+    'max_iter': 200, # max number of kmeans EM iterations
+    'n_centers': 400, # kmeans centers: convolutional filters
+    'n_components': 80, # singular vectors to keep when whitening
+    'n_pools': 3, # square root of number of 2D image areas for pooling
+    'patch_size': 8 , # size of the side of one filter
+    'whiten': True, # perform whitening or not before kmeans
+    'n_init': 1,
+    'tol': 0.5,
+    'local_contrast': True,
+    'n_pools': 3,
+    'verbose': True,
+    'n_drop_components': 0,
+}
 
 
 @memory.cache
-def extract_features():
-    extractor = ConvolutionalKMeansEncoder(
-        n_centers=n_centers, patch_size=patch_size, whiten=whiten,
-        n_components=n_components, max_iter=max_iter, n_init=1, tol=0.5,
-        local_contrast=True, n_pools=3, verbose=True)
+def extract_features(X_train, X_test, parameters):
+    extractor = ConvolutionalKMeansEncoder(**parameters)
 
     print "Training convolutional whitened kmeans feature extractor"
     t0 = time()
     extractor.fit(X_train)
     print "done in %0.3fs" % (time() - t0)
 
-    if whiten:
+    if parameters.get('whiten'):
         vr = extractor.pca.explained_variance_ratio_
         print ("explained variance ratios for %d kept PCA components:" %
                vr.shape[0])
@@ -154,7 +159,8 @@ def extract_features():
 
 
 # perform the feature extraction while caching the results with joblib
-extractor, X_train_features, X_test_features = extract_features()
+extractor, X_train_features, X_test_features = extract_features(
+    X_train, X_test, parameters)
 
 print "Transformed training set in pooled conv feature space has shape:"
 print X_train_features.shape
@@ -203,7 +209,7 @@ print confusion_matrix(y_test, y_pred)
 ################################################################################
 # Qualitative evaluation of the extracted filters
 
-def plot_filters(filters, local_scaling=True):
+def plot_filters(filters, patch_size=8, n_colors=3, local_scaling=True):
     n_filters = filters.shape[0]
     n_row = int(math.sqrt(n_filters))
     n_col = int(math.sqrt(n_filters))
@@ -221,7 +227,7 @@ def plot_filters(filters, local_scaling=True):
     pl.figure()
     for i in range(n_row * n_col):
         pl.subplot(n_row, n_col, i + 1)
-        pl.imshow(filters[i].reshape((patch_size, patch_size, 3)),
+        pl.imshow(filters[i].reshape((patch_size, patch_size, n_colors)),
                   interpolation="nearest")
         pl.xticks(())
         pl.yticks(())
