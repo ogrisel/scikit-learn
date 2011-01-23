@@ -125,7 +125,7 @@ n_pools = 3 # square root of number of 2D image areas for pooling
 def extract_features():
     extractor = ConvolutionalKMeansEncoder(
         n_centers=n_centers, patch_size=patch_size, whiten=whiten,
-        n_components=n_components, max_iter=max_iter, n_init=1,
+        n_components=n_components, max_iter=max_iter, n_init=1, tol=0.5,
         local_contrast=True, n_pools=3, verbose=True)
 
     print "Training convolutional whitened kmeans feature extractor"

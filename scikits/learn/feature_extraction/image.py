@@ -280,7 +280,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
     def __init__(self, n_centers=400, image_size=None, patch_size=6,
                  step_size=1, whiten=True, n_components=None,
-                 n_pools=2, max_iter=100, n_init=1, n_prefit=5,
+                 n_pools=2, max_iter=100, n_init=1, n_prefit=5, tol=1e-1,
                  local_contrast=True, verbose=False):
         self.n_centers = n_centers
         self.patch_size = patch_size
@@ -294,6 +294,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         self.local_contrast = local_contrast
         self.n_prefit = n_prefit
         self.verbose = verbose
+        self.tol = tol
 
     def _check_images(self, X):
         """Check that X can seen as a consistent collection of images"""
@@ -363,7 +364,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         # kmeans model to find the filters
         kmeans = KMeans(k=self.n_centers, init='k-means++',
                         max_iter=self.max_iter, n_init=self.n_init,
-                        verbose=self.verbose)
+                        tol=self.tol, verbose=self.verbose)
 
         if self.whiten:
             # whiten the patch space
