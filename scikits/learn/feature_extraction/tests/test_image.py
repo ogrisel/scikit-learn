@@ -12,7 +12,7 @@ from numpy.testing import assert_array_equal
 from numpy.testing import assert_almost_equal
 
 from ..image import img_to_graph
-from ..image import extract_patches2d
+from ..image import extract_patches_2d
 from ..image import ConvolutionalKMeansEncoder
 from ...utils.graph import cs_graph_components
 
@@ -50,20 +50,20 @@ def _make_images():
     return images
 
 
-def test_extract_patches2d():
+def test_extract_patches_2d():
     images = _make_images()
     image_size = images.shape[1:]
 
     # lena is shaped (128, 128): expect 8 * 8 patches with shape (16, 16)
     expected_n_patches = images.shape[0] * 8 * 8
 
-    patches = extract_patches2d(images, image_size, (16, 16))
+    patches = extract_patches_2d(images, image_size, (16, 16))
     assert_equal(patches.shape, (expected_n_patches, 16, 16))
 
     # extract patches with a 1 offset in the X axis and 3 in the Y axis
     expected_n_patches = images.shape[0] * 7 * 7
 
-    patches = extract_patches2d(images, image_size, (16, 16), offsets=(1, 3))
+    patches = extract_patches_2d(images, image_size, (16, 16), offsets=(1, 3))
     assert_equal(patches.shape, (expected_n_patches, 16, 16))
 
 

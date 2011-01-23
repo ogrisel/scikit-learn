@@ -1,6 +1,4 @@
-"""
-Utilities to extract features from images.
-"""
+"""Utilities to extract features from images"""
 
 # Authors: Emmanuelle Gouillart <emmanuelle.gouillart@normalesup.org>
 #          Gael Varoquaux <gael.varoquaux@normalesup.org>
@@ -113,7 +111,7 @@ def img_to_graph(img, mask=None, return_as=sparse.coo_matrix, dtype=None):
 ################################################################################
 # From an image to a set of small image patches
 
-def extract_patches2d(images, image_size, patch_size, offsets=(0, 0)):
+def extract_patches_2d(images, image_size, patch_size, offsets=(0, 0)):
     """Reshape a collection of 2D images into a collection of patches
 
     The extracted patches are not overlapping to avoid having to copy any
@@ -147,7 +145,7 @@ def extract_patches2d(images, image_size, patch_size, offsets=(0, 0)):
             [ 8,  9, 10, 11],
             [12, 13, 14, 15]]])
 
-    >>> patches = extract_patches2d(image, (4, 4), (2, 2))
+    >>> patches = extract_patches_2d(image, (4, 4), (2, 2))
     >>> patches.shape
     (4, 2, 2)
 
@@ -167,7 +165,7 @@ def extract_patches2d(images, image_size, patch_size, offsets=(0, 0)):
     array([[10, 11],
            [14, 15]])
 
-    >>> patches = extract_patches2d(image, (4, 4), (2, 2), (0, 1))
+    >>> patches = extract_patches_2d(image, (4, 4), (2, 2), (0, 1))
     >>> patches.shape
     (2, 2, 2)
 
@@ -303,10 +301,14 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         n_samples = X.shape[0]
 
         if self.image_size is None:
-            if len(X.shape) >= 3:
+            if len(X.shape) == 4:
                 self.image_size = X.shape[1:3]
-            else:
-                # assume square images
+                self.n_colors = X.shape[3]
+            elif len(X.shape) == 3:
+                self.image_size = X.shape[1:3]
+                self.n_colors = 1
+            elif len(X.shape) == 2:
+                # assume square images in gray levels
                 _, n_features = X.shape
                 size = math.sqrt(n_features)
                 if size ** 2 != n_features:
@@ -314,8 +316,12 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
                                      "the image size must be made explicit" %
                                      (X.shape,))
                 self.image_size = (size, size)
+                self.n_colors = 1
+            else:
+                raise ValueError("image set should have shape maximum 4d")
 
-        return X.reshape((n_samples, -1))
+        return X.reshape(
+            (n_samples, self.image_size[0], self.image_size[1], self.n_colors))
 
     def local_contrast_normalization(self, patches):
         """Normalize the patch-wise variance of the signal"""
@@ -345,11 +351,11 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
         ## this list of patches does not copy the memory allocated for raw
         ## image data
-        #patches_by_offset = [extract_patches2d(
+        #patches_by_offset = [extract_patches_2d(
         #    X, self.image_size, patch_size, offsets=o) for o in offsets]
 
         # select a subset of the patches to do the actual filter extraction
-        patches = extract_patches2d(X, self.image_size, patch_size)
+        patches = extract_patches_2d(X, self.image_size, patch_size)
         patches = patches.reshape((patches.shape[0], -1))
         patches = patches[:100000]
 
@@ -373,8 +379,9 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
                 print "Whitening PCA of the patches"
             self.pca = pca = PCA(whiten=True, n_components=self.n_components)
             pca.fit(patches)
-            # TODO: implement a band-pass filter by dropping the first eigen
-            # values too, e.g.:
+
+            # implement a band-pass filter by dropping the first eigen
+            # values which are generally low frequency components
             drop = self.n_drop_components
             if drop:
                 pca.components_ = pca.components_[:, drop:]
@@ -418,7 +425,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
     def transform(self, X):
         """Map a collection of 2D images into the feature space"""
-        #X = self._check_images(X)
+        X = self._check_images(X)
         n_samples, n_rows, n_cols, n_channels = X.shape
         n_filters = self.filters_.shape[0]
         if n_channels != 3:
