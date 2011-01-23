@@ -118,7 +118,7 @@ parameters = {
     'n_centers': 400, # kmeans centers: convolutional filters
     'n_components': 80, # singular vectors to keep when whitening
     'n_pools': 3, # square root of number of 2D image areas for pooling
-    'patch_size': 8 , # size of the side of one filter
+    'patch_size': 8, # size of the side of one filter
     'whiten': True, # perform whitening or not before kmeans
     'n_init': 1,
     'tol': 0.5,
