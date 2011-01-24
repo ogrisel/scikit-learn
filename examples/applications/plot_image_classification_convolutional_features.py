@@ -94,11 +94,12 @@ y_train = np.concatenate(y_train)
 #n_samples = X_train.shape[0]
 
 # restrict training size for faster runtime as a demo
-n_samples = 5000
+n_samples = 10000
+n_samples_test = 2000
 X_train = X_train[:n_samples]
 y_train = y_train[:n_samples]
-X_test = X_test[:n_samples]
-y_test = y_test[:n_samples]
+X_test = X_test[:n_samples_test]
+y_test = y_test[:n_samples_test]
 
 # reshape pictures to there natural dimension
 X_train = X_train.reshape((X_train.shape[0], 3, 32, 32)).transpose(0, 2, 3, 1)
@@ -126,6 +127,7 @@ parameters = {
     'n_pools': 3,
     'verbose': True,
     'n_drop_components': 0,
+    'max_patches': 100000,
 }
 
 

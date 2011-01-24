@@ -111,11 +111,10 @@ def img_to_graph(img, mask=None, return_as=sparse.coo_matrix, dtype=None):
 ################################################################################
 # From an image to a set of small image patches
 
-def extract_patches_2d(images, image_size, patch_size, offsets=(0, 0)):
+def extract_patches_2d(images, image_size, patch_size, max_patches=None):
     """Reshape a collection of 2D images into a collection of patches
 
-    The extracted patches are not overlapping to avoid having to copy any
-    memory.
+    The resulting patches are allocated in a dedicated array.
 
     Parameters
     ----------
@@ -128,87 +127,80 @@ def extract_patches_2d(images, image_size, patch_size, offsets=(0, 0)):
     patch_size: tuple of ints (p_h, p_w)
         the dimensions of one patch
 
-    offsets: tuple of ints (o_h, o_w), optional (0, 0) by default
-        location of the first extracted patch
+    max_patches: integer, optional default is None
+        the maximum number of patches to extract
 
     Returns
     -------
-    patches: array with shape (n_patches, *patch_size)
+    patches: array
+         shape is (n_patches, patch_height, patch_width, n_colors)
+         or (n_patches, patch_height, patch_width) if n_colors is 1
 
     Examples
     --------
 
-    >>> image = np.arange(16).reshape((1, 4, 4))
-    >>> image
+    >>> one_image = np.arange(16).reshape((1, 4, 4))
+    >>> one_image
     array([[[ 0,  1,  2,  3],
             [ 4,  5,  6,  7],
             [ 8,  9, 10, 11],
             [12, 13, 14, 15]]])
 
-    >>> patches = extract_patches_2d(image, (4, 4), (2, 2))
+    >>> patches = extract_patches_2d(one_image, (4, 4), (2, 2))
     >>> patches.shape
-    (4, 2, 2)
+    (9, 2, 2)
 
     >>> patches[0]
     array([[0, 1],
            [4, 5]])
 
     >>> patches[1]
-    array([[2, 3],
-           [6, 7]])
-
-    >>> patches[2]
-    array([[ 8,  9],
-           [12, 13]])
-
-    >>> patches[3]
-    array([[10, 11],
-           [14, 15]])
-
-    >>> patches = extract_patches_2d(image, (4, 4), (2, 2), (0, 1))
-    >>> patches.shape
-    (2, 2, 2)
-
-    >>> patches[0]
     array([[1, 2],
            [5, 6]])
 
-    >>> patches[1]
-    array([[ 9, 10],
-           [13, 14]])
+    >>> patches[8]
+    array([[10, 11],
+           [14, 15]])
+
     """
     i_h, i_w = image_size[:2]
     p_h, p_w = patch_size
 
     images = np.atleast_2d(images)
+    # ensure the images have the usual shape, including explicit color channel
     n_images = images.shape[0]
     images = images.reshape((n_images, i_h, i_w, -1))
     n_colors = images.shape[-1]
 
-    # handle offsets and compute remainder to find total number of patches
-    o_h, o_w = offsets
-    n_h, r_h = divmod(i_h - o_h,  p_h)
-    n_w, r_w = divmod(i_w - o_w,  p_w)
-    n_patches = n_images * n_h * n_w
+    # compute the dimensions of the patches array
+    n_h = i_h - p_h + 1
+    n_w = i_w - p_w + 1
+    n_patches_by_image = n_h * n_w
 
-    # extract the image areas that can be sliced into whole patches
-    max_h = -r_h or None
-    max_w = -r_w or None
-    images = images[:, o_h:max_h, o_w:max_w, :]
+    # optional bound on the memory allocation
+    if max_patches and n_patches_by_image * n_images > max_patches:
+        if n_patches_by_image > max_patches:
+            raise ValueError("unsatisfailable constraint: "
+                             "n_patches_by_image=%d and "
+                             "max_patches=%d" % (
+                                 n_patches_by_image, max_patches))
+        # only use a subset of the images to extract patches from
+        n_images = max_patches / n_patches_by_image
+        images = images[:n_images]
 
-    # put the color dim before the sliceable dims
-    images = images.transpose((0, 3, 1, 2))
 
-    # slice the last two dims of the images into patches
-    patches = images.reshape((n_images, n_colors, n_h, p_h, n_w, p_w))
+    # effective number of patches
+    n_patches = n_images * n_patches_by_image
 
-    # reorganize the dims to put n_image, n_h, and n_w at the end so that
-    # reshape will combine them all in n_patches
-    patches = patches.transpose((3, 5, 1, 0, 2, 4))
-    patches = patches.reshape((p_h, p_w, n_colors, n_patches))
-
-    # one more transpose to put the n_patches as the first dom
-    patches = patches.transpose((3, 0, 1, 2))
+    # extract the patches
+    patches = np.zeros((n_patches, p_h, p_w, n_colors), dtype=images.dtype)
+    offset = 0
+    for i in xrange(n_h):
+        for j in xrange(n_w):
+            start = offset * n_images
+            stop = start + n_images
+            patches[start:stop, :, :, :] = images[:, i:i + p_h, j:j + p_w, :]
+            offset +=1
 
     # remove the color dimension if useless
     if patches.shape[-1] == 1:
@@ -277,7 +269,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
     """
 
     def __init__(self, n_centers=400, image_size=None, patch_size=6,
-                 step_size=1, whiten=True, n_components=None,
+                 step_size=1, whiten=True, n_components=None, max_patches=1e5,
                  n_pools=2, max_iter=100, n_init=1, n_prefit=5, tol=1e-1,
                  local_contrast=True, n_drop_components=0, verbose=False):
         self.n_centers = n_centers
@@ -289,6 +281,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         self.max_iter = max_iter
         self.n_init = n_init
         self.n_components = n_components
+        self.max_patches = int(max_patches)
         self.local_contrast = local_contrast
         self.n_prefit = n_prefit
         self.verbose = verbose
@@ -342,25 +335,14 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
     def fit(self, X):
         """Fit the feature extractor on a collection of 2D images"""
         X = self._check_images(X)
-
-        ## step 1: extract the patches
         patch_size = (self.patch_size, self.patch_size)
-        #offsets = [(o1, o2)
-        #           for o1 in range(0, self.patch_size - 1, self.step_size)
-        #           for o2 in range(0, self.patch_size - 1, self.step_size)]
 
-        ## this list of patches does not copy the memory allocated for raw
-        ## image data
-        #patches_by_offset = [extract_patches_2d(
-        #    X, self.image_size, patch_size, offsets=o) for o in offsets]
-
-        # select a subset of the patches to do the actual filter extraction
-        patches = extract_patches_2d(X, self.image_size, patch_size)
-        patches = patches.reshape((patches.shape[0], -1))
-        patches = patches[:100000]
-
+        # extract the patches who will be clustered into filters
         if self.verbose:
-            print "Extracting filters from %d patches" % patches.shape[0]
+            print "Extracting patches from images"
+        patches = extract_patches_2d(X, self.image_size, patch_size,
+                                     max_patches=self.max_patches)
+        patches = patches.reshape((patches.shape[0], -1))
 
         # normalize each patch individually
         if self.local_contrast:
@@ -369,6 +351,8 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
             patches = self.local_contrast_normalization(patches)
 
         # kmeans model to find the filters
+        if self.verbose:
+            print "Extracting filters from %d patches" % patches.shape[0]
         kmeans = KMeans(k=self.n_centers, init='k-means++',
                         max_iter=self.max_iter, n_init=self.n_init,
                         tol=self.tol, verbose=self.verbose)

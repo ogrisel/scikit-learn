@@ -54,17 +54,17 @@ def test_extract_patches_2d():
     images = _make_images()
     image_size = images.shape[1:]
 
-    # lena is shaped (128, 128): expect 8 * 8 patches with shape (16, 16)
-    expected_n_patches = images.shape[0] * 8 * 8
+    # lena is shaped (128, 128) and we extract patches with shape (16, 16)
+    expected_n_patches = images.shape[0] * (128 - 16 + 1) ** 2
 
     patches = extract_patches_2d(images, image_size, (16, 16))
     assert_equal(patches.shape, (expected_n_patches, 16, 16))
 
-    # extract patches with a 1 offset in the X axis and 3 in the Y axis
-    expected_n_patches = images.shape[0] * 7 * 7
-
-    patches = extract_patches_2d(images, image_size, (16, 16), offsets=(1, 3))
-    assert_equal(patches.shape, (expected_n_patches, 16, 16))
+    # bound the number of patche to extract
+    patches = extract_patches_2d(images, image_size, (16, 16),
+                                 max_patches=20000)
+    # 12769 is smaller than 20000:
+    assert_equal(patches.shape, (12769, 16, 16))
 
 
 def test_convolutional_kmeans_encoder():
@@ -80,10 +80,11 @@ def test_convolutional_kmeans_encoder():
 
     # TODO: make ConvolutionalKMeansEncoder and KMeans rng seedable
     np.random.seed(0)
-    encoder = ConvolutionalKMeansEncoder(n_centers=n_centers, n_pools=pools)
+    encoder = ConvolutionalKMeansEncoder(n_centers=n_centers, n_pools=pools,
+                                         max_patches=16000)
     encoder.fit(images)
 
-    assert_almost_equal(encoder.inertia_ / 1e6, .04, 2)
+    assert_almost_equal(encoder.inertia_ / 1e6, .49, 2)
     assert_equal(encoder.filters_.shape, (n_centers, 6 * 6))
 
     #encoded = encoder.transform(images)
