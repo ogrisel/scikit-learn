@@ -185,9 +185,8 @@ def extract_patches_2d(images, image_size, patch_size, max_patches=None):
                              "max_patches=%d" % (
                                  n_patches_by_image, max_patches))
         # only use a subset of the images to extract patches from
-        n_images = max_patches / n_patches_by_image
+        n_images = int(max_patches / n_patches_by_image)
         images = images[:n_images]
-
 
     # effective number of patches
     n_patches = n_images * n_patches_by_image
@@ -303,7 +302,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
             elif len(X.shape) == 2:
                 # assume square images in gray levels
                 _, n_features = X.shape
-                size = math.sqrt(n_features)
+                size = int(math.sqrt(n_features))
                 if size ** 2 != n_features:
                     raise ValueError("images with shape %r are not squares: "
                                      "the image size must be made explicit" %
@@ -410,10 +409,8 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
     def transform(self, X):
         """Map a collection of 2D images into the feature space"""
         X = self._check_images(X)
-        n_samples, n_rows, n_cols, n_channels = X.shape
+        n_samples, n_rows, n_cols, _ = X.shape
         n_filters = self.filters_.shape[0]
-        if n_channels != 3:
-            raise NotImplementedError("Only RGB is implemented right now")
 
         pooled_features = np.zeros((X.shape[0], self.n_pools, self.n_pools,
                                     n_filters), dtype=X.dtype)
