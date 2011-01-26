@@ -135,7 +135,7 @@ param_grid = {
 }
 clf = GridSearchCV(SVC(kernel='rbf'), param_grid,
                    fit_params={'class_weight': 'auto'})
-clf = clf.fit(X_train_pca, y_train)
+clf = clf.fit(X_train_pca, y_train, class_weight='auto')
 print "Best estimator found by grid search:"
 print clf.best_estimator
 
