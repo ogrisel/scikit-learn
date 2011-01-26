@@ -4,8 +4,8 @@ Faces recognition example using convolutional features and SVMs
 ===============================================================
 
 This implementation uses an unsupervised feature extraction scheme
-to extract a dictionnary of 400 small (6, 6)-shaped filters to be
-convolationally applied to the input images as described in:
+to extract a dictionnary of 200 small (12, 12)-shaped filters to be
+convolutionally applied to the input images as described in:
 
   An Analysis of Single-Layer Networks in Unsupervised Feature Learning
   Adam Coates, Honglak Lee and Andrew Ng. In NIPS*2010 Workshop on
@@ -20,40 +20,41 @@ The dataset used in this example is a preprocessed excerpt of the
 
 Expected results for the top 20 most represented people in the dataset::
 
+                  avg / total       0.87      0.87      0.87       555
                              precision    recall  f1-score   support
 
               David_Beckham       0.67      0.50      0.57         8
                Roh_Moo-hyun       1.00      1.00      1.00         7
-          Silvio_Berlusconi       0.67      0.25      0.36         8
-                Vicente_Fox       0.75      0.38      0.50         8
-      Megawati_Sukarnoputri       1.00      0.75      0.86         8
-                  Tom_Ridge       1.00      0.75      0.86         8
-            Nestor_Kirchner       1.00      0.78      0.88         9
-               Alvaro_Uribe       0.73      0.89      0.80         9
-               Andre_Agassi       0.70      0.78      0.74         9
-                  Hans_Blix       1.00      0.80      0.89        10
-           Alejandro_Toledo       0.60      0.60      0.60        10
-             Lleyton_Hewitt       0.83      0.91      0.87        11
-                 Laura_Bush       0.90      0.90      0.90        10
-          Jennifer_Capriati       0.70      0.70      0.70        10
-      Arnold_Schwarzenegger       0.70      0.70      0.70        10
+          Silvio_Berlusconi       1.00      0.50      0.67         8
+                Vicente_Fox       0.80      0.50      0.62         8
+      Megawati_Sukarnoputri       1.00      1.00      1.00         8
+                  Tom_Ridge       1.00      1.00      1.00         8
+            Nestor_Kirchner       1.00      0.56      0.71         9
+               Alvaro_Uribe       0.89      0.89      0.89         9
+               Andre_Agassi       0.90      1.00      0.95         9
+                  Hans_Blix       1.00      0.90      0.95        10
+           Alejandro_Toledo       1.00      0.80      0.89        10
+             Lleyton_Hewitt       1.00      0.91      0.95        11
+                 Laura_Bush       0.75      0.90      0.82        10
+          Jennifer_Capriati       1.00      0.70      0.82        10
+      Arnold_Schwarzenegger       0.78      0.70      0.74        10
     Gloria_Macapagal_Arroyo       1.00      1.00      1.00        11
-             Vladimir_Putin       1.00      0.73      0.84        11
-  Luiz_Inacio_Lula_da_Silva       1.00      0.75      0.86        12
-            Serena_Williams       1.00      0.92      0.96        13
+             Vladimir_Putin       0.82      0.82      0.82        11
+  Luiz_Inacio_Lula_da_Silva       1.00      1.00      1.00        12
+            Serena_Williams       0.92      0.92      0.92        13
              Jacques_Chirac       1.00      1.00      1.00        13
-              John_Ashcroft       0.86      0.92      0.89        13
-              Jean_Chretien       0.79      0.79      0.79        14
-          Junichiro_Koizumi       0.92      0.80      0.86        15
-                Hugo_Chavez       0.79      0.88      0.83        17
-               Ariel_Sharon       0.90      0.95      0.92        19
-          Gerhard_Schroeder       0.84      0.96      0.90        27
-            Donald_Rumsfeld       0.90      0.87      0.88        30
-                 Tony_Blair       0.86      0.83      0.85        36
-               Colin_Powell       0.89      0.93      0.91        59
-              George_W_Bush       0.88      0.98      0.93       130
+              John_Ashcroft       0.92      0.92      0.92        13
+              Jean_Chretien       0.92      0.86      0.89        14
+          Junichiro_Koizumi       1.00      0.80      0.89        15
+                Hugo_Chavez       0.88      0.88      0.88        17
+               Ariel_Sharon       0.95      1.00      0.97        19
+          Gerhard_Schroeder       0.93      0.96      0.95        27
+            Donald_Rumsfeld       0.88      0.93      0.90        30
+                 Tony_Blair       0.92      0.94      0.93        36
+               Colin_Powell       0.95      0.92      0.93        59
+              George_W_Bush       0.84      0.96      0.90       130
 
-                avg / total       0.87      0.87      0.87       555
+                avg / total       0.91      0.90      0.90       555
 
 """
 print __doc__
@@ -176,22 +177,40 @@ print "Project data in the pooled convolutional filter space"
 X_train_conv = extractor.transform(X_train)
 X_test_conv = extractor.transform(X_test)
 
+print "Training set now has shape:"
+print X_train_conv.shape
+
+print "Reducing the dimension using PCA"
+pca = RandomizedPCA(n_components=300, whiten=True).fit(X_train_conv)
+X_train_pca = pca.transform(X_train_conv)
+X_test_pca = pca.transform(X_test_conv)
 
 ################################################################################
 # Train a SVM classification model
 
 print "Fitting the classifier to the training set wiht shape:"
-print X_train_conv.shape
+print X_train_pca.shape
 
-clf = SVC(kernel='linear', C=100).fit(X_train_conv, y_train,
-                                      class_weight='auto')
+#param_grid = {
+# 'C': [1, 5, 10, 50, 100],
+# 'gamma': [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.1],
+#}
+#clf = GridSearchCV(SVC(kernel='rbf'), param_grid,
+#                   fit_params={'class_weight': 'auto'})
+#clf = clf.fit(X_train_pca, y_train, class_weight='auto')
+#print "Best estimator found by grid search:"
+#print clf.best_estimator
+
+# parameters found using the above grid search
+clf = SVC(kernel='rbf', C=50, gamma=0.0001)
+clf = clf.fit(X_train_pca, y_train, class_weight='auto')
 
 
 ################################################################################
 # Quantitative evaluation of the model quality on the test set
 
 print "Evaluation on the test hold out testing set"
-y_pred = clf.predict(X_test_conv)
+y_pred = clf.predict(X_test_pca)
 print classification_report(y_test, y_pred, labels=selected_target,
                             class_names=category_names[selected_target])
 
@@ -215,6 +234,4 @@ for i in range(n_row * n_col):
     pl.yticks(())
 
 pl.show()
-
-# TODO: plot the top eigenfaces and the singular values absolute values
 
