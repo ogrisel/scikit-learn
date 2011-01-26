@@ -102,8 +102,9 @@ filenames_filename = os.path.join(folder_name, "face_filenames.txt")
 faces = np.load(GzipFile(faces_filename))
 face_filenames = [l.strip() for l in file(filenames_filename).readlines()]
 
-# normalize each picture by centering brightness
+# normalize each picture by centering brightness and normalizing contrast
 faces -= faces.mean(axis=1)[:, np.newaxis]
+faces /= faces.std(axis=1)[:, np.newaxis]
 
 
 ################################################################################

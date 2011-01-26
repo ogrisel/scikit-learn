@@ -14,13 +14,13 @@ Expected results for the top 5 most represented people in the dataset::
 
                      precision    recall  f1-score   support
 
-  Gerhard_Schroeder       0.91      0.75      0.82        28
-    Donald_Rumsfeld       0.84      0.82      0.83        33
-         Tony_Blair       0.65      0.82      0.73        34
-       Colin_Powell       0.78      0.88      0.83        58
-      George_W_Bush       0.93      0.86      0.90       129
+  Gerhard_Schroeder       1.00      0.82      0.90        28
+    Donald_Rumsfeld       1.00      0.79      0.88        33
+         Tony_Blair       0.86      0.71      0.77        34
+       Colin_Powell       0.86      0.88      0.87        58
+      George_W_Bush       0.86      0.97      0.91       129
 
-        avg / total       0.86      0.84      0.85       282
+        avg / total       0.89      0.88      0.88       282
 
 """
 print __doc__
@@ -67,8 +67,9 @@ filenames_filename = os.path.join(folder_name, "face_filenames.txt")
 faces = np.load(GzipFile(faces_filename))
 face_filenames = [l.strip() for l in file(filenames_filename).readlines()]
 
-# normalize each picture by centering brightness
+# normalize each picture by centering brightness and normalizing contrast
 faces -= faces.mean(axis=1)[:, np.newaxis]
+faces /= faces.std(axis=1)[:, np.newaxis]
 
 
 ################################################################################
