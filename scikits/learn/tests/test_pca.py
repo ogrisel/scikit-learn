@@ -118,6 +118,14 @@ def test_randomized_pca_check_projection():
     np.testing.assert_almost_equal(np.abs(Yt[0][0]), 1., 1)
 
 
+def test_randomized_pca_check_list():
+    """Test that the projection by RandomizedPCA on list data is correct"""
+    X = [[1.0, 0.0], [0.0, 1.0]]
+    X_transformed = RandomizedPCA(n_components=1).fit(X).transform(X)
+    np.testing.assert_almost_equal(
+        X_transformed, np.array([[-0.71], [0.71]]), 2)
+
+
 def test_randomized_pca_inverse():
     """Test that RandomizedPCA is inversible on dense data"""
     np.random.seed(0)
@@ -240,6 +248,15 @@ def test_infer_dim_3():
     spect = pca.explained_variance_
     assert_true(_infer_dimension_(spect, n, p) > 2)
 
+def test_infer_dim_by_explained_variance():
+    X = iris.data
+    pca = PCA(n_components=0.95)
+    pca.fit(X)
+    assert_equal(pca.n_components, 2)
+
+    pca = PCA(n_components=0.01)
+    pca.fit(X)
+    assert_equal(pca.n_components, 1)
 
 def test_probabilistic_pca_1():
     """Test that probabilistic PCA yields a reasonable score"""
@@ -272,7 +289,7 @@ def test_probabilistic_pca_3():
     ppca = ProbabilisticPCA(n_components=2)
     ppca.fit(X)
     ll1 = ppca.score(X)
-    ppca.fit(X, False)
+    ppca.fit(X, homoscedastic=False)
     ll2 = ppca.score(X)
     assert_true(ll1.mean() < ll2.mean())
 

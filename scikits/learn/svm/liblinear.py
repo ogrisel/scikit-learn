@@ -1,9 +1,10 @@
 
 from ..base import ClassifierMixin
+from ..linear_model.base import CoefSelectTransformerMixin
 from .base import BaseLibLinear
 
 
-class LinearSVC(BaseLibLinear, ClassifierMixin):
+class LinearSVC(BaseLibLinear, ClassifierMixin, CoefSelectTransformerMixin):
     """Linear Support Vector Classification.
 
     Similar to SVC with parameter kernel='linear', but uses internally
@@ -27,8 +28,8 @@ class LinearSVC(BaseLibLinear, ClassifierMixin):
         Select the algorithm to either solve the dual or primal
         optimization problem.
 
-    eps: float, optional
-         precision for stopping criteria
+    tol: float, optional
+         tolerance for stopping criteria
 
     multi_class: boolean, optional
          perform multi-class SVM by Cramer and Singer. If active,
@@ -59,7 +60,7 @@ class LinearSVC(BaseLibLinear, ClassifierMixin):
     The underlying C implementation uses a random number generator to
     select features when fitting the model. It is thus not uncommon,
     to have slightly different results for the same input data. If
-    that happens, try with a smaller eps parameter.
+    that happens, try with a smaller tol parameter.
 
     See also
     --------

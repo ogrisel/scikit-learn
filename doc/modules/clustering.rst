@@ -13,13 +13,23 @@ that, given train data, returns an array of integer labels corresponding
 to the different clusters. For the class, the labels over the training
 data can be found in the `labels_` attribute.
 
-Here, we only explain the different algorithms. For usage examples, click
-on the class name to read the reference documentation.
+.. currentmodule:: scikits.learn.cluster
+
+One important thing to note is that the algorithms implemented in this module
+take different kinds of matrix as input.  On one hand, :class:`MeanShift` and
+:class:`KMeans` take data matrices of shape [n_samples, n_features]. These can
+be obtained from the classes in the `scikits.learn.feature_extraction` module.
+On the other hand, :class:`AffinityPropagation` and :class:`SpectralClustering`
+take similarity matrices of shape [n_samples, n_samples].  These can be
+obtained from the functions in the `scikits.learn.metrics.pairwise` module.
+In other words, :class:`MeanShift` and :class:`KMeans` work with points in a
+vector space, whereas :class:`AffinityPropagation` and
+:class:`SpectralClustering` can work with arbitrary objects, as long as a
+similarity measure exists for such objects.
+
 
 Affinity propagation
 ====================
-
-.. currentmodule:: scikits.learn.cluster
 
 :class:`AffinityPropagation` clusters data by diffusion in the similarity
 matrix. This algorithm automatically sets its numbers of cluster. It
@@ -35,11 +45,12 @@ will have difficulties scaling to thousands of samples.
  * :ref:`example_cluster_plot_affinity_propagation.py`: Affinity
    Propagation on a synthetic 2D datasets with 3 classes.
 
- * :ref:`example_applications_stock_market.py` Affinity Propagation on Financial 
+ * :ref:`example_applications_stock_market.py` Affinity Propagation on Financial
    time series to find groups of companies
 
+
 Mean Shift
-====================
+==========
 
 :class:`MeanShift` clusters data by estimating *blobs* in a smooth
 density of points matrix. This algorithm automatically sets its numbers
@@ -57,8 +68,9 @@ of cluster. It will have difficulties scaling to thousands of samples.
  * :ref:`example_cluster_plot_mean_shift.py`: Mean Shift clustering
    on a synthetic 2D datasets with 3 classes.
 
+
 K-means
-====================
+=======
 
 The :class:`KMeans` algorithm clusters data by trying to separate samples
 in n groups of equal variance, minimizing a criterion known as the
@@ -70,13 +82,13 @@ results may be dependent on an initialisation.
 Spectral clustering
 ====================
 
-:class:`SpectralClustering` does an low-dimension embedding of the
+:class:`SpectralClustering` does a low-dimension embedding of the
 affinity matrix between samples, followed by a KMeans in the low
 dimensional space. It is especially efficient if the affinity matrix is
 sparse and the `pyamg <http://code.google.com/p/pyamg/>`_ module is
 installed. SpectralClustering requires the number of clusters to be
 specified. It works well for a small number of clusters but is not
-advised when using many clusters. 
+advised when using many clusters.
 
 For two clusters, it solves a convex relaxation of the `normalised
 cuts <http://www.cs.berkeley.edu/~malik/papers/SM-ncut.pdf>`_ problem on
@@ -92,10 +104,9 @@ function of the gradient of the image.
    :scale: 50
 
 
-
 .. topic:: Examples:
 
- * :ref:`example_cluster_plot_lena_segmentation.py`: Spectral clustering 
+ * :ref:`example_cluster_plot_lena_segmentation.py`: Spectral clustering
    to split the image of lena in regions.
 
  * :ref:`example_cluster_plot_segmentation_toy.py`: Segmenting objects

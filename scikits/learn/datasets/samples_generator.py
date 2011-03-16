@@ -345,4 +345,3 @@ def make_regression_dataset(n_train_samples=100, n_test_samples=100,
 
     return X_train, Y_train, X_test, Y_test, ground_truth
 
-
