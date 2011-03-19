@@ -368,7 +368,6 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
             drop = self.n_drop_components
             if drop:
                 pca.components_ = pca.components_[:, drop:]
-                pca.components_coefs_ = pca.components_coefs_[drop:]
             patches = pca.transform(patches)
 
             # compute the KMeans centers

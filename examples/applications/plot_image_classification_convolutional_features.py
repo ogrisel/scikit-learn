@@ -94,8 +94,8 @@ y_train = np.concatenate(y_train)
 #n_samples = X_train.shape[0]
 
 # restrict training size for faster runtime as a demo
-n_samples = 10000
-n_samples_test = 2000
+n_samples = 50000
+n_samples_test = 50000
 X_train = X_train[:n_samples]
 y_train = y_train[:n_samples]
 X_test = X_test[:n_samples_test]
@@ -166,19 +166,8 @@ extractor, X_train_features, X_test_features = extract_features(
 
 print "Transformed training set in pooled conv feature space has shape:"
 print X_train_features.shape
-
-
-################################################################################
-# reduce the dimensionality of the extracted features
-
-
-#print "Reducing the dimension of the extracted feature using a PCA"
-#t0 = time()
-#m = np.abs(X_train_features).max()
-#pca = RandomizedPCA(n_components=200, whiten=True).fit(X_train_features / m)
-#X_train_features_pca = pca.transform(X_train_features / m)
-#X_test_features_pca = pca.transform(X_test_features / m)
-#print "done in %0.3fs" % (time() - t0)
+print "Transformed test set in pooled conv feature space has shape:"
+print X_test_features.shape
 
 
 ################################################################################
@@ -192,8 +181,9 @@ t0 = time()
 #}
 #clf = GridSearchCV(SVC(kernel='linear'), param_grid,
 #                   fit_params={'class_weight': 'auto'})
-clf = SVC(kernel='linear', C=100).fit(X_train_features, y_train)
+clf = LinearSVC(C=0.01, dual=False).fit(X_train_features, y_train)
 print "done in %0.3fs" % (time() - t0)
+print clf
 #print "Best estimator found by grid search:"
 #print clf.best_estimator
 
@@ -203,7 +193,7 @@ print "done in %0.3fs" % (time() - t0)
 
 y_pred = clf.predict(X_test_features)
 print classification_report(y_test, y_pred, labels=range(len(label_names)),
-                            class_names=label_names)
+                            target_names=label_names)
 
 print confusion_matrix(y_test, y_pred)
 
