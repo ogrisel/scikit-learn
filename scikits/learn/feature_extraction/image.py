@@ -341,7 +341,9 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
             print "Extracting patches from images"
         patches = extract_patches_2d(X, self.image_size, patch_size,
                                      max_patches=self.max_patches)
-        patches = patches.reshape((patches.shape[0], -1))
+        n_patches = patches.shape[0]
+        patches = patches.reshape((n_patches, -1))
+
 
         # normalize each patch individually
         if self.local_contrast:
@@ -351,7 +353,7 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
         # kmeans model to find the filters
         if self.verbose:
-            print "Extracting filters from %d patches" % patches.shape[0]
+            print "About to extract filters from %d patches" % n_patches
         kmeans = KMeans(k=self.n_centers, init='k-means++',
                         max_iter=self.max_iter, n_init=self.n_init,
                         tol=self.tol, verbose=self.verbose)
@@ -392,7 +394,8 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
                 # regular kmeans fit (without the curriculum trick)
                 kmeans.fit(patches)
 
-            # project back the centers in original, non-whitened space
+            # project back the centers in original, non-whitened space (useful
+            # for qualitative inspection of the filters)
             self.filters_ = self.pca.inverse_transform(kmeans.cluster_centers_)
         else:
             # find the kernel in the raw original dimensional space
@@ -415,24 +418,34 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         pooled_features = np.zeros((X.shape[0], self.n_pools, self.n_pools,
                                     n_filters), dtype=X.dtype)
 
-        patches = np.zeros((n_samples, ps * ps * n_channels), dtype=X.dtype)
-
         n_rows_adjusted = n_rows - self.patch_size + 1
         n_cols_adjusted = n_cols - self.patch_size + 1
 
         for r in xrange(n_rows_adjusted):
+            if self.verbose:
+                print "Extracting features for row #%d/%d" % (
+                    r + 1, n_rows_adjusted)
+
             for c in xrange(n_cols_adjusted):
-                patches[:] = X[:, r:r + ps, c:c + ps, :].reshape((
-                    n_samples, -1))
+
+                patches = X[:, r:r + ps, c:c + ps, :].reshape((n_samples, -1))
 
                 if self.local_contrast:
+                    # TODO: make it inplace by default explictly
                     patches = self.local_contrast_normalization(patches)
 
-                distances = euclidean_distances(patches, self.filters_)
+                if self.whiten:
+                    # TODO: make it possible to pass pre-allocated array
+                    patches = self.pca.transform(patches)
+
+                # extract distance from each patch to each cluster center
+                # TODO: make it possible to reuse pre-allocated distance array
+                filters = self.kmeans.cluster_centers_
+                distances = euclidean_distances(patches, filters)
 
                 # triangle features
-                features = np.maximum(
-                    0, distances.mean(axis=1)[:, None] - distances)
+                distance_means = distances.mean(axis=1)[:, None]
+                features = np.maximum(0, distance_means - distances)
 
                 # features are pooled over image regions
                 out_r = r * self.n_pools / n_rows_adjusted

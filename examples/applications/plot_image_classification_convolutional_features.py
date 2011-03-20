@@ -21,6 +21,10 @@ Expected results:
 
 """
 print __doc__
+# Authors: Olivier Grisel <olivier.grisel@ensta.org>
+#          James Bergstra <james.bergstra@umontreal.ca>
+# License: BSD
+
 
 import os
 import math
@@ -127,11 +131,9 @@ def load_cifar_10(n_samples_train=50000, n_samples_test=10000,
 
 
 @memory.cache
-def extract_features(parameters, n_samples_train=10000, n_samples_test=5000):
-    X_train, X_test, y_train, y_test, target_names = load_cifar_10(
-        n_samples_train=n_samples_train, n_samples_test=n_samples_test)
+def build_extractor(parameters, X_train):
+    """Build a feature extractor and fit on a training set"""
     extractor = ConvolutionalKMeansEncoder(**parameters)
-
     print "Training convolutional whitened kmeans feature extractor"
     t0 = time()
     extractor.fit(X_train)
@@ -143,6 +145,16 @@ def extract_features(parameters, n_samples_train=10000, n_samples_test=5000):
                vr.shape[0])
         print vr
     print "kmeans remaining inertia: %0.3fe6" % (extractor.inertia_ / 1e6)
+    return extractor
+
+
+@memory.cache
+def extract_features(parameters, n_samples_train=10000, n_samples_test=5000):
+    """Load the dataset, build and extrator and transform the data"""
+    X_train, X_test, y_train, y_test, target_names = load_cifar_10(
+        n_samples_train=n_samples_train, n_samples_test=n_samples_test)
+
+    extractor = build_extractor(parameters, X_train[:2000])
 
     print "Extracting features on training set"
     t0 = time()
@@ -160,7 +172,7 @@ def extract_features(parameters, n_samples_train=10000, n_samples_test=5000):
 
 # perform the feature extraction while caching the results with joblib
 extractor, X_train, X_test, y_train, y_test, target_names = extract_features(
-    parameters)
+    parameters, n_samples_train=50000, n_samples_test=10000)
 
 print "Transformed training set in pooled conv feature space has shape:"
 print X_train.shape
@@ -173,7 +185,7 @@ print X_test.shape
 
 print "Fitting the classifier to the training set"
 t0 = time()
-clf = LinearSVC(C=0.01, dual=False).fit(X_train, y_train)
+clf = LinearSVC(C=0.01).fit(X_train, y_train)
 print "done in %0.3fs" % (time() - t0)
 print clf
 
