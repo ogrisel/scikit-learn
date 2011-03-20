@@ -408,30 +408,27 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
     def transform(self, X):
         """Map a collection of 2D images into the feature space"""
         X = self._check_images(X)
-        n_samples, n_rows, n_cols, _ = X.shape
+        n_samples, n_rows, n_cols, n_channels = X.shape
         n_filters = self.filters_.shape[0]
+        ps = self.patch_size
 
         pooled_features = np.zeros((X.shape[0], self.n_pools, self.n_pools,
                                     n_filters), dtype=X.dtype)
+
+        patches = np.zeros((n_samples, ps * ps * n_channels), dtype=X.dtype)
 
         n_rows_adjusted = n_rows - self.patch_size + 1
         n_cols_adjusted = n_cols - self.patch_size + 1
 
         for r in xrange(n_rows_adjusted):
             for c in xrange(n_cols_adjusted):
-                patches = X[:, r:r + self.patch_size, c:c + self.patch_size, :]
-                patches = patches.reshape((patches.shape[0], -1))
+                patches[:] = X[:, r:r + ps, c:c + ps, :].reshape((
+                    n_samples, -1))
 
                 if self.local_contrast:
                     patches = self.local_contrast_normalization(patches)
 
-                # TODO: should we PCA input patches or not and compute distances
-                # with whitened filters or not?
-                if self.whiten:
-                    patches = self.pca.transform(patches)
-
-                distances = euclidean_distances(
-                    patches, self.kmeans.cluster_centers_)
+                distances = euclidean_distances(patches, self.filters_)
 
                 # triangle features
                 features = np.maximum(

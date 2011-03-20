@@ -26,89 +26,17 @@ import os
 import math
 import cPickle
 from time import time
-from pprint import pprint
 
 import numpy as np
 import pylab as pl
 
-from scikits.learn.grid_search import GridSearchCV
 from scikits.learn.metrics import classification_report
 from scikits.learn.metrics import confusion_matrix
 from scikits.learn.feature_extraction.image import ConvolutionalKMeansEncoder
-from scikits.learn.svm import SVC
 from scikits.learn.svm import LinearSVC
 from scikits.learn.externals.joblib import Memory
-from scikits.learn.pca import RandomizedPCA
 
-memory = Memory(cachedir='joblib')
-
-################################################################################
-# Download the data, if not already on disk
-
-url = "http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz"
-archive_name = url.rsplit('/', 1)[1]
-folder_name = 'cifar-10-batches-py'
-
-if not os.path.exists(folder_name):
-    if not os.path.exists(archive_name):
-        import urllib
-        print "Downloading data, please Wait (163MB)..."
-        print url
-        opener = urllib.urlopen(url)
-        open(archive_name, 'wb').write(opener.read())
-        print
-
-    import tarfile
-    print "Decompressiong the archive: " + archive_name
-    tarfile.open(archive_name, "r:gz").extractall()
-    print
-
-################################################################################
-# Load dataset in memory
-
-print "Loading CIFAR-10 in memory"
-
-X_train = []
-y_train = []
-dataset = None
-
-for filename in sorted(os.listdir(folder_name)):
-    filepath = os.path.join(folder_name, filename)
-    if filename.startswith('data_batch_'):
-        dataset = cPickle.load(file(filepath, 'rb'))
-        X_train.append(dataset['data'])
-        y_train.append(dataset['labels'])
-    elif filename == 'test_batch':
-        dataset = cPickle.load(file(filepath, 'rb'))
-        X_test = np.asarray(dataset['data'], dtype=np.float32)
-        y_test = np.asarray(dataset['labels'])
-    elif filename == 'batches.meta':
-        dataset = cPickle.load(file(filepath, 'rb'))
-        label_names = dataset['label_names']
-
-del dataset
-
-X_train = np.asarray(np.concatenate(X_train), dtype=np.float32)
-y_train = np.concatenate(y_train)
-
-#n_samples = X_train.shape[0]
-
-# restrict training size for faster runtime as a demo
-n_samples = 50000
-n_samples_test = 50000
-X_train = X_train[:n_samples]
-y_train = y_train[:n_samples]
-X_test = X_test[:n_samples_test]
-y_test = y_test[:n_samples_test]
-
-# reshape pictures to there natural dimension
-X_train = X_train.reshape((X_train.shape[0], 3, 32, 32)).transpose(0, 2, 3, 1)
-X_test = X_test.reshape((X_test.shape[0], 3, 32, 32)).transpose(0, 2, 3, 1)
-
-# bring the int8 color data to the [0.0, 1.0] float range that is expected by
-# the matplotlib image viewer when working with float data
-X_train /= 255.
-X_test /= 255.
+memory = Memory(cachedir='.')
 
 
 ################################################################################
@@ -118,21 +46,90 @@ parameters = {
     'max_iter': 200, # max number of kmeans EM iterations
     'n_centers': 400, # kmeans centers: convolutional filters
     'n_components': 80, # singular vectors to keep when whitening
-    'n_pools': 3, # square root of number of 2D image areas for pooling
+    'n_pools': 2, # square root of number of 2D image areas for pooling
     'patch_size': 8, # size of the side of one filter
     'whiten': True, # perform whitening or not before kmeans
     'n_init': 1,
     'tol': 0.5,
     'local_contrast': True,
-    'n_pools': 3,
+    'n_pools': 2,
     'verbose': True,
-    'n_drop_components': 0,
+    'n_drop_components': 2,
     'max_patches': 100000,
 }
 
+def load_cifar_10(n_samples_train=50000, n_samples_test=10000,
+                  keep_color_shift=False):
+    # Download the data, if not already on disk
+    url = "http://www.cs.toronto.edu/~kriz/cifar-10-python.tar.gz"
+    archive_name = url.rsplit('/', 1)[1]
+    folder_name = 'cifar-10-batches-py'
+
+    if not os.path.exists(folder_name):
+        if not os.path.exists(archive_name):
+            import urllib
+            print "Downloading data, please Wait (163MB)..."
+            print url
+            opener = urllib.urlopen(url)
+            open(archive_name, 'wb').write(opener.read())
+            print
+
+        import tarfile
+        print "Decompressiong the archive: " + archive_name
+        tarfile.open(archive_name, "r:gz").extractall()
+        print
+
+    # Load dataset in memory
+    print "Loading CIFAR-10 in memory"
+
+    X_train = []
+    y_train = []
+    dataset = None
+
+    for filename in sorted(os.listdir(folder_name)):
+        filepath = os.path.join(folder_name, filename)
+        if filename.startswith('data_batch_'):
+            dataset = cPickle.load(file(filepath, 'rb'))
+            X_train.append(dataset['data'])
+            y_train.append(dataset['labels'])
+        elif filename == 'test_batch':
+            dataset = cPickle.load(file(filepath, 'rb'))
+            X_test = np.asarray(dataset['data'], dtype=np.float32)
+            y_test = np.asarray(dataset['labels'])
+        elif filename == 'batches.meta':
+            dataset = cPickle.load(file(filepath, 'rb'))
+            target_names = dataset['label_names']
+
+    del dataset
+
+    X_train = np.asarray(np.concatenate(X_train), dtype=np.float32)
+    y_train = np.concatenate(y_train)
+
+    # restrict training size for faster runtime as a demo
+    X_train = X_train[:n_samples_train]
+    y_train = y_train[:n_samples_train]
+    X_test = X_test[:n_samples_test]
+    y_test = y_test[:n_samples_test]
+
+    # reshape pictures to there natural dimension
+    X_train = X_train.reshape(
+        (X_train.shape[0], 3, 32, 32)).transpose(0, 2, 3, 1)
+    X_test = X_test.reshape(
+        (X_test.shape[0], 3, 32, 32)).transpose(0, 2, 3, 1)
+
+    if not keep_color_shift:
+        # remove average rgb value from each image
+        X_train -= X_train.mean(axis=2).mean(axis=1).reshape(
+            (n_samples_train, 1, 1, 3))
+        X_test -= X_test.mean(axis=2).mean(axis=1).reshape(
+            (n_samples_test, 1, 1, 3))
+    return X_train, X_test, y_train, y_test, target_names
+
 
 @memory.cache
-def extract_features(X_train, X_test, parameters):
+def extract_features(parameters, n_samples_train=10000, n_samples_test=5000):
+    X_train, X_test, y_train, y_test, target_names = load_cifar_10(
+        n_samples_train=n_samples_train, n_samples_test=n_samples_test)
     extractor = ConvolutionalKMeansEncoder(**parameters)
 
     print "Training convolutional whitened kmeans feature extractor"
@@ -157,48 +154,41 @@ def extract_features(X_train, X_test, parameters):
     X_test_features = extractor.transform(X_test)
     print "done in %0.3fs" % (time() - t0)
 
-    return extractor, X_train_features, X_test_features
+    return (extractor, X_train_features, X_test_features, y_train, y_test,
+            target_names)
 
 
 # perform the feature extraction while caching the results with joblib
-extractor, X_train_features, X_test_features = extract_features(
-    X_train, X_test, parameters)
+extractor, X_train, X_test, y_train, y_test, target_names = extract_features(
+    parameters)
 
 print "Transformed training set in pooled conv feature space has shape:"
-print X_train_features.shape
+print X_train.shape
 print "Transformed test set in pooled conv feature space has shape:"
-print X_test_features.shape
+print X_test.shape
 
 
-################################################################################
+##############################################################################
 # Train a SVM classification model
 
 print "Fitting the classifier to the training set"
 t0 = time()
-#param_grid = {
-# 'C': [1, 10, 100],
-# #'gamma': [0.0001, 0.0005, 0.001, 0.005, 0.01, 0.1],
-#}
-#clf = GridSearchCV(SVC(kernel='linear'), param_grid,
-#                   fit_params={'class_weight': 'auto'})
-clf = LinearSVC(C=0.01, dual=False).fit(X_train_features, y_train)
+clf = LinearSVC(C=0.01, dual=False).fit(X_train, y_train)
 print "done in %0.3fs" % (time() - t0)
 print clf
-#print "Best estimator found by grid search:"
-#print clf.best_estimator
 
 
-################################################################################
+##############################################################################
 # Quantitative evaluation of the model quality on the test set
 
-y_pred = clf.predict(X_test_features)
-print classification_report(y_test, y_pred, labels=range(len(label_names)),
-                            target_names=label_names)
+y_pred = clf.predict(X_test)
 
+print classification_report(y_test, y_pred, labels=range(len(target_names)),
+                            target_names=target_names)
 print confusion_matrix(y_test, y_pred)
 
 
-################################################################################
+##############################################################################
 # Qualitative evaluation of the extracted filters
 
 def plot_filters(filters, patch_size=8, n_colors=3, local_scaling=True):
