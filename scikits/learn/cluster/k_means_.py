@@ -431,3 +431,66 @@ class KMeans(BaseEstimator):
             max_iter=self.max_iter, verbose=self.verbose,
             tol=self.tol, rng=self.rng, copy_x=self.copy_x)
         return self
+
+
+class MiniBatckKMeans(BaseEstimator):
+    """Incremental KMeans based on a minibatch stochastic approximation
+
+    Scalable version of KMeans that is particularly suitable with problems
+    with large n_samples (n_sample > 100000).
+
+    TODO: implement an online API in addition to the traditional fit / predict
+    API
+
+    TODO: add support for scipy.sparse inputs
+
+    Parameters
+    ----------
+
+    n_components : int or ndarray
+        The number of clusters to form as well as the number of
+        centroids to generate.
+
+    max_iter : int
+        Maximum number of iterations of the k-means algorithm for a
+        single run.
+
+    Methods
+    -------
+
+    fit(X):
+        Compute K-Means clustering and find the centers
+
+    predict(X):
+        Find the index of the closest center for each vector in X
+
+    TODO: add a transform method for soft assignement based on a heat kernel
+    with width the average distance to 5-NN?
+
+
+    Attributes
+    ----------
+
+    cluster_centers_: array, [n_clusters, n_features]
+        Coordinates of cluster centers
+
+    inertia_: float
+        The value of the inertia criterion associated with the chosen
+        partition.
+
+
+    Reference
+    ---------
+
+    Web-scale k-means clustering, D. Sculley, WWW '10 Proceedings of the 19th
+    international conference on World wide web
+    http://www.eecs.tufts.edu/~dsculley/papers/fastkmeans.pdf
+    """
+
+    def __init__(self, n_components=8, batch_size=1000):
+        self.n_components = n_components
+        self.batch_size = batch_size
+
+    def fit(X, y=None):
+
+
