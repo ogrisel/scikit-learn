@@ -3,15 +3,18 @@
 
 # Author: Alexandre Gramfort <alexandre.gramfort@inria.fr>
 #         Olivier Grisel <olivier.grisel@ensta.org>
+#         Mathieu Blondel <mathieu@mblondel.org>
 # License: BSD Style.
 
 import numpy as np
 from scipy import linalg
 
-from .base import BaseEstimator
+from .base import BaseEstimator, TransformerMixin
 from .utils.extmath import fast_logdet
 from .utils.extmath import fast_svd
 from .utils.extmath import safe_sparse_dot
+from .preprocessing import KernelCenterer
+from .metrics.pairwise import linear_kernel, polynomial_kernel, rbf_kernel
 
 
 def _assess_dimension_(spectrum, rank, n_samples, dim):
@@ -88,7 +91,7 @@ def _infer_dimension_(spectrum, n, p):
     return ll.argmax()
 
 
-class PCA(BaseEstimator):
+class PCA(BaseEstimator, TransformerMixin):
     """Principal component analysis (PCA)
 
     Linear dimensionality reduction using Singular Value Decomposition of the
@@ -179,6 +182,34 @@ class PCA(BaseEstimator):
         self : object
             Returns the instance itself.
         """
+        self._fit(X, **params)
+        return self
+
+    def fit_transform(self, X, y=None, **params):
+        """Fit the model from data in X.
+
+        Parameters
+        ----------
+        X: array-like, shape (n_samples, n_features)
+            Training vector, where n_samples in the number of samples
+            and n_features is the number of features.
+
+        Returns
+        -------
+        X_new array-like, shape (n_samples, n_components)
+        """
+        U, S, V = self._fit(X, **params)
+        U = U[:, :self.n_components]
+
+        if self.whiten:
+            U *= np.sqrt(X.shape[0])
+        else:
+            S = S[:self.n_components]
+            U *= S
+
+        return U
+
+    def _fit(self, X, **params):
         self._set_params(**params)
         X = np.atleast_2d(X)
         n_samples, n_features = X.shape
@@ -194,7 +225,7 @@ class PCA(BaseEstimator):
 
         if self.whiten:
             n = X.shape[0]
-            self.components_ = np.dot(V.T, np.diag(1.0 / S)) * np.sqrt(n)
+            self.components_ = V.T / S * np.sqrt(n)
         else:
             self.components_ = V.T
 
@@ -216,7 +247,7 @@ class PCA(BaseEstimator):
             self.explained_variance_ratio_ = \
                     self.explained_variance_ratio_[:self.n_components]
 
-        return self
+        return (U, S, V)
 
     def transform(self, X):
         """Apply the dimension reduction learned on the train data."""
@@ -429,3 +460,168 @@ class RandomizedPCA(BaseEstimator):
             X_original = X_original + self.mean_
         return X_original
 
+
+class KernelPCA(BaseEstimator):
+    """Kernel Principal component analysis (KPCA)
+
+    Non-linear dimensionality reduction through the use of kernels.
+
+    Parameters
+    ----------
+    n_components: int or none
+        number of components
+
+    kernel: "linear"|"poly"|"rbf"|"precomputed"
+        kernel
+
+    sigma: float
+        width of the rbf kernel
+
+    degree: int
+        degree of the polynomial kernel
+
+    alpha: int
+        hyperparameter of the ridge regression that learns the inverse transform
+        (when fit_inverse_transform=True)
+
+    fit_inverse_transform: bool
+        learn the inverse transform
+        (i.e. learn to find the pre-image of a point)
+
+    """
+
+    def __init__(self, n_components=None, kernel="linear", sigma=1.0, degree=3,
+                alpha=1.0, fit_inverse_transform=False):
+        self.n_components = None
+        self.kernel = kernel.lower()
+        self.sigma = sigma
+        self.degree = degree
+        self.alpha = alpha
+        self.fit_inverse_transform = fit_inverse_transform
+        self.centerer = KernelCenterer()
+
+    def _get_kernel(self, X, Y=None):
+        if Y is None: Y = X
+
+        if self.kernel == "precomputed":
+            return X
+        elif self.kernel == "rbf":
+            return rbf_kernel(X, Y, self.sigma)
+        elif self.kernel == "poly":
+            return polynomial_kernel(X, Y, self.degree)
+        elif self.kernel == "linear":
+            return linear_kernel(X, Y)
+        else:
+            raise ValueError, "Invalid kernel"
+
+    def _fit_transform(self, X):
+        n_samples = X.shape[0]
+
+        # compute kernel and eigenvectors
+        K = self.centerer.fit_transform(self._get_kernel(X))
+        self.lambdas, self.alphas = linalg.eigh(K)
+
+        # sort eignenvectors in descending order
+        indices = self.lambdas.argsort()[::-1]
+        if self.n_components is not None:
+            indices = indices[:n_components]
+        self.lambdas = self.lambdas[indices]
+        self.alphas = self.alphas[:, indices]
+
+        # remove eigenvectors with a zero eigenvalue
+        self.alphas = self.alphas[:, self.lambdas > 0]
+        self.lambdas = self.lambdas[self.lambdas > 0]
+
+        self.X_fit = X
+
+        return K
+
+    def _fit_inverse_transform(self, X_transformed, X):
+        n_samples = X_transformed.shape[0]
+        K = self._get_kernel(X_transformed)
+        K.flat[::n_samples + 1] += self.alpha
+        self.dual_coef_ = linalg.solve(K, X, sym_pos=True, overwrite_a=True)
+        self.X_transformed_fit = X_transformed
+
+    def fit(self, X):
+        """Fit the model from data in X.
+
+        Parameters
+        ----------
+        X: array-like, shape (n_samples, n_features)
+            Training vector, where n_samples in the number of samples
+            and n_features is the number of features.
+
+        Returns
+        -------
+        self : object
+            Returns the instance itself.
+        """
+        self._fit_transform(X)
+
+        if self.fit_inverse_transform:
+            sqrt_lambdas = np.diag(np.sqrt(self.lambdas))
+            X_transformed = np.dot(self.alphas, sqrt_lambdas)
+            self._fit_inverse_transform(X_transformed, X)
+
+        return self
+
+    def fit_transform(self, X):
+        """Fit the model from data in X and transform X.
+
+        Parameters
+        ----------
+        X: array-like, shape (n_samples, n_features)
+            Training vector, where n_samples in the number of samples
+            and n_features is the number of features.
+
+        Returns
+        -------
+        X_new: array-like, shape (n_samples, n_components)
+        """
+        self.fit(X)
+
+        sqrt_lambdas = np.diag(np.sqrt(self.lambdas))
+        X_transformed = np.dot(self.alphas, sqrt_lambdas)
+
+        if self.fit_inverse_transform:
+            self._fit_inverse_transform(X_transformed, X)
+
+        return X_transformed
+
+    def transform(self, X):
+        """Transform X.
+
+        Parameters
+        ----------
+        X: array-like, shape (n_samples, n_features)
+
+        Returns
+        -------
+        X_new: array-like, shape (n_samples, n_components)
+        """
+        K = self.centerer.transform(self._get_kernel(X, self.X_fit))
+        inv_sqrt_lambdas = np.diag(1.0 / np.sqrt(self.lambdas))
+        return np.dot(K, np.dot(self.alphas, inv_sqrt_lambdas))
+
+    def inverse_transform(self, X):
+        """Transform X back to original space.
+
+        Parameters
+        ----------
+        X: array-like, shape (n_samples, n_components)
+
+        Returns
+        -------
+        X_new: array-like, shape (n_samples, n_features)
+
+        Reference
+        ---------
+        "Learning to Find Pre-Images", G BakIr et al, 2004.
+        """
+        if not self.fit_inverse_transform:
+            raise ValueError, "Inverse transform was not fitted!"
+
+        K = self._get_kernel(X, self.X_transformed_fit)
+
+        return np.dot(K, self.dual_coef_)
