@@ -204,8 +204,7 @@ class PCA(BaseEstimator, TransformerMixin):
         if self.whiten:
             U *= np.sqrt(X.shape[0])
         else:
-            S = S[:self.n_components]
-            U *= S
+            U *= S[:self.n_components]
 
         return U
 
@@ -461,7 +460,7 @@ class RandomizedPCA(BaseEstimator):
         return X_original
 
 
-class KernelPCA(BaseEstimator):
+class KernelPCA(BaseEstimator, TransformerMixin):
     """Kernel Principal component analysis (KPCA)
 
     Non-linear dimensionality reduction through the use of kernels.
