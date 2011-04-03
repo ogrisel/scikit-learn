@@ -203,20 +203,16 @@ print confusion_matrix(y_test, y_pred)
 ##############################################################################
 # Qualitative evaluation of the extracted filters
 
-def plot_filters(filters, patch_size=8, n_colors=3, local_scaling=True):
+def plot_filters(filters, patch_size=8, n_colors=3):
     n_filters = filters.shape[0]
     n_row = int(math.sqrt(n_filters))
     n_col = int(math.sqrt(n_filters))
 
     filters = filters.copy()
-    if local_scaling:
-        # local rescaling filters for display with imshow
-        filters -= filters.min(axis=1).reshape((filters.shape[0], 1))
-        filters /= filters.max(axis=1).reshape((filters.shape[0], 1))
-    else:
-        # global rescaling
-        filters -= filters.min()
-        filters /= filters.max()
+    filters -= filters.min()
+    filters /= filters.max()
+
+    filters = np.array(filters * 255, dtype=np.uint8)
 
     pl.figure()
     for i in range(n_row * n_col):
