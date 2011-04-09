@@ -473,6 +473,9 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
         n_rows_adjusted = n_rows - self.patch_size + 1
         n_cols_adjusted = n_cols - self.patch_size + 1
 
+        # TODO: the following is really slow: profile me, optimize me and then
+        # parallelize me by using joblib.Parallel.map on the toplevel loop:
+
         for r in xrange(n_rows_adjusted):
             if self.verbose:
                 print "Extracting features for row #%d/%d" % (
