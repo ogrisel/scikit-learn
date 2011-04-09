@@ -11,7 +11,7 @@ import math
 from scipy import sparse
 from ..utils.fixes import in1d
 from ..base import BaseEstimator
-from ..pca import PCA
+from ..decomposition import PCA
 from ..cluster import KMeans
 from ..metrics.pairwise import euclidean_distances
 
@@ -419,9 +419,8 @@ class ConvolutionalKMeansEncoder(BaseEstimator):
 
             # implement a band-pass filter by dropping the first eigen
             # values which are generally low frequency components
-            drop = self.n_drop_components
-            if drop:
-                pca.components_ = pca.components_[:, drop:]
+            if self.n_drop_components:
+                pca.components_ = pca.components_[self.n_drop_components:, :]
             patches = pca.transform(patches)
 
             # compute the KMeans centers
