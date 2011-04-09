@@ -36,7 +36,7 @@ from scikits.learn.datasets import load_lfw_people
 from scikits.learn.grid_search import GridSearchCV
 from scikits.learn.metrics import classification_report
 from scikits.learn.metrics import confusion_matrix
-from scikits.learn.pca import RandomizedPCA
+from scikits.learn.decomposition import RandomizedPCA
 from scikits.learn.svm import SVC
 
 # Display progress logs on stdout
@@ -94,7 +94,7 @@ t0 = time()
 pca = RandomizedPCA(n_components=n_components, whiten=True).fit(X_train)
 print "done in %0.3fs" % (time() - t0)
 
-eigenfaces = pca.components_.T.reshape((n_components, h, w))
+eigenfaces = pca.components_.reshape((n_components, h, w))
 
 print "Projecting the input data on the eigenfaces orthonormal basis"
 t0 = time()
@@ -135,31 +135,33 @@ print confusion_matrix(y_test, y_pred, labels=range(n_classes))
 ################################################################################
 # Qualitative evaluation of the predictions using matplotlib
 
-n_row = 3
-n_col = 4
+def plot_gallery(images, titles, h, w, n_row=3, n_col=4):
+    """Helper function to plot a gallery of portraits"""
+    pl.figure(figsize=(1.8 * n_col, 2.4 * n_row))
+    pl.subplots_adjust(bottom=0, left=.01, right=.99, top=.90, hspace=.35)
+    for i in range(n_row * n_col):
+        pl.subplot(n_row, n_col, i + 1)
+        pl.imshow(images[i].reshape((h, w)), cmap=pl.cm.gray)
+        pl.title(titles[i], size=12)
+        pl.xticks(())
+        pl.yticks(())
+
+# plot the result of the prediction on a portion of the test set
 
 def title(y_pred, y_test, target_names, i):
     pred_name = target_names[y_pred[i]].rsplit(' ', 1)[-1]
     true_name = target_names[y_test[i]].rsplit(' ', 1)[-1]
     return 'predicted: %s\ntrue:      %s' % (pred_name, true_name)
 
-pl.figure(figsize=(1.8 * n_col, 2.4 * n_row))
-pl.subplots_adjust(bottom=0, left=.01, right=.99, top=.90, hspace=.35)
-for i in range(n_row * n_col):
-    pl.subplot(n_row, n_col, i + 1)
-    pl.imshow(X_test[i].reshape((h, w)), cmap=pl.cm.gray)
-    pl.title(title(y_pred, y_test, target_names, i), size=12)
-    pl.xticks(())
-    pl.yticks(())
+prediction_titles = [title(y_pred, y_test, target_names, i)
+                     for i in range(y_pred.shape[0])]
 
-pl.figure(figsize=(1.8 * n_col, 2.4 * n_row))
-pl.subplots_adjust(bottom=0, left=.01, right=.99, top=.90, hspace=.35)
-for i in range(n_row * n_col):
-    pl.subplot(n_row, n_col, i + 1)
-    pl.imshow(eigenfaces[i].reshape((h, w)), cmap=pl.cm.gray)
-    pl.title("eigenface %d" % i, size=12)
-    pl.xticks(())
-    pl.yticks(())
+plot_gallery(X_test, prediction_titles, h, w)
+
+# plot the gallery of the most significative eigenfaces
+
+eigenface_titles = ["eigenface %d" % i for i in range(eigenfaces.shape[0])]
+plot_gallery(eigenfaces, eigenface_titles, h, w)
 
 pl.show()
 

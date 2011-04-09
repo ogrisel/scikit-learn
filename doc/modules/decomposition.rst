@@ -3,13 +3,13 @@
 Decomposing signals in components (matrix factorization problems)
 =================================================================
 
+.. currentmodule:: scikits.learn.decomposition
+
+
 .. _PCA:
 
 Principal component analysis (PCA)
 ==================================
-
-.. currentmodule:: scikits.learn.pca
-
 
 Exact PCA and probabilistic interpretation
 ------------------------------------------
@@ -36,14 +36,14 @@ data based on the amount of variance it explains. As such it implements a
 Below is an example of the iris dataset, which is comprised of 4
 features, projected on the 2 dimensions that explain most variance:
 
-.. figure:: ../auto_examples/images/plot_pca_1.png
-    :target: ../auto_examples/plot_pca.html
+.. figure:: ../auto_examples/images/plot_pca_vs_lda_1.png
+    :target: ../auto_examples/plot_pca_vs_lda.html
     :align: center
     :scale: 75%
 
 .. topic:: Examples:
 
-    * :ref:`example_plot_pca.py`
+    * :ref:`example_plot_pca_vs_lda.py`
 
 
 Approximate PCA
@@ -102,13 +102,24 @@ is not the exact inverse transform of `transform` even when
       <http://arxiv.org/abs/0909.4061>`_
       Halko, et al., 2009
 
+Kernel PCA
+----------
+
+Kernel PCA is an extension of PCA which achieves non-linear dimensionality
+reduction through the use of kernels. It has many applications including
+denoising, compression and structured prediction (kernel dependency estimation). 
+:class:`KernelPCA` supports both `transform` and `inverse_transform`.
+
+.. figure:: ../auto_examples/images/plot_kernel_pca_1.png
+    :target: ../auto_examples/plot_kernel_pca.html
+    :align: center
+    :scale: 75%
+
 
 .. _ICA:
 
 Independent component analysis (ICA)
 ====================================
-
-.. currentmodule:: scikits.learn.fastica
 
 ICA finds components that are maximally independent. It is classically
 used to separate mixed signals (a problem know as *blind source
@@ -125,12 +136,11 @@ separation*), as in the example below:
     * :ref:`example_plot_ica_blind_source_separation.py`
     * :ref:`example_plot_ica_vs_pca.py`
 
+
 .. _NMF:
 
 Non-negative matrix factorization (NMF)
 =======================================
-
-.. currentmodule:: scikits.learn.nmf
 
 :class:`NMF` is an alternative approach to decomposition that assumes that the
 data and the components are non-negative. :class:`NMF` can be plugged in
