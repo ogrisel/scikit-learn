@@ -10,62 +10,34 @@ import unicodedata
 import numpy as np
 from ..base import BaseEstimator
 from ..preprocessing.sparse import Normalizer
-
-ENGLISH_STOP_WORDS = set([
-    "a", "about", "above", "across", "after", "afterwards", "again", "against",
-    "all", "almost", "alone", "along", "already", "also", "although", "always",
-    "am", "among", "amongst", "amoungst", "amount", "an", "and", "another",
-    "any", "anyhow", "anyone", "anything", "anyway", "anywhere", "are",
-    "around", "as", "at", "back", "be", "became", "because", "become",
-    "becomes", "becoming", "been", "before", "beforehand", "behind", "being",
-    "below", "beside", "besides", "between", "beyond", "bill", "both", "bottom",
-    "but", "by", "call", "can", "cannot", "cant", "co", "computer", "con",
-    "could", "couldnt", "cry", "de", "describe", "detail", "do", "done", "down",
-    "due", "during", "each", "eg", "eight", "either", "eleven", "else",
-    "elsewhere", "empty", "enough", "etc", "even", "ever", "every", "everyone",
-    "everything", "everywhere", "except", "few", "fifteen", "fify", "fill",
-    "find", "fire", "first", "five", "for", "former", "formerly", "forty",
-    "found", "four", "from", "front", "full", "further", "get", "give", "go",
-    "had", "has", "hasnt", "have", "he", "hence", "her", "here", "hereafter",
-    "hereby", "herein", "hereupon", "hers", "herself", "him", "himself", "his",
-    "how", "however", "hundred", "i", "ie", "if", "in", "inc", "indeed",
-    "interest", "into", "is", "it", "its", "itself", "keep", "last", "latter",
-    "latterly", "least", "less", "ltd", "made", "many", "may", "me",
-    "meanwhile", "might", "mill", "mine", "more", "moreover", "most", "mostly",
-    "move", "much", "must", "my", "myself", "name", "namely", "neither", "never",
-    "nevertheless", "next", "nine", "no", "nobody", "none", "noone", "nor",
-    "not", "nothing", "now", "nowhere", "of", "off", "often", "on", "once",
-    "one", "only", "onto", "or", "other", "others", "otherwise", "our", "ours",
-    "ourselves", "out", "over", "own", "part", "per", "perhaps", "please",
-    "put", "rather", "re", "same", "see", "seem", "seemed", "seeming", "seems",
-    "serious", "several", "she", "should", "show", "side", "since", "sincere",
-    "six", "sixty", "so", "some", "somehow", "someone", "something", "sometime",
-    "sometimes", "somewhere", "still", "such", "system", "take", "ten", "than",
-    "that", "the", "their", "them", "themselves", "then", "thence", "there",
-    "thereafter", "thereby", "therefore", "therein", "thereupon", "these",
-    "they", "thick", "thin", "third", "this", "those", "though", "three",
-    "through", "throughout", "thru", "thus", "to", "together", "too", "top",
-    "toward", "towards", "twelve", "twenty", "two", "un", "under", "until",
-    "up", "upon", "us", "very", "via", "was", "we", "well", "were", "what",
-    "whatever", "when", "whence", "whenever", "where", "whereafter", "whereas",
-    "whereby", "wherein", "whereupon", "wherever", "whether", "which", "while",
-    "whither", "who", "whoever", "whole", "whom", "whose", "why", "will",
-    "with", "within", "without", "would", "yet", "you", "your", "yours",
-    "yourself", "yourselves"])
+from .stop_words import ENGLISH_STOP_WORDS
 
 
 def strip_accents(s):
-    """Transform accentuated unicode symbols into their simple counterpart
+    r"""Transform accentuated unicode symbols into their simple counterpart
 
     Warning: the python-level loop and join operations make this implementation
     20 times slower than the to_ascii basic normalization.
+
+    Sample usage:
+
+      >>> voyels = u'\xe0\xe1\xe2\xe3\xe4\xe5\xe7\xe8\xe9\xea\xeb'
+      >>> strip_accents(voyels)
+      u'aaaaaaceeee'
+
+    It does not work on arabic characters (no ASCII correspondence):
+
+      >>> halef_with_hamza = u'\u0625'
+      >>> strip_accents(halef_with_hamza)  # removes the hamza
+      u'\u0627'
+
     """
     return u''.join([c for c in unicodedata.normalize('NFKD', s)
                      if not unicodedata.combining(c)])
 
 
 def to_ascii(s):
-    """Transform accentuated unicode symbols into ascii or nothing
+    r"""Transform accentuated unicode symbols into ascii or nothing
 
     Warning: this solution is only suited for roman languages that have a direct
     transliteration to ASCII symbols.
@@ -75,6 +47,18 @@ def to_ascii(s):
 
         http://stackoverflow.com/questions/2854230/
 
+    Sample usage:
+
+      >>> voyels = u'\xe0\xe1\xe2\xe3\xe4\xe5\xe7\xe8\xe9\xea\xeb'
+      >>> to_ascii(voyels)
+      u'aaaaaaceeee'
+
+    It does not work on arabic characters (no ASCII correspondence):
+
+      >>> halef_with_hamza = u'\u0625'
+      >>> to_ascii(halef_with_hamza)
+      u''
+
     """
     nkfd_form = unicodedata.normalize('NFKD', s)
     only_ascii = nkfd_form.encode('ASCII', 'ignore')
@@ -82,26 +66,34 @@ def to_ascii(s):
 
 
 def strip_tags(s):
+    """Simple tag stripper based on regexp
+
+    Won't work correctly with many real-life HTML / XML content. If you
+    process XML / HTML content use lxml XML and HTML parsers and the
+    text_content function instead.
+
+    Sample usage:
+
+      >>> strip_tags(u'<title>This is the title</title>')
+      u'This is the title'
+
+    """
     return re.compile(r"<([^>]+)>", flags=re.UNICODE).sub("", s)
 
-
-class RomanPreprocessor(object):
-    """Fast preprocessor suitable for roman languages"""
-
-    def preprocess(self, unicode_text):
-        """Preprocess strings"""
-        return to_ascii(strip_tags(unicode_text.lower()))
-
-    def __repr__(self):
-        return "RomanPreprocessor()"
-
-
-DEFAULT_PREPROCESSOR = RomanPreprocessor()
 
 DEFAULT_TOKEN_PATTERN = r"\b\w\w+\b"
 
 
-class WordNGramAnalyzer(BaseEstimator):
+class BasePreprocessor(BaseEstimator):
+    """Implement common methods for the analyzers"""
+
+    def preprocess(self, unicode_text):
+        """Preprocess strings"""
+        return to_ascii(unicode_text.lower())
+
+
+
+class WordNGramAnalyzer(BasePreprocessor):
     """Simple analyzer: transform a text document into a sequence of word tokens
 
     This simple implementation does:
@@ -113,14 +105,12 @@ class WordNGramAnalyzer(BaseEstimator):
     """
 
     def __init__(self, charset='utf-8', min_n=1, max_n=1,
-                 preprocessor=DEFAULT_PREPROCESSOR,
-                 stop_words=ENGLISH_STOP_WORDS,
+                 stop_words=None,
                  token_pattern=DEFAULT_TOKEN_PATTERN):
         self.charset = charset
-        self.stop_words = stop_words
+        self.stop_words = stop_words if stop_words is not None else set()
         self.min_n = min_n
         self.max_n = max_n
-        self.preprocessor = preprocessor
         self.token_pattern = token_pattern
 
     def analyze(self, text_document):
@@ -132,7 +122,7 @@ class WordNGramAnalyzer(BaseEstimator):
         if isinstance(text_document, str):
             text_document = text_document.decode(self.charset, 'ignore')
 
-        text_document = self.preprocessor.preprocess(text_document)
+        text_document = self.preprocess(text_document)
 
         # word boundaries tokenizer (cannot compile it in the __init__ because
         # we want support for pickling and runtime parameter fitting)
@@ -160,21 +150,20 @@ class WordNGramAnalyzer(BaseEstimator):
 class CharNGramAnalyzer(BaseEstimator):
     """Compute character n-grams features of a text document
 
-    This analyzer is interesting since it is language agnostic and will work
-    well even for language where word segmentation is not as trivial as English
-    such as Chinese and German for instance.
-
-    Because of this, it can be considered a basic morphological analyzer.
+    Because this analyzer does not make any assumption on how to segment words,
+    it can be considered a basic morphological analyzer.
     """
 
     white_spaces = re.compile(r"\s\s+")
 
-    def __init__(self, charset='utf-8', preprocessor=DEFAULT_PREPROCESSOR,
-                 min_n=3, max_n=6):
+    def __init__(self, charset='utf-8', min_n=3, max_n=6):
         self.charset = charset
         self.min_n = min_n
         self.max_n = max_n
-        self.preprocessor = preprocessor
+
+    def preprocess(self, unicode_text):
+        """Preprocess strings"""
+        return to_ascii(unicode_text.lower())
 
     def analyze(self, text_document):
         """From documents to token"""
@@ -510,8 +499,7 @@ class Vectorizer(BaseEstimator):
         return self
 
     def fit_transform(self, raw_documents):
-        """
-        Learn the representation and return the vectors.
+        """Learn the representation and return the vectors
 
         Parameters
         ----------
