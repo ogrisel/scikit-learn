@@ -88,7 +88,7 @@ def strip_tags(s):
 class RomanPreprocessor(object):
     """Fast preprocessor suitable for roman languages"""
 
-    def preprocess(self, unicode_text):
+    def __call__(self, unicode_text):
         """Preprocess strings"""
         return to_ascii(strip_tags(unicode_text.lower()))
 
@@ -120,7 +120,7 @@ class WordNGramAnalyzer(BaseEstimator):
         self.stop_words = stop_words
         self.min_n = min_n
         self.max_n = max_n
-        self.preprocessor = preprocessor
+        self.preprocess = preprocessor
         self.token_pattern = token_pattern
 
     def analyze(self, text_document):
@@ -132,7 +132,7 @@ class WordNGramAnalyzer(BaseEstimator):
         if isinstance(text_document, str):
             text_document = text_document.decode(self.charset, 'ignore')
 
-        text_document = self.preprocessor.preprocess(text_document)
+        text_document = self.preprocess(text_document)
 
         # word boundaries tokenizer (cannot compile it in the __init__ because
         # we want support for pickling and runtime parameter fitting)
@@ -174,7 +174,7 @@ class CharNGramAnalyzer(BaseEstimator):
         self.charset = charset
         self.min_n = min_n
         self.max_n = max_n
-        self.preprocessor = preprocessor
+        self.preprocess = preprocessor
 
     def analyze(self, text_document):
         """From documents to token"""
@@ -185,7 +185,7 @@ class CharNGramAnalyzer(BaseEstimator):
         if isinstance(text_document, str):
             text_document = text_document.decode(self.charset, 'ignore')
 
-        text_document = self.preprocessor.preprocess(text_document)
+        text_document = self.preprocess(text_document)
 
         # normalize white spaces
         text_document = self.white_spaces.sub(" ", text_document)
