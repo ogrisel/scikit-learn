@@ -132,7 +132,7 @@ validation scheme.
 Examples
 --------
 
-:ref:`example_applications_plot_face_recognition.py`
+:ref:`example_applications_face_recognition.py`
 
 
 
@@ -219,7 +219,7 @@ example that extract `TF-IDF`_ vectors of unigram tokens::
   >>> vectorizer = Vectorizer()
   >>> vectors = vectorizer.fit_transform(documents)
   >>> vectors.shape
-  (1073, 21107)
+  (1073, 21108)
 
 The extracted TF-IDF vectors are very sparse with an average of 118 non zero
 components by sample in a more than 20000 dimensional space (less than 1% non

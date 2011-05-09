@@ -89,6 +89,7 @@ class RomanPreprocessor(object):
     """Fast preprocessor suitable for roman languages"""
 
     def preprocess(self, unicode_text):
+        """Preprocess strings"""
         return to_ascii(strip_tags(unicode_text.lower()))
 
     def __repr__(self):
@@ -98,6 +99,7 @@ class RomanPreprocessor(object):
 DEFAULT_PREPROCESSOR = RomanPreprocessor()
 
 DEFAULT_TOKEN_PATTERN = r"\b\w\w+\b"
+
 
 class WordNGramAnalyzer(BaseEstimator):
     """Simple analyzer: transform a text document into a sequence of word tokens
@@ -122,6 +124,7 @@ class WordNGramAnalyzer(BaseEstimator):
         self.token_pattern = token_pattern
 
     def analyze(self, text_document):
+        """From documents to token"""
         if hasattr(text_document, 'read'):
             # ducktype for file-like objects
             text_document = text_document.read()
@@ -174,6 +177,7 @@ class CharNGramAnalyzer(BaseEstimator):
         self.preprocessor = preprocessor
 
     def analyze(self, text_document):
+        """From documents to token"""
         if hasattr(text_document, 'read'):
             # ducktype for file-like objects
             text_document = text_document.read()
@@ -191,7 +195,7 @@ class CharNGramAnalyzer(BaseEstimator):
         for n in xrange(self.min_n, self.max_n + 1):
             if text_len < n:
                 continue
-            for i in xrange(text_len - n):
+            for i in xrange(text_len - n + 1):
                 ngrams.append(text_document[i: i + n])
         return ngrams
 
@@ -224,9 +228,9 @@ class CountVectorizer(BaseEstimator):
 
         This is useful in order to fix the vocabulary in advance.
 
-    max_df : float in range [0.0, 1.0], optional, 0.5 by default
+    max_df : float in range [0.0, 1.0], optional, 1.0 by default
         When building the vocabulary ignore terms that have a term frequency
-        high than the given threshold (corpus specific stop words).
+        strictly higher than the given threshold (corpus specific stop words).
 
         This parameter is ignored if vocabulary is not None.
 
@@ -269,7 +273,6 @@ class CountVectorizer(BaseEstimator):
         return sp.coo_matrix((values, (i_indices, j_indices)),
                              shape=shape, dtype=self.dtype)
 
-
     def _build_vectors_and_vocab(self, raw_documents):
         """Analyze documents, build vocabulary and vectorize"""
 
@@ -286,7 +289,7 @@ class CountVectorizer(BaseEstimator):
 
         # TODO: parallelize the following loop with joblib
         for doc in raw_documents:
-            term_count_dict = {} # term => count in doc
+            term_count_dict = {}  # term => count in doc
 
             for term in self.analyzer.analyze(doc):
                 term_count_dict[term] = term_count_dict.get(term, 0) + 1
@@ -306,7 +309,7 @@ class CountVectorizer(BaseEstimator):
             max_document_count = max_df * n_doc
             for t, dc in sorted(document_counts.iteritems(), key=itemgetter(1),
                                 reverse=True):
-                if dc < max_document_count:
+                if dc <= max_document_count:
                     break
                 stop_words.add(t)
 
@@ -325,7 +328,7 @@ class CountVectorizer(BaseEstimator):
             terms -= stop_words
 
         # convert to a document-token matrix
-        vocabulary = dict(((t, i) for i, t in enumerate(terms))) # token => idx
+        vocabulary = dict(((t, i) for i, t in enumerate(terms)))  # token: idx
 
         # the term_counts and document_counts might be useful statistics, are
         # we really sure want we want to drop them? They take some memory but
@@ -343,7 +346,7 @@ class CountVectorizer(BaseEstimator):
 
         # TODO: parallelize the following loop with joblib
         for doc in raw_documents:
-            term_count_dict = {} # term => count in doc
+            term_count_dict = {}  # term => count in doc
 
             for term in self.analyzer.analyze(doc):
                 term_count_dict[term] = term_count_dict.get(term, 0) + 1
@@ -404,7 +407,7 @@ class CountVectorizer(BaseEstimator):
         vectors: array, [n_samples, n_features]
         """
         if len(self.vocabulary) == 0:
-            raise ValueError, "No vocabulary dictionary available..."
+            raise ValueError("No vocabulary dictionary available.")
 
         return self._build_vectors(raw_documents)
 
@@ -501,6 +504,7 @@ class Vectorizer(BaseEstimator):
         self.tfidf = TfidfTransformer(use_tf, use_idf)
 
     def fit(self, raw_documents):
+        """Learn a conversion law from documents to array data"""
         X = self.tc.fit_transform(raw_documents)
         self.tfidf.fit(X)
         return self
