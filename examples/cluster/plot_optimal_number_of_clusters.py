@@ -13,8 +13,8 @@ from scikits.learn.metrics import v_measure_score
 from scikits.learn.datasets.samples_generator import make_blobs
 
 n_samples = 1200
-n_features = 40
-n_centers = 4
+n_features = 20
+n_centers = 7
 
 samples, labels_true = make_blobs(n_samples=n_samples, n_features=n_features,
                                   centers=n_centers)
@@ -32,10 +32,12 @@ b = np.concatenate((indice_splits[0], indice_splits[2]))
 common = indice_splits[0].shape[0]
 
 scores = []
-possible_k = range(2, 8)
+possible_k = range(2, 10)
 for k in possible_k:
-    labels_a = KMeans(k=k, random_state=None).fit(samples[a]).labels_
-    labels_b = KMeans(k=k, random_state=None).fit(samples[b]).labels_
+    labels_a = KMeans(
+        k=k, init='k-means++', random_state=None).fit(samples[a]).labels_
+    labels_b = KMeans(
+        k=k, init='k-means++', random_state=None).fit(samples[b]).labels_
 
     # evaluate the aggreement on the intersection
     score = v_measure_score(labels_a[:common], labels_b[:common])
