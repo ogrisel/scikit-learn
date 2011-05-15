@@ -14,7 +14,7 @@ from scikits.learn.datasets.samples_generator import make_blobs
 
 n_samples = 200
 n_features = 10
-n_centers = 7
+n_centers = 10
 cluster_std = 2.0
 
 samples, labels_true = make_blobs(n_samples=n_samples, n_features=n_features,
