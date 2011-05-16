@@ -3,7 +3,20 @@
 Selection of the optimal number of clusters
 ===========================================
 
-TODO: explain what's happening
+V-Measure is a score that grows when two cluster labeling assignments
+agree on how to split a dataset, independently of the number of splits. This
+measure is furthermore symmetric::
+
+    v_measure_score(label_a, label_b) == v_measure_score(label_b, label_a)
+
+The following demonstrate how it is possible to randomly split a dataset
+into two overlapping subsets, perform clustering on each split (here
+using k-means) and then measure their agreement on the intersection of
+the two subsets.
+
+This process can be repeated for various number of the parameter k
+of k-means. The best V-Measure score can hence give us a hint on the
+optimal value for the parameter k in a completely unsupervied fashion.
 """
 print __doc__
 
@@ -40,7 +53,7 @@ for k in possible_k:
     labels_b = KMeans(
         k=k, init='k-means++', random_state=0).fit(samples[b]).labels_
 
-    # evaluate the aggreement on the intersection
+    # evaluate the agreement on the intersection
     score = v_measure_score(labels_a[:common], labels_b[:common])
     print "Agreement for k=%d: %0.3f" % (k, score)
     scores.append(score)
@@ -52,7 +65,7 @@ pl.plot(possible_k, scores)
 pl.ylim(ymin=0.0, ymax=1.0)
 pl.vlines(n_centers, 0.0, true_k_score)
 pl.title("V-Measure agreement of K-Means on the intersection of two\n"
-         "overlapping splits for various of k")
+         "overlapping splits for various values of k")
 pl.xlabel("Expected number of centers 'k'")
 pl.ylabel("V-Measure")
 pl.show()
