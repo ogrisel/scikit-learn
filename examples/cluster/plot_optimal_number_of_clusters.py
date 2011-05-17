@@ -9,7 +9,7 @@ measure is furthermore symmetric::
 
     v_measure_score(label_a, label_b) == v_measure_score(label_b, label_a)
 
-The following demonstrate how it is possible to randomly split a dataset
+The following demonstrates how it is possible to randomly split a dataset
 into two overlapping subsets, perform clustering on each split (here
 using k-means) and then measure their agreement on the intersection of
 the two subsets.
@@ -22,6 +22,8 @@ In order to find a robust estimate of the optimal agreement score, the
 process can be repeated and averaged several times by boostrapping the
 overlapping sets used for clustering.
 """
+# Author: Olivier Grisel <olivier.grisel@ensta.org>
+# License: Simplified BSD
 print __doc__
 
 import numpy as np
@@ -42,8 +44,8 @@ samples, labels_true = make_blobs(n_samples=n_samples, n_features=n_features,
 
 indices = np.arange(n_samples)
 random_state = check_random_state(42)
-
 scores = np.zeros((n_bootstraps, len(possible_k)))
+
 for i in range(n_bootstraps):
 
     print "Boostrap #%02d/%02d" % (i + 1, n_bootstraps)
@@ -76,6 +78,9 @@ for i in range(n_bootstraps):
         print "Agreement for k=%d: %0.3f" % (k, score)
         scores[i, j] = score
 
+
+# compute a bunch of statistics on the results of the bootstrapped runs so as
+# to find the optimal value(s) for k
 mean_scores = scores.mean(axis=0)
 std_scores = scores.std(axis=0)
 best_mean_score = mean_scores.max()
@@ -86,6 +91,7 @@ admissible_k = [k for i, k in enumerate(possible_k) if admissible_scores[i]]
 print "Optimal values for k: " + ", ".join(str(k) for k in admissible_k)
 print "Ground Truth value for k: %d" % n_centers
 
+# plot the runs
 import pylab as pl
 pl.plot(possible_k, mean_scores)
 pl.plot(possible_k, mean_scores + std_scores / 2, 'b--')
