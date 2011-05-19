@@ -28,28 +28,48 @@ print __doc__
 
 import numpy as np
 from scikits.learn.utils import check_random_state
+from scikits.learn.utils import shuffle
 from scikits.learn.cluster import KMeans
 from scikits.learn.metrics import v_measure_score
 from scikits.learn.datasets.samples_generator import make_blobs
 
-n_samples = 200
-n_features = 10
-n_centers = 8
-cluster_std = 2.0
-n_bootstraps = 3
+n_samples = 500
+n_features = 2
+n_centers = 4
+cluster_std = 0.5
+n_bootstraps = 5
 possible_k = range(2, 20)
 
-samples, labels_true = make_blobs(n_samples=n_samples, n_features=n_features,
-                                  centers=n_centers, cluster_std=cluster_std)
-
-indices = np.arange(n_samples)
 random_state = check_random_state(42)
+
+samples_1, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
+                         centers=n_centers, cluster_std=cluster_std,
+                         random_state=random_state)
+samples_2, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
+                         centers=n_centers, cluster_std=cluster_std,
+                         random_state=random_state)
+samples_3, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
+                         centers=n_centers, cluster_std=cluster_std,
+                         random_state=random_state)
+samples_4, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
+                         centers=n_centers, cluster_std=cluster_std,
+                         random_state=random_state)
+
+samples_1[:, 0] -= 20
+samples_2[:, 0] += 20
+samples_3[:, 1] -= 20
+samples_4[:, 1] += 20
+
+samples = np.concatenate((samples_1, samples_2, samples_3, samples_4))
+
 scores = np.zeros((n_bootstraps, len(possible_k)))
 
 for i in range(n_bootstraps):
 
     print "Boostrap #%02d/%02d" % (i + 1, n_bootstraps)
 
+    #indices = shuffle(np.arange(n_samples))
+    #indices = np.arange(n_samples)
     # resample the data to measure the score on independent splits
     indices = random_state.randint(0, n_samples, size=(n_samples,))
 
@@ -84,7 +104,7 @@ for i in range(n_bootstraps):
 mean_scores = scores.mean(axis=0)
 std_scores = scores.std(axis=0)
 best_mean_score = mean_scores.max()
-admissible_scores = mean_scores >= best_mean_score - std_scores / 10
+admissible_scores = mean_scores >= best_mean_score - std_scores
 
 admissible_k = [k for i, k in enumerate(possible_k) if admissible_scores[i]]
 
@@ -93,6 +113,7 @@ print "Ground Truth value for k: %d" % n_centers
 
 # plot the runs
 import pylab as pl
+pl.subplot(121)
 pl.plot(possible_k, mean_scores)
 pl.plot(possible_k, mean_scores + std_scores / 2, 'b--')
 pl.plot(possible_k, mean_scores - std_scores / 2, 'b--')
@@ -102,4 +123,7 @@ pl.title("V-Measure agreement of K-Means on the intersection of two\n"
          "overlapping splits for various values of k")
 pl.xlabel("Number of centers 'k' for each run of k-means")
 pl.ylabel("V-Measure")
+
+pl.subplot(122)
+pl.plot(samples[:, 0], samples[:, 1], '.')
 pl.show()
