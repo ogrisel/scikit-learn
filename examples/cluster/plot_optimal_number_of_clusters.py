@@ -44,21 +44,21 @@ random_state = check_random_state(42)
 
 samples_1, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
                          centers=n_centers, cluster_std=cluster_std,
-                         random_state=random_state)
+                         random_state=0)
 samples_2, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
                          centers=n_centers, cluster_std=cluster_std,
-                         random_state=random_state)
+                         random_state=0)
 samples_3, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
                          centers=n_centers, cluster_std=cluster_std,
-                         random_state=random_state)
+                         random_state=0)
 samples_4, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
                          centers=n_centers, cluster_std=cluster_std,
-                         random_state=random_state)
+                         random_state=0)
 
-samples_1[:, 0] -= 20
-samples_2[:, 0] += 20
-samples_3[:, 1] -= 20
-samples_4[:, 1] += 20
+samples_1[:, 0] -= 10
+samples_2[:, 0] += 10
+samples_3[:, 1] -= 10
+samples_4[:, 1] += 10
 
 samples = np.concatenate((samples_1, samples_2, samples_3, samples_4))
 
