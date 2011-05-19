@@ -36,28 +36,32 @@ from scikits.learn.datasets.samples_generator import make_blobs
 n_samples = 500
 n_features = 2
 n_centers = 4
-cluster_std = 0.5
+n_groups = 4
+cluster_std = 0.4
 n_bootstraps = 5
 possible_k = range(2, 20)
 
-random_state = check_random_state(42)
+random_state = check_random_state(0)
 
-samples_1, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
-                         centers=n_centers, cluster_std=cluster_std,
-                         random_state=0)
-samples_2, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
-                         centers=n_centers, cluster_std=cluster_std,
-                         random_state=0)
-samples_3, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
-                         centers=n_centers, cluster_std=cluster_std,
-                         random_state=0)
-samples_4, _= make_blobs(n_samples=n_samples / 4, n_features=n_features,
+
+base_cluster, _ = make_blobs(n_samples=n_samples / 4, n_features=n_features,
                          centers=n_centers, cluster_std=cluster_std,
                          random_state=0)
 
+samples_1 = base_cluster.copy()
 samples_1[:, 0] -= 10
-samples_2[:, 0] += 10
+samples_1[:, 1] -= 10
+
+samples_2 = base_cluster.copy()
+samples_2[:, 0] -= 10
+samples_2[:, 1] += 10
+
+samples_3 = base_cluster.copy()
+samples_3[:, 0] += 10
 samples_3[:, 1] -= 10
+
+samples_4 = base_cluster.copy()
+samples_4[:, 0] += 10
 samples_4[:, 1] += 10
 
 samples = np.concatenate((samples_1, samples_2, samples_3, samples_4))
