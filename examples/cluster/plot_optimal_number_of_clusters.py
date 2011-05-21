@@ -35,11 +35,11 @@ from scikits.learn.datasets.samples_generator import make_blobs
 
 n_samples = 500
 n_features = 2
-n_centers = 4
+n_centers = 3
 n_groups = 4
 cluster_std = 0.4
 n_bootstraps = 5
-possible_k = range(2, 20)
+k_range = np.arange(2, 20)
 
 random_state = check_random_state(0)
 
@@ -49,24 +49,24 @@ base_cluster, _ = make_blobs(n_samples=n_samples / 4, n_features=n_features,
                          random_state=0)
 
 samples_1 = base_cluster.copy()
-samples_1[:, 0] -= 10
-samples_1[:, 1] -= 10
+samples_1[:, 0] -= 20
+samples_1[:, 1] -= 5
 
 samples_2 = base_cluster.copy()
-samples_2[:, 0] -= 10
-samples_2[:, 1] += 10
+samples_2[:, 0] -= 20
+samples_2[:, 1] += 5
 
 samples_3 = base_cluster.copy()
-samples_3[:, 0] += 10
-samples_3[:, 1] -= 10
+samples_3[:, 0] += 20
+samples_3[:, 1] -= 5
 
 samples_4 = base_cluster.copy()
-samples_4[:, 0] += 10
-samples_4[:, 1] += 10
+samples_4[:, 0] += 20
+samples_4[:, 1] += 5
 
 samples = np.concatenate((samples_1, samples_2, samples_3, samples_4))
 
-scores = np.zeros((n_bootstraps, len(possible_k)))
+scores = np.zeros((n_bootstraps, len(k_range)))
 
 for i in range(n_bootstraps):
 
@@ -89,7 +89,7 @@ for i in range(n_bootstraps):
     # the intersection is stored in third subset
     common = indice_splits[0].shape[0]
 
-    for j, k in enumerate(possible_k):
+    for j, k in enumerate(k_range):
 
         # run K-Means independently on each subset
         labels_a = KMeans(k=k, init='k-means++',
@@ -108,21 +108,22 @@ for i in range(n_bootstraps):
 mean_scores = scores.mean(axis=0)
 std_scores = scores.std(axis=0)
 best_mean_score = mean_scores.max()
-admissible_scores = mean_scores >= best_mean_score - std_scores
+admissible_scores = mean_scores >= best_mean_score - std_scores / 2
 
-admissible_k = [k for i, k in enumerate(possible_k) if admissible_scores[i]]
+admissible_k = [k for i, k in enumerate(k_range) if admissible_scores[i]]
 
 print "Optimal values for k: " + ", ".join(str(k) for k in admissible_k)
-print "Ground Truth value for k: %d" % n_centers
 
 # plot the runs
 import pylab as pl
 pl.subplot(121)
-pl.plot(possible_k, mean_scores)
-pl.plot(possible_k, mean_scores + std_scores / 2, 'b--')
-pl.plot(possible_k, mean_scores - std_scores / 2, 'b--')
+pl.plot(k_range, mean_scores)
+pl.plot(k_range, mean_scores + std_scores / 2, 'b--')
+pl.plot(k_range, mean_scores - std_scores / 2, 'b--')
+pl.xlim(xmin=k_range.min() - 1, xmax=k_range.max() + 1)
 pl.ylim(ymin=0.0, ymax=1.0)
-pl.vlines(n_centers, 0.0, 1.0, 'g')
+for k in admissible_k:
+    pl.vlines(k, 0.0, 1.0, 'g')
 pl.title("V-Measure agreement of K-Means on the intersection of two\n"
          "overlapping splits for various values of k")
 pl.xlabel("Number of centers 'k' for each run of k-means")
