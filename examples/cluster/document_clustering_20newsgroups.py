@@ -29,6 +29,7 @@ import sys
 
 from scikits.learn.datasets import fetch_20newsgroups
 from scikits.learn.feature_extraction.text import Vectorizer
+from scikits.learn.cluster import MiniBatchKMeans
 from scikits.learn.cluster import power_iteration_clustering
 from scikits.learn.cluster import spectral_clustering
 from scikits.learn.metrics.pairwise import cosine_similarity
@@ -78,7 +79,7 @@ print
 print "Extracting the pairwise cosine similarity between documents"
 t0 = time()
 affinity = cosine_similarity(X_train, X_train)
-#affinity = kneighbors_graph(X_train, n_neighbors=10)
+#affinity = kneighbors_graph(X_train.todense(), n_neighbors=10)
 #affinity = 0.5 * (affinity + affinity.T)  # make affinity symmetric
 print "done in %fs" % (time() - t0)
 print
@@ -95,11 +96,17 @@ def report(labels_true, labels_pred, duration):
     print "Duration: %0.3fs" % duration
     print
 
+print "Clustering the documents using the minibatch k-means method"
+t0 = time()
+labels_pred = MiniBatchKMeans(k=n_clusters).fit(X_train).labels_
+duration = time() - t0
+report(labels_true, labels_pred, duration)
 
 print "Clustering the documents using the Power Iteration Clustering method"
 t0 = time()
-labels_pred = power_iteration_clustering(affinity, k=n_clusters,
-                                         n_vectors=10, tol=1e-5)
+labels_pred = power_iteration_clustering(
+    affinity, k=n_clusters, n_vectors=10, tol=1e-5,
+    verbose=False, plot_vector=False)
 duration = time() - t0
 report(labels_true, labels_pred, duration)
 
