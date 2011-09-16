@@ -17,7 +17,7 @@ from sklearn.neighbors import kneighbors_graph
 digits = load_digits()
 
 n_samples = digits.data.shape[0]
-n_runs = 50
+n_runs = 10
 n_clusters_range = np.arange(2, 21)
 n_samples_split = n_samples / 3
 
@@ -25,22 +25,24 @@ scores = np.zeros((n_clusters_range.shape[0], n_runs))
 X = digits.data.copy()[:100]
 rng = np.random.RandomState(42)
 
-for i, k in enumerate(n_clusters_range):
-    for j in range(n_runs):
-        # sample two overlapping sub-datasets
-        rng.shuffle(X)
-        X_a = X[:n_samples_split]
-        X_b = X[n_samples_split:2 * n_samples_split]
-        X_c = X[2 * n_samples_split:3 * n_samples_split]
+for j in range(n_runs):
+    # sample two overlapping sub-datasets
+    rng.shuffle(X)
+    X_a = X[:n_samples_split]
+    X_b = X[n_samples_split:2 * n_samples_split]
+    X_c = X[2 * n_samples_split:3 * n_samples_split]
 
-        X_ab = np.vstack((X_a, X_b))
-        S_ab = kneighbors_graph(X_ab, 10)
-        X_ac = np.vstack((X_a, X_c))
-        S_ac = kneighbors_graph(X_ac, 10)
+    X_ab = np.vstack((X_a, X_b))
+    S_ab = kneighbors_graph(X_ab, 10)
+    X_ac = np.vstack((X_a, X_c))
+    S_ac = kneighbors_graph(X_ac, 10)
 
+    for i, k in enumerate(n_clusters_range):
         # find a clustering for each sub-sample
-        model_ab = SpectralClustering(k=k, mode='arpack').fit(S_ab)
-        model_ac = SpectralClustering(k=k, mode='arpack').fit(S_ac)
+        model_ab = SpectralClustering(k=k, mode='arpack', n_init=1,
+                                      random_state=rng).fit(S_ab)
+        model_ac = SpectralClustering(k=k, mode='arpack', n_init=1,
+                                      random_state=rng).fit(S_ac)
 
         # extract the label assignment on the overlap
         labels_ab = model_ab.labels_[:n_samples_split]
