@@ -1,23 +1,76 @@
 .. currentmodule:: sklearn
 
+.. _changes_0_10:
+
+0.10
+====
+
+   - Fixed memory leak in in :ref:`svm` module by `Brian Holt`_.
+
+   - Faster tests by `Fabian Pedregosa`_.
+
+   - Silhoeutte Coefficient cluster analysis evaluation metric added as 
+     ``sklearn.metrics.silhouette_score`` by Robert Layton.
+
+
+API changes summary
+-------------------
+
+Here are the code migration instructions when updgrading from scikit-learn
+version 0.9:
+
+  - Some estimators that may overwrite their inputs to save memory previously
+    had ``overwrite_`` parameters; these have been replaced with ``copy_``
+    parameters with exactly the opposite meaning.
+
+    This particularly affects some of the estimators in ``linear_models``.
+    The default behavior is still to copy everything passed in.
+
+  - The SVMlight dataset loader ``sklearn.datasets.load_svmlight_file`` no
+    longer supports loading two files at once; use ``load_svmlight_files``
+    instead. Also, the (unused) ``buffer_mb`` parameter is gone.
+
+  - Sparse estimators in the :ref:`sgd` module use dense parameter vector 
+    ``coef_`` instead of ``sparse_coef_``. This significantly improves
+    test time performance.
+  
+  - The :ref:`covariance` module now has a robust estimator of
+    covariance, the Minimum Covariance Determinant estimator.
+
+  - Cluster evaluation metrics in ``metrics.cluster.py`` have been refactored
+    but the changes are backwards compatible. They have been moved to the
+    ``metrics.cluster.supervised``, along with ``metrics.cluster.unsupervised``
+    which contains the Silhouette Coefficient. 
+
+Changelog
+---------
+
+   - Minor refactoring in :ref:`sgd` module; consolidated 
+     dense and sparse predict methods.
+
 .. _changes_0_9:
 
 0.9
 ===
 
-scikit-learn 0.9 was released on September 2011, three months after
-the 0.8 release and includes XX new modules: manifold, dpgmm as well
-as several new algorithms and documentation improvements.
+scikit-learn 0.9 was released on September 2011, three months after the 0.8
+release and includes the new modules :ref:`manifold`, :ref:`dirichlet_process`
+as well as several new algorithms and documentation improvements.
 
-This release also includes de work developed by `Vlad Niculae`_ as
-part of the `Google Summer of Code <http://code.google.com/soc/>`_
-program.
+This release also includes the dictionary-learning work developed by
+`Vlad Niculae`_ as part of the `Google Summer of Code
+<http://code.google.com/soc/>`_ program.
 
 
 
 .. |banner1| image:: ./auto_examples/manifold/images/thumb/plot_compare_methods.png
-   :target: auto_examples/applications/face_recognition.html
+   :target: auto_examples/manifold/plot_compare_methods.html
 
+.. |banner2| image:: ./auto_examples/linear_model/images/thumb/plot_omp.png
+   :target: auto_examples/linear_model/plot_omp.html
+
+.. |banner3| image:: ./auto_examples/decomposition/images/thumb/plot_kernel_pca.png
+   :target: auto_examples/decomposition/plot_kernel_pca.html
 
 .. |center-div| raw:: html
 
@@ -28,24 +81,24 @@ program.
     </div>
 
 
-|center-div| |banner1| |end-div|
+|center-div| |banner2| |banner1| |banner3| |end-div|
 
 Changelog
 ---------
 
-   - New :ref:`manifold` module by `Jake Vanderplas`_ and 
+   - New :ref:`manifold` module by `Jake Vanderplas`_ and
      `Fabian Pedregosa`_.
 
    - New :ref:`Dirichlet Process <dirichlet_process>` Gaussian Mixture
      Model by `Alexandre Passos`_
 
    - :ref:`neighbors` module refactoring by `Jake Vanderplas`_ :
-     general refactoring, support for sparse matrices in input, speed and 
+     general refactoring, support for sparse matrices in input, speed and
      documentation improvements. See the next section for a full list of API
      changes.
 
-   - Improvements on the :ref:`feature_selection` module by 
-     `Gilles Louppe`_ : refactoring of the RFE classes, documentation 
+   - Improvements on the :ref:`feature_selection` module by
+     `Gilles Louppe`_ : refactoring of the RFE classes, documentation
      rewrite, increased efficiency and minor API changes.
 
    - :ref:`SparsePCA` by `Vlad Niculae`_, `Gael Varoquaux`_ and
@@ -57,9 +110,8 @@ Changelog
    - :ref:`Loader for libsvm/svmlight format <libsvm_loader>` by
      `Mathieu Blondel`_ and `Lars Buitinck`_
 
-   - Documentation improvements: thumbnails in 
-     :ref:`example gallery <_examples-index>` by `Fabian Pedregosa`_, 
-     extended documentation for modules feature_selection, (...).
+   - Documentation improvements: thumbnails in
+     :ref:`example gallery <examples-index>` by `Fabian Pedregosa`_.
 
    - Important bugfixes in :ref:`svm` module (segfaults, bad
      performance) by `Fabian Pedregosa`_.
@@ -69,7 +121,7 @@ Changelog
 
    - Text feature extraction optimizations by Lars Buitinck
 
-   - Chi-Square feature selection 
+   - Chi-Square feature selection
      (:func:`feature_selection.univariate_selection.chi2`) by `Lars Buitinck`.
 
    - :ref:`sample_generators` module refactoring by `Gilles Louppe`_
@@ -86,9 +138,32 @@ Changelog
 
    - Faster mean shift by Conrad Lee
 
-   - New `Bootstrap`, `ShuffleSplit` and various other improvements in cross validation schemes by `Olivier Grisel`_ and `Gael Varoquaux`_
+   - New :ref:`Bootstrap`, :ref:`ShuffleSplit` and various other
+     improvements in cross validation schemes by `Olivier Grisel`_ and
+     `Gael Varoquaux`_
 
    - Adjusted Rand index and V-Measure clustering evaluation metrics by `Olivier Grisel`_
+
+   - Added :class:`Orthogonal Matching Pursuit <linear_model.OrthogonalMatchingPursuit>` by `Vlad Niculae`_
+
+   - Added 2D-patch extractor utilites in the :ref:`feature_extraction` module by `Vlad Niculae`_
+
+   - Implementation of :class:`linear_model.LassoLarsCV`
+     (cross-validated Lasso solver using the Lars algorithm) and
+     :class:`linear_model.LassoLarsIC` (BIC/AIC model
+     selection in Lars) by `Gael Varoquaux`_ 
+     and `Alexandre Gramfort`_
+
+   - Scalability improvements to :func:`metrics.roc_curve` by Olivier Hervieu
+
+   - Distance helper functions :func:`metrics.pairwise.pairwise_distances`
+     and :func:`metrics.pairwise.pairwise_kernels` by Robert Layton
+
+   - :class:`Mini-Batch K-Means <cluster.MiniBatchKMeans>` by Nelle Varoquaux and Peter Prettenhofer.
+
+   - :ref:`mldata` utilities by Pietro Berkes.
+
+   - :ref:`olivetti_faces` by `David Warde-Farley`_.
 
 
 API changes summary
@@ -154,6 +229,15 @@ version 0.8:
     LassoLARSCV, etc.) have been renamed to
     ``sklearn.linear_model.Lars()``.
 
+  - All distance metrics and kernels in ``sklearn.metrics.pairwise`` now have a Y
+    parameter, which by default is None. If not given, the result is the distance
+    (or kernel similarity) between each sample in Y. If given, the result is the
+    pairwise distance (or kernel similarity) between samples in X to Y.
+
+  - ``sklearn.metrics.pairwise.l1_distance`` is now called ``manhattan_distance``,
+    and by default returns the pairwise distance. For the component wise distance,
+    set the parameter ``sum_over_features`` to ``False``.
+
 Backward compatibilty package aliases and other deprecated classes and
 functions will be removed in version 0.11.
 
@@ -163,29 +247,29 @@ People
 
 38 people contributed to this release.
 
-   - 304  Olivier Grisel
-   - 212  Vlad Niculae
-   - 190  Lars Buitinck
-   - 173  Gael Varoquaux
-   - 149  Fabian Pedregosa (`INRIA`_, `Parietal Team`_)
-   - 127  Jake Vanderplas
-   - 119  Mathieu Blondel
-   - 83  Alexandre Passos
-   - 58  Alexandre Gramfort
-   - 57  Peter Prettenhofer
-   - 56  Gilles Louppe
-   - 41  Robert Layton
+   - 387  `Vlad Niculae`_
+   - 320  `Olivier Grisel`_
+   - 192  `Lars Buitinck`_
+   - 179  `Gael Varoquaux`_
+   - 168  `Fabian Pedregosa`_ (`INRIA`_, `Parietal Team`_)
+   - 127  `Jake Vanderplas`_
+   - 120  `Mathieu Blondel`_
+   - 85  `Alexandre Passos`_
+   - 67  `Alexandre Gramfort`_
+   - 57  `Peter Prettenhofer`_
+   - 56  `Gilles Louppe`_
+   - 42  Robert Layton
    - 38  Nelle Varoquaux
    - 32  Jean Kossaifi
    - 30  Conrad Lee
    - 22  Pietro Berkes
    - 18  andy
    - 17  David Warde-Farley
-   - 11  Brian Holt
+   - 12  Brian Holt
    - 11  Robert
    - 8  Amit Aides
-   - 8  Virgile Fritsch
-   - 7  Yaroslav Halchenko
+   - 8  `Virgile Fritsch`_
+   - 7  `Yaroslav Halchenko`_
    - 6  Salvatore Masecchia
    - 5  Paolo Losi
    - 4  Vincent Schut
@@ -196,12 +280,9 @@ People
    - 1  Emmanuelle Gouillart
    - 1  Keith Goodman
    - 1  Lucas Wiman
-   - 1  Nicolas Pinto
+   - 1  `Nicolas Pinto`_
    - 1  Thouis (Ray) Jones
    - 1  Tim Sheerman-Chase
-   - 1  Virgile
-   - 1  bdholt1
-   - 1  robertlayton
 
 
 .. _changes_0_8:
@@ -708,3 +789,7 @@ of commits):
 .. _Parietal Team: http://parietal.saclay.inria.fr/
 
 .. _Lars Buitinck: https://github.com/larsmans
+
+.. _David Warde-Farley: http://www-etud.iro.umontreal.ca/~wardefar/
+
+.. _Brian Holt: http://info.ee.surrey.ac.uk/Personal/B.Holt/

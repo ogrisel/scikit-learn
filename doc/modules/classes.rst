@@ -380,6 +380,8 @@ Signal Decomposition
    decomposition.NMF
    decomposition.SparsePCA
    decomposition.MiniBatchSparsePCA
+   decomposition.DictionaryLearning
+   decomposition.MiniBatchDictionaryLearning
 
 .. autosummary::
    :toctree: generated/
@@ -388,6 +390,8 @@ Signal Decomposition
    decomposition.fastica
    decomposition.dict_learning
    decomposition.dict_learning_online
+   decomposition.sparse_encode
+   decomposition.sparse_encode_parallel
 
 
 Linear Discriminant Analysis
@@ -476,6 +480,13 @@ Feature Selection
 
    feature_selection.rfe.RFE
    feature_selection.rfe.RFECV
+
+
+.. autosummary::
+   :toctree: generated/
+   :template: function.rst
+
+   feature_selection.univariate_selection.chi2
 
 
 .. _feature_extraction:

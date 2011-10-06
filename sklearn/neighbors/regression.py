@@ -175,7 +175,7 @@ class RadiusNeighborsRegressor(NeighborsBase, RadiusNeighborsMixin,
     --------
     >>> X = [[0], [1], [2], [3]]
     >>> y = [0, 0, 1, 1]
-    >>> from sklearn.neighbors import KNeighborsRegressor
+    >>> from sklearn.neighbors import RadiusNeighborsRegressor
     >>> neigh = RadiusNeighborsRegressor(radius=1.0)
     >>> neigh.fit(X, y) # doctest: +ELLIPSIS
     RadiusNeighborsRegressor(...)
@@ -234,8 +234,6 @@ class RadiusNeighborsRegressor(NeighborsBase, RadiusNeighborsMixin,
                              for (i, ind) in enumerate(neigh_ind)])
 
 
-@deprecated("deprecated in v0.9; will be removed in v0.11; "
-            "use KNeighborsRegressor or RadiusNeighborsRegressor instead")
 class NeighborsRegressor(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin,
                          SupervisedFloatMixin,
                          RegressorMixin):
@@ -349,3 +347,8 @@ class NeighborsRegressor(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin,
             # compute interpolation on y
             return np.array([np.mean(self._y[ind])
                              for ind in neigh_ind])
+
+NeighborsRegressor = deprecated(
+    "deprecated in v0.9; will be removed in v0.11; "
+    "use KNeighborsRegressor or RadiusNeighborsRegressor instead")(
+    NeighborsRegressor)
