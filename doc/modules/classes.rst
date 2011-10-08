@@ -70,6 +70,28 @@ Low-level methods
    svm.libsvm.cross_validation
 
 
+Decision Trees
+==============
+
+
+.. automodule:: sklearn.tree
+   :no-members:
+   :no-inherited-members:
+
+.. currentmodule:: sklearn
+
+.. autosummary::
+   :toctree: generated/
+   :template: class.rst
+
+   tree.DecisionTreeClassifier
+   tree.DecisionTreeRegressor
+
+.. autosummary::
+   :toctree: generated/
+   :template: function.rst
+
+
 Generalized Linear Models
 =========================
 
@@ -305,6 +327,7 @@ Clustering metrics
    metrics.homogeneity_score
    metrics.completeness_score
    metrics.v_measure_score
+   metrics.silhouette_score
 
 
 Pairwise metrics

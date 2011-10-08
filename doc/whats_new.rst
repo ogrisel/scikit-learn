@@ -5,11 +5,17 @@
 0.10
 ====
 
-   - Fixed memory leak in in :ref:`svm` module by `Brian Holt`_.
+   - New :ref:`Tree <tree>` module by `Brian Holt`_, `Peter Prettenhofer`_ 
+     and `Satrajit Ghosh`_. The module comes with complete documentation 
+     and examples.
+
+   - Fixed a bug in the RFE module by `Gilles Louppe`_ (issue #378).
+
+   - Fixed a memory leak in in :ref:`svm` module by `Brian Holt`_ (issue #367).
 
    - Faster tests by `Fabian Pedregosa`_.
 
-   - Silhoeutte Coefficient cluster analysis evaluation metric added as 
+   - Silhouette Coefficient cluster analysis evaluation metric added as 
      ``sklearn.metrics.silhouette_score`` by Robert Layton.
 
 

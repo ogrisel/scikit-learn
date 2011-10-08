@@ -47,8 +47,10 @@ def k_init(X, k, n_local_trials=None, random_state=None, x_squared_norms=None):
         Set to None to make the number of trials depend logarithmically
         on the number of seeds (2+log(k)); this is the default.
 
-    random_state: numpy.RandomState, optional
-        The generator used to initialize the centers. Defaults to numpy.random.
+    random_state: integer or numpy.RandomState, optional
+        The generator used to initialize the centers. If an integer is
+        given, it fixes the seed. Defaults to the global numpy random
+        number generator.
 
     x_squared_norms: array, shape (n_samples,), optional
         Squared euclidean norm of each data point. Pass it if you have it at
@@ -173,8 +175,10 @@ def k_means(X, k, init='k-means++', n_init=10, max_iter=300, verbose=0,
     verbose: boolean, optional
         Terbosity mode
 
-    random_state: numpy.RandomState, optional
-        The generator used to initialize the centers. Defaults to numpy.random.
+    random_state: integer or numpy.RandomState, optional
+        The generator used to initialize the centers. If an integer is
+        given, it fixes the seed. Defaults to the global numpy random
+        number generator.
 
     copy_x: boolean, optional
         When pre-computing distances it is more numerically accurate to center
@@ -312,8 +316,10 @@ def _init_centroids(X, k, init, random_state=None, x_squared_norms=None):
     init: {'k-means++', 'random' or ndarray or callable} optional
         Method for initialisation
 
-    random_state: numpy.RandomState, optional
-        The generator used to initialise the centers. Defaults to numpy.random
+    random_state: integer or numpy.RandomState, optional
+        The generator used to initialize the centers. If an integer is
+        given, it fixes the seed. Defaults to the global numpy random
+        number generator.
 
     x_squared_norms:  array, shape (n_samples,), optional
         Squared euclidean norm of each data point. Pass it if you have it at
@@ -432,6 +438,11 @@ class KMeans(BaseEstimator):
 
     tol: float, optional default: 1e-4
         Relative tolerance w.r.t. inertia to declare convergence
+
+    random_state: integer or numpy.RandomState, optional
+        The generator used to initialize the centers. If an integer is
+        given, it fixes the seed. Defaults to the global numpy random
+        number generator.
 
 
     Methods
@@ -668,6 +679,12 @@ class MiniBatchKMeans(KMeans):
     compute_labels: boolean
         Compute label assignements and inertia for the complete dataset
         once the minibatch optimization has converged in fit.
+
+    random_state: integer or numpy.RandomState, optional
+        The generator used to initialize the centers. If an integer is
+        given, it fixes the seed. Defaults to the global numpy random
+        number generator.
+
 
     Methods
     -------
