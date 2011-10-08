@@ -20,57 +20,73 @@ from sklearn.feature_extraction.text import Vectorizer
 from sklearn import metrics
 from sklearn.utils import shuffle
 from sklearn.utils import gen_even_slices
-
 from sklearn.cluster import MiniBatchKMeans
 
+###############################################################################
+# Experiment parameters
+
+rng = np.random.RandomState(1)
+n_clusters_range = np.arange(2, 21)
+n_runs = 10
+categories = [
+    'rec.autos',
+    'rec.motorcycles',
+
+    'rec.sport.baseball',
+    'rec.sport.hockey',
+
+    'alt.atheism',
+    'talk.religion.misc',
+
+    'talk.politics.misc',
+
+    'sci.space',
+
+    'comp.sys.ibm.pc.hardware',
+    'comp.sys.mac.hardware',
+]
+
+# parameters for the clustering model
+parameters = {
+    "init": "random",
+    "max_iter": 10,
+    "chunk_size": 1000,
+    "verbose": 0,
+    "random_state": rng,
+    "tol": 1e-4,
+}
 
 ###############################################################################
 # Load some categories from the training set
-categories = [
-    'alt.atheism',
-    'talk.religion.misc',
-    'comp.graphics',
-    'sci.space',
-]
-# Uncomment the following to do the analysis on all the categories
-# categories = None
 
-print "Loading 20 newsgroups dataset for categories:"
-print categories
-
-dataset = fetch_20newsgroups(subset='train', categories=categories,
-                            shuffle=True, random_state=42)
+print "Loading 20 newsgroups dataset"
+dataset = fetch_20newsgroups(
+    subset='train', categories=categories, shuffle=True, random_state=rng)
 
 documents = dataset.data
 labels = dataset.target
 target_names = dataset.target_names
-true_n_clusters = np.unique(labels).shape[0]
-
-n_clusters_range = np.arange(2, 21)
-n_runs = 10
 n_samples = len(documents)
 
 print "%d documents" % n_samples
 print "%d categories" % len(target_names)
 print
 
-
 print "Extracting features from the training dataset using a sparse vectorizer"
 t0 = time()
 vectorizer = Vectorizer(max_df=0.95, max_features=10000)
-X = vectorizer.fit_transform(documents)
+X_orig = vectorizer.fit_transform(documents)
 print "done in %fs" % (time() - t0)
-print "n_samples: %d, n_features: %d" % X.shape
+print "n_samples: %d, n_features: %d" % X_orig.shape
 print
 
 scores = np.zeros((n_clusters_range.shape[0], n_runs))
-rng = np.random.RandomState(42)
 
 for j in range(n_runs):
     t0 = time()
 
     # sample two overlapping sub-datasets
-    X = shuffle(X, random_state=rng)
+    X = shuffle(X_orig, random_state=rng)
     X_a, X_b, X_c = [X[s] for s in gen_even_slices(n_samples, 3)]
 
     X_ab = sp.vstack((X_a, X_b)).tocsr()
@@ -80,13 +96,8 @@ for j in range(n_runs):
 
     for i, k in enumerate(n_clusters_range):
         # find a clustering for each sub-sample
-        model_ab = MiniBatchKMeans(k, init="random", max_iter=10,
-                                   random_state=i, chunk_size=1000,
-                                   verbose=0).fit(X_ab)
-
-        model_ac = MiniBatchKMeans(k, init="random", max_iter=10,
-                                   random_state=i, chunk_size=1000,
-                                   verbose=0).fit(X_ac)
+        model_ab = MiniBatchKMeans(k, **parameters).fit(X_ab)
+        model_ac = MiniBatchKMeans(k, **parameters).fit(X_ac)
 
         # extract the label assignment on the overlap
         labels_ab = model_ab.labels_[:n_common]
@@ -98,7 +109,19 @@ for j in range(n_runs):
 
     print "Run %d/%d done in %0.2fs" % (j + 1, n_runs, time() - t0)
 
+print
+
+n_top = 10
+best_mean_scores = scores.mean(axis=1).argsort()[:-(n_top + 1):-1]
+print "Top %d optimal number of clusters in range:" % (n_top)
+for idx in best_mean_scores:
+    print "n_clusters=%d\tconsensus=%0.3f (%0.3f)" % (
+        n_clusters_range[idx], scores.mean(axis=1)[idx],
+        scores.std(axis=1)[idx])
+
 pl.errorbar(n_clusters_range, scores.mean(axis=1), scores.std(axis=1))
+pl.plot(n_clusters_range, scores.max(axis=1), 'k--', label='max')
+pl.plot(n_clusters_range, scores.min(axis=1), 'k--', label='min')
 pl.title("Consensus model selection for Document Clustering\n"
          "on the 20 newsgroups dataset")
 pl.xlabel("Number of centers")
