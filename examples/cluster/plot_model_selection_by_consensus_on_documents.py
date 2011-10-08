@@ -80,6 +80,11 @@ print "done in %fs" % (time() - t0)
 print "n_samples: %d, n_features: %d" % X_orig.shape
 print
 
+###############################################################################
+# Perform a grid search for the optimal number of clusters
+
+print "Estimating the consensus for various values of n_clusters"
+
 scores = np.zeros((n_clusters_range.shape[0], n_runs))
 
 for j in range(n_runs):
@@ -118,6 +123,7 @@ for idx in best_mean_scores:
     print "n_clusters=%d\tconsensus=%0.3f (%0.3f)" % (
         n_clusters_range[idx], scores.mean(axis=1)[idx],
         scores.std(axis=1)[idx])
+print
 
 pl.errorbar(n_clusters_range, scores.mean(axis=1), scores.std(axis=1))
 pl.plot(n_clusters_range, scores.max(axis=1), 'k--', label='max')
@@ -127,3 +133,21 @@ pl.title("Consensus model selection for Document Clustering\n"
 pl.xlabel("Number of centers")
 pl.ylabel("Mean Consensus ARI score on %d runs" % n_runs)
 pl.show()
+
+###############################################################################
+# Displaying the learned centers in feature space
+
+n_clusters = n_clusters_range[best_mean_scores[0]]
+print "Fitting a model on the complete data with n_clusters=%d" % n_clusters
+t0 = time()
+model = MiniBatchKMeans(n_clusters, **parameters).fit(X_orig)
+inverse_vocabulary = dict((v, k) for k, v in vectorizer.vocabulary.iteritems())
+print "done in %fs" % (time() - t0)
+print
+
+n_top_words = 10
+for center_idx, center in enumerate(model.cluster_centers_):
+    print "Cluster #%d:" % center_idx
+    print " ".join([inverse_vocabulary[i]
+                    for i in center.argsort()[:-(n_top_words + 1):-1]])
+    print
