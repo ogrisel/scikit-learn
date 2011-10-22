@@ -758,13 +758,15 @@ class MiniBatchKMeans(KMeans):
 
         min_inertia = np.inf
         no_improvement = 0
+        restarted = False
+
         for i, batch_slice in izip(xrange(n_iterations), cycle(batch_slices)):
             inertia = _mini_batch_step(X_shuffled, x_squared_norms, batch_slice,
                                        self.cluster_centers_, self.counts)
 
             # normalize inertia to be able to compare values when chunk_size
             # changes
-            inertia /= float(batch_slice.stop - batch_slice.start)
+            #inertia /= float(batch_slice.stop - batch_slice.start)
 
             if inertia < min_inertia:
                 min_inertia = inertia
@@ -782,7 +784,40 @@ class MiniBatchKMeans(KMeans):
                 if self.verbose:
                     print 'No improvement after %d: early stopping' % (
                         self.max_no_improvement)
-                break
+                if restarted:
+                    break
+
+                # find cluster with few counts and restart with all counts
+                # reset to zero
+                sorted_center_ids = self.counts.argsort()
+                threshold = self.counts[sorted_center_ids[self.k / 2]] / 2
+
+                reallocated = [i for i in sorted_center_ids
+                               if self.counts[i] < threshold]
+
+                if reallocated:
+                    if self.verbose:
+                        print 'Re-allocating %d bad clusters' % len(reallocated)
+                else:
+                    if self.verbose:
+                        print 'No bad cluster to reallocate: stopping'
+                    break
+
+                centers = self.cluster_centers_
+                for i, j in enumerate(reallocated):
+                    # replace worst centers by variation best
+                    better_id = sorted_center_ids[-(i + 1)]
+                    centers[j, :] = centers[better_id, :]
+                    centers[j] += self.random_state.normal(size=(n_features,))
+
+                # reset the counts to allow the centers to move using the new
+                # init
+                self.counts.fill(0)
+                no_improvement = 0
+                min_inertia = np.inf
+                restarted = False
+                if self.verbose:
+                    print 'Re-starting after reseting the counts'
 
         if self.compute_labels:
             if self.verbose:
