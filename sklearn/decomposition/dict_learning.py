@@ -20,26 +20,27 @@ from ..utils.extmath import fast_svd
 from ..linear_model import Lasso, orthogonal_mp_gram, lars_path
 
 
-def sparse_encode(X, Y, gram=None, cov=None, algorithm='lasso_lars',
-                  n_nonzero_coefs=None, alpha=None,
+def sparse_encode(dictionary, data, gram=None, cov=None,
+                  algorithm='lasso_lars', n_nonzero_coefs=None, alpha=None,
                   copy_gram=True, copy_cov=True, init=None):
     """Generic sparse coding
 
-    Each column of the result is the solution to a Lasso problem.
+    Each column of the result is the solution to a Lasso or Orthogonal
+    Matching Pursuit problem.
 
     Parameters
     ----------
-    X: array of shape (n_samples, n_components)
+    dictionary: array of shape (n_samples, n_components)
         Dictionary against which to optimize the sparse code.
 
-    Y: array of shape (n_samples, n_features)
+    data: array of shape (n_samples, n_features)
         Data matrix.
 
     gram: array, shape=(n_components, n_components)
-        Precomputed Gram matrix, X^T * X
+        Precomputed Gram matrix for the dictionary, dictionary^T * dictionary
 
     cov: array, shape=(n_components, n_features)
-        Precomputed covariance, X^T * Y
+        Precomputed covariance, dictionary^T * data
 
     algorithm: {'lasso_lars', 'lasso_cd', 'lars', 'omp', 'threshold'}
         lars: uses the least angle regression method (linear_model.lars_path)
@@ -49,7 +50,7 @@ def sparse_encode(X, Y, gram=None, cov=None, algorithm='lasso_lars',
         the estimated components are sparse.
         omp: uses orthogonal matching pursuit to estimate the sparse solution
         threshold: squashes to zero all coefficients less than alpha from
-        the projection X.T * Y
+        the projection dictionary.T * data
 
     n_nonzero_coefs: int, 0.1 * n_features by default
         Number of nonzero coefficients to target in each column of the
@@ -89,34 +90,34 @@ def sparse_encode(X, Y, gram=None, cov=None, algorithm='lasso_lars',
     linear_model.Lasso
     """
     alpha = float(alpha) if alpha is not None else None
-    X = np.asarray(X)
-    Y = np.asarray(Y)
-    if Y.ndim == 1:
-        Y = Y[:, np.newaxis]
-    n_features = Y.shape[1]
+    dictionary = np.asarray(dictionary)
+    data = np.asarray(data)
+    if data.ndim == 1:
+        data = data[:, np.newaxis]
+    n_features = data.shape[1]
     # This will always use Gram
     if gram is None:
         # I think it's never safe to overwrite Gram when n_features > 1
         # but I'd like to avoid the complicated logic.
         # The parameter could be removed in this case. Discuss.
-        gram = np.dot(X.T, X)
+        gram = np.dot(dictionary.T, dictionary)
     if cov is None and algorithm != 'lasso_cd':
         # overwriting cov is safe
         copy_cov = False
-        cov = np.dot(X.T, Y)
+        cov = np.dot(dictionary.T, data)
 
     if algorithm == 'lasso_lars':
         if alpha is None:
             alpha = 1.
         try:
-            new_code = np.empty((X.shape[1], n_features))
+            new_code = np.empty((dictionary.shape[1], n_features))
             err_mgt = np.seterr(all='ignore')
             for k in range(n_features):
                 # A huge amount of time is spent in this loop. It needs to be
                 # tight.
-                _, _, coef_path_ = lars_path(X, Y[:, k], Xy=cov[:, k],
-                                             Gram=gram, alpha_min=alpha,
-                                             method='lasso')
+                _, _, coef_path_ = lars_path(dictionary, data[:, k],
+                                             Xy=cov[:, k], Gram=gram,
+                                             alpha_min=alpha, method='lasso')
                 new_code[:, k] = coef_path_[:, -1]
         finally:
             np.seterr(**err_mgt)
@@ -124,7 +125,7 @@ def sparse_encode(X, Y, gram=None, cov=None, algorithm='lasso_lars',
     elif algorithm == 'lasso_cd':
         if alpha is None:
             alpha = 1.
-        new_code = np.empty((X.shape[1], n_features))
+        new_code = np.empty((dictionary.shape[1], n_features))
         clf = Lasso(alpha=alpha, fit_intercept=False, precompute=gram,
                     max_iter=1000)
         for k in xrange(n_features):
@@ -132,20 +133,21 @@ def sparse_encode(X, Y, gram=None, cov=None, algorithm='lasso_lars',
             # tight.
             if init is not None:
                 clf.coef_ = init[:, k]  # Init with previous value of Vk
-            clf.fit(X, Y[:, k])
+            clf.fit(dictionary, data[:, k])
             new_code[:, k] = clf.coef_
 
     elif algorithm == 'lars':
         if n_nonzero_coefs is None:
             n_nonzero_coefs = n_features / 10
         try:
-            new_code = np.empty((X.shape[1], n_features))
+            new_code = np.empty((dictionary.shape[1], n_features))
             err_mgt = np.seterr(all='ignore')
             for k in xrange(n_features):
                 # A huge amount of time is spent in this loop. It needs to be
                 # tight.
-                _, _, coef_path_ = lars_path(X, Y[:, k], Xy=cov[:, k],
-                                             Gram=gram, method='lar',
+                _, _, coef_path_ = lars_path(dictionary, data[:, k],
+                                             Xy=cov[:, k], Gram=gram,
+                                             method='lar',
                                              max_iter=n_nonzero_coefs)
                 new_code[:, k] = coef_path_[:, -1]
         finally:
@@ -159,7 +161,7 @@ def sparse_encode(X, Y, gram=None, cov=None, algorithm='lasso_lars',
     elif algorithm == 'omp':
         if n_nonzero_coefs is None and alpha is None:
             n_nonzero_coefs = n_features / 10
-        norms_squared = np.sum((Y ** 2), axis=0)
+        norms_squared = np.sum((data ** 2), axis=0)
         new_code = orthogonal_mp_gram(gram, cov, n_nonzero_coefs, alpha,
                                       norms_squared, copy_Xy=copy_cov
                                       )
@@ -169,26 +171,27 @@ def sparse_encode(X, Y, gram=None, cov=None, algorithm='lasso_lars',
     return new_code
 
 
-def sparse_encode_parallel(X, Y, gram=None, cov=None, algorithm='lasso_lars',
-                  n_nonzero_coefs=None, alpha=None, copy_gram=True,
-                  copy_cov=True, init=None, n_jobs=1):
+def sparse_encode_parallel(dictionary, data, gram=None, cov=None,
+                           algorithm='lasso_lars', n_nonzero_coefs=None,
+                           alpha=None, copy_gram=True, copy_cov=True,
+                           init=None, n_jobs=1):
     """Parallel sparse coding using joblib
 
     Each column of the result is the solution to a Lasso problem.
 
     Parameters
     ----------
-    X: array of shape (n_samples, n_components)
+    dictionary: array of shape (n_samples, n_components)
         Dictionary against which to optimize the sparse code.
 
-    Y: array of shape (n_samples, n_features)
+    data: array of shape (n_samples, n_features)
         Data matrix.
 
     gram: array, shape=(n_components, n_components)
-        Precomputed Gram matrix, X^T * X
+        Precomputed Gram matrix, dictionary^T * dictionary
 
     cov: array, shape=(n_components, n_features)
-        Precomputed covariance, X^T * Y
+        Precomputed covariance, dictionary^T * data
 
     algorithm: {'lasso_lars', 'lasso_cd', 'lars', 'omp', 'threshold'}
         lars: uses the least angle regression method (linear_model.lars_path)
@@ -198,7 +201,7 @@ def sparse_encode_parallel(X, Y, gram=None, cov=None, algorithm='lasso_lars',
         the estimated components are sparse.
         omp: uses orthogonal matching pursuit to estimate the sparse solution
         threshold: squashes to zero all coefficients less than alpha from
-        the projection X.T * Y
+        the projection dictionary.T * data
 
     n_nonzero_coefs: int, 0.1 * n_features by default
         Number of nonzero coefficients to target in each column of the
@@ -240,21 +243,22 @@ def sparse_encode_parallel(X, Y, gram=None, cov=None, algorithm='lasso_lars',
     linear_model.orthogonal_mp
     linear_model.Lasso
     """
-    n_samples, n_features = Y.shape
-    n_components = X.shape[1]
+    n_samples, n_features = data.shape
+    n_components = dictionary.shape[1]
     if gram is None:
         copy_gram = False
-        gram = np.dot(X.T, X)
+        gram = np.dot(dictionary.T, dictionary)
     if cov is None and algorithm != 'lasso_cd':
         copy_cov = False
-        cov = np.dot(X.T, Y)
+        cov = np.dot(dictionary.T, data)
     if n_jobs == 1 or algorithm == 'threshold':
-        return sparse_encode(X, Y, gram, cov, algorithm, n_nonzero_coefs,
-                             alpha, copy_gram, copy_cov, init)
+        return sparse_encode(dictionary, data, gram, cov, algorithm,
+                             n_nonzero_coefs, alpha, copy_gram, copy_cov,
+                             init)
     code = np.empty((n_components, n_features))
     slices = list(gen_even_slices(n_features, n_jobs))
     code_views = Parallel(n_jobs=n_jobs)(
-                delayed(sparse_encode)(X, Y[:, this_slice], gram,
+                delayed(sparse_encode)(dictionary, data[:, this_slice], gram,
                                        cov[:, this_slice], algorithm,
                                        n_nonzero_coefs, alpha,
                                        copy_gram, copy_cov,
@@ -585,6 +589,7 @@ def dict_learning_online(X, n_atoms, alpha, n_iter=100, return_code=True,
     if n_atoms <= r:
         dictionary = dictionary[:n_atoms, :]
     else:
+        # pad with zeros: zero atoms will be filled with random samples later:
         dictionary = np.r_[dictionary,
                            np.zeros((n_atoms - r, dictionary.shape[1]))]
     dictionary = np.ascontiguousarray(dictionary.T)
