@@ -110,13 +110,21 @@ def test_dict_learning_online_partial_fit():
 
 
 def test_sparse_code():
+    n_samples = 5
+    n_features = 3
+    n_components = 10
+    alpha = 1.0
+
     rng = np.random.RandomState(0)
-    dictionary = rng.randn(10, 3)
-    real_code = np.zeros((3, 5))
-    real_code.ravel()[rng.randint(15, size=6)] = 1.0
-    Y = np.dot(dictionary, real_code)
-    est_code_1 = sparse_encode(dictionary, Y, alpha=1.0)
-    est_code_2 = sparse_encode_parallel(dictionary, Y, alpha=1.0)
+
+    dictionary = rng.randn(n_components, n_features)
+    real_code = np.zeros((n_samples, n_components))
+    real_code.ravel()[rng.randint(n_components * n_samples, size=6)] = 1.0
+    data = np.dot(real_code, dictionary)
+
+    est_code_1 = sparse_encode(dictionary, data, alpha=alpha)
+    est_code_2 = sparse_encode_parallel(dictionary, data, alpha=alpha)
+
     assert_equal(est_code_1.shape, real_code.shape)
     assert_equal(est_code_1, est_code_2)
     assert_equal(est_code_1.nonzero(), real_code.nonzero())
