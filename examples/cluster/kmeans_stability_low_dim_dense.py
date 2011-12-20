@@ -95,7 +95,7 @@ for factory, init, params in cases:
     else:
         legends.append("%s with %s init" % (factory.__name__, init))
 
-
+plots = [plot[0] for plot in plots]  # take only the first line in each plot
 pl.xlabel('n_init')
 pl.ylabel('inertia')
 pl.legend(plots, legends)
