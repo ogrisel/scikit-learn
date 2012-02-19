@@ -33,7 +33,6 @@ order. If a feature has a variance that is orders of magnitude larger
 that others, it might dominate the objective function and make the
 estimator unable to learn from other features correctly as expected.
 
-
 The function :func:`scale` provides a quick and easy way to perform this
 operation on a single array-like dataset::
 
@@ -135,6 +134,7 @@ of :class:`Scaler`.
     :func:`scale` and :class:`Scaler` work out-of-the-box with 1d arrays.
     This is very useful for scaling the target / response variables used
     for regression.
+
 
 Normalization
 =============
