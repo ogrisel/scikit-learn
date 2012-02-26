@@ -50,8 +50,10 @@ training samples::
     >>> clf = RandomForestClassifier(n_estimators=10)
     >>> clf = clf.fit(X, Y)
 
+
 Random Forests
 --------------
+
 In random forests (see :class:`RandomForestClassifier` and
 :class:`RandomForestRegressor` classes), each tree in the ensemble is built from
 a sample drawn with replacement (i.e., a bootstrap sample) from the training
@@ -68,8 +70,11 @@ implementation combines classifiers by averaging their probabilistic
 prediction, instead of letting each classifier vote for a single class.
 
 
+.. _extra_trees:
+
 Extremely Randomized Trees
 --------------------------
+
 In extremely randomized trees (see :class:`ExtraTreesClassifier` and
 :class:`ExtraTreesRegressor` classes), randomness goes one step further in the
 way splits are computed. As in random forests, a random subset of candidate
@@ -139,6 +144,7 @@ See :ref:`Complexity of trees<tree_complexity>` for details.
 
 Parallelization
 ---------------
+
 Finally, this module also features the parallel construction of the trees and
 the parallel computation of the predictions through the ``n_jobs`` parameter. If
 ``n_jobs=k`` then computations are partitioned into ``k`` jobs, and run on ``k``

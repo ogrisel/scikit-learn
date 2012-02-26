@@ -35,6 +35,7 @@ The disadvantages of Stochastic Gradient Descent include:
 
     + SGD is sensitive to feature scaling.
 
+
 Classification
 ==============
 

@@ -11,6 +11,7 @@ the relevant sections of the documentation along with worked examples
 that can be re-used or adapted.
 
 
+.. _which_algorithm:
 
 Which machine learning algorithm to use?
 ========================================
@@ -23,10 +24,11 @@ What is the nature of the problem I am trying to solve?
 
   See :ref:`which_algorithm_for_classification`
 
-- Predict one or more continous variable(s) based on passed obsevered values?
+- Predict one or more continous variable(s) based on passed obsevered
+  values?
 
-  Example: predict the some gene expression level depending on the activity of
-  other genes.
+  Example: predict the some gene expression level depending on the
+  activity of other genes.
 
   See :ref:`which_algorithm_for_regression`
 
@@ -53,22 +55,138 @@ What is the nature of the problem I am trying to solve?
 - Build a recommender system to suggest interesting "things" to the
   users based on their history
 
-  Examples: suggest products a user would be more likely to buy
+  Examples: suggest products a user would be more likely to buy based
+  on past purchasing history and similarity with other user purchasing
+  habits.
 
   See :ref:`how_to_recommender_system`
 
+
+.. _what_is_the_best_algorithm:
+
+What is the best machine learning algorithm?
+============================================
+
+Machine Learning is a wide field and different algorithms are
+used to solve different kinds of machine learning problems, see
+:ref:`which_algorithm`.
+
+The bad news is that **even for a specific task, there is no free lunch**:
+there is no algorithm that will be best (in terms of some predictive
+accuracy metrics) than others on all possible datasets. Hence the usual
+need to make assumptions on the data
+
+Finally there are several ways to define what is a "good" algorithm. In
+particular we might look for some or all of the following properties:
+
+- good predictive accuracy evaluation both for supervised and for
+  unsupervised models (see :ref:`howto_measure_performance_classification`
+  and :ref:`howto_measure_performance_clustering`),
+
+- short training time and good scalability w.r.t. number of samples and
+  features,
+
+- short prediction time,
+
+- low memory usage,
+
+- ability to leverage mutiple cores or even nodes in a HPC cluster,
+
+- ability to increment an existing model when new data is available
+  without restarting from scratch (warm restarts and online learning).
+
+
+For instance:
+
+- Nearest Neighbor models models will have very low training time but
+  potentially much higher prediction times and high memory usage.
+
+- Some linear models such as :ref:`perceptron` or :ref:`sgd` are usually
+  much faster to train, have a low memory usage (compared to the
+  original training set) and very fast prediction times. However they
+  make the string assumption that the data is :ref:`linearly separable
+  <is_linearly_separable>`, hence will get poor predictive accuracy if
+  it is not the case.
+
+- More complex models such as :ref:`extra_trees` will be potentially
+  more slower to train yet reasonably fast to make predictions and will
+  be able to perform reasonably well on a much wider scope of datasets
+  than linear models.
+
+
+.. topic:: References:
+
+  TODO: find a good reference that can serve as an intuitive intro to
+  the No Free Lunch Theorem (or improve the wikipedia abstract to make
+  it clearer).
 
 
 Which algorithm for classification?
 ===================================
 
-Is the data linearly separable? See
+The first question to ask is
+:ref:`Is the data linearly separable? <is_linearly_separable>`.
 
-Is the natural representation of the input sparse?
+If you don't know, make the assumption first (the linear model are
+simpler hence probably faster to train) and relax it if it fails.
 
-  -
 
-Are there many samples in the training set?
+Classifiers that assume linearly separable data
+-----------------------------------------------
+
+- Is the natural representation of the input sparse?
+
+  The following linear classifiers are able to deal with sparse input:
+
+  - TODO list them and don't forget naive bayes
+
+- Are there many samples in the training set?
+
+  The following linear classifiers are known to be able to scale to a
+  large number of samples efficiently (more than 100k samples):
+
+  - :class:`sklearn.linear_model.Perceptron`
+  - :class:`sklearn.linear_model.SGDClassifier`
+  - :class:`sklearn.linear_model.LogisticRegression`
+  - :class:`sklearn.linear_model.LinearSVC`
+
+- Are there few samples in the training set:
+
+  The following models are known to be able deal efficiently with datasets where
+  `n_samples << n_features`
+
+  - :class:`sklearn.linear_model.RidgeClassifier`
+  - :class:`sklearn.linear_model.RidgeClassifierCV` (dense data only)
+  - :class:`sklearn.linear_model.RidgeClassifierCV` (dense data only)
+
+
+TODO: finalize the time vs f1 score plot on the text classification
+models and link to it here.
+
+Classifiers that don't assume linearly separable data
+-----------------------------------------------------
+
+TODO: kernel models and forests
+
+TODO: Warning on scalability of SVC + link to RBF kernel approximation.
+
+
+.. topic:: A good baseline: NearestNeighborClassifier
+
+  NearestNeighborClassifier is not a very practical classifier as it
+  keeps a copy of the training set in memory and has comparatively slow
+  prediction times (but fast training times, especially in bruteforce
+  mode as no training is done in that case).
+
+  However it is a very simple model with very few hyper-parameters (the
+  default should work well in many cases). Iti s thus a good practice
+  to use it as a sanity check to evaluate the predictive performance of
+  smarter classifiers against. See
+  :ref:`howto_measure_performance_classification`.
+
+  If the other classifier is performing significantly worst than
+  NearestNeighborClassifier there might be a problem in its configuration,
+  see :ref:`howto_improve_classification_perf`.
 
 
 Which algorithm for multi-label classification?
@@ -76,33 +194,117 @@ Which algorithm for multi-label classification?
 
 
 
-How to increase the classification performance?
-===============================================
+.. _howto_improve_classification_perf:
 
-- ensure you have a sound way to measure the performance
+How to improve the classification performance?
+==============================================
+
+- Ensure you have a sound way to measure the performance:
   :ref:`howto_measure_performance_classification`
 
-- check that the data is preprocessed correctly
+- Ensure that the quality of the dataset is at least as good as you expect
+  it to be: hide the labels and make predictions manually by looking
+  at the input data on 30 or more random samples and compare those
+  predictions to the data set labels to have a rough idea of the precision
+  of the labels. If your data has noisy labels don't expect the machine
+  learning algorithm to do any better: **garbage in, garbage out**.
+
+- Count the number of times a class is occurring in the training
+  set. Ensure that you have enough training samples for each class: in
+  general you should not expect to learn anything interesting with less
+  than 10 samples per class. Better have at least hundreds or thousands
+  samples per target classes.
+
+- Ensure that the data has been preprocessed correctly:
   :ref:`howto_preprocess`
 
-- perform a grid search for the best parameters, see
+- Perform a grid search for the best parameters, see
   :ref:`howto_choose_parameters_classification`
 
-- eliminate noisy features
+- If one of the class is over/under-represented in this can break
+  assumptions made by the classifier and make it perform poorly, see
+  :ref:`how_imbalanced_data`.
 
-- use unsupervied data to improve the model: semi supervised and active
-  learning
+- Analyze the error to understand whether you are most suffering from
+  excessive bias or variance, see
+  :ref:`howto_analyze_classification_error`
+
+  If you have little bias (low training error) but high variance
+  (significantly larger test error than training error) despite
+  optimal selection of the regularization parameters through grid
+  search, try to increase the bias with simpler models (such as
+  ref:`linear_model` or :ref:`naive_bayes`), :ref:`dimensionality
+  reduction <howto_dimensionality_eduction>` or :ref:`feature selection
+  <howto_feature_selection>` to get rid of noisy features.
+
+  If you have a high bias but low variance error profile, try to fit
+  more complex models (such as :ref:`SVM with non linear kernels <svm>`
+  or :ref:`forest`).
+
+- Manually inspect samples that were badly classified and see what
+  kind of additional features would help the model resolve such
+  ambiguities.
+
+  TODO: point on an example that does that.
+
+If you are still unhappy you can:
+
+- try to use unsupervied data to improve the model
+  with semi-supervised and / or active learning.
+
+- check whether you need to deal with :ref:`covariate shift correction
+  <howto_covariate_shift_correction>`.
 
 
 How to measure the performance of a classification algorithm?
 =============================================================
 
+TODO Explain re-balancing a dataset.
+
+
+.. _howto_analyze_classification_error:
+
+How to analyze the classification error?
+========================================
+
+TODO: explain bias and variance concepts
+
+TODO: simple case: measure train and test error
+
+TODO: more CPU intensive analysis: learning curves
+
+Wrap https://gist.github.com/1540431 as an sklearn example and include some
+sample plots.
+
+Link to:
+
+  http://digitheadslabnotebook.blogspot.com/2011/12/practical-advice-for-applying-machine.html
+
+.. topic:: What if I get both high bias and variance?
+
+  If you do a grid search for the regularization parameter and the
+  optimal value still has both significant bias and variance it means
+  that assumptions made by the algorithm do not hold: the optimal does
+  not lie on this regularization path or that the data quality to too
+  bad to get anything useful out of it.
+
+  If after manual inspection you are pretty confident that the
+  data is good.  Try more complex models such as for instance
+  :ref:`extra_trees`. Some people say that they always work if you have
+  powerful enough hardware :)
+
 
 How to choose the parameters of a classification algorithm?
 ===========================================================
 
-Explain grid search / model selection:
+Explain grid search / model selection.
 
+TODO: link to narrative doc
+
+TODO: link to examples
+
+
+.. _howto_preprocess:
 
 How to pre-process the data?
 ============================
@@ -110,6 +312,14 @@ How to pre-process the data?
 Many machine learning algorithms expect that input variables are
 approximately centered aroun zeros or at least have roughly the same
 scale: the feature wise variances be close to 1.0.
+
+.. topic:: A special case: decision trees and random forests
+
+  The recommendation in this section do not necessarily apply to all
+  algorithms. In particular decision tree-based models are known to be
+  robust to unscaled features.
+
+  See the sections on :ref:`tree` and :ref:`forest`.
 
 Regression models can further expect the target variable to be scaled to
 the [-1, 1] range as well.
@@ -161,12 +371,86 @@ How to deal with image data?
 ============================
 
 
-How to deal with samples with very few non zero features?
-=========================================================
+.. _howto_imbalanced_data:
 
+How to deal with imbalanced data (in a classification problem)?
+===============================================================
+
+List classifiers with that support class_weight
+
+
+.. _howto_covariate_shift_correction:
+
+How to deal with biased label distributions (covariate shift correction)?
+=========================================================================
+
+TODO explain howto detect, write an example in scikit learn, point to
+it along with a link to:
+
+http://blog.smola.org/post/4110255196/real-simple-covariate-shift-correction
+
+
+.. _howto_very_sparse_samples:
+
+How to deal with very sparse samples?
+=====================================
+
+Very sparse datasets (e.g. samples with around 20 non zeros out of
+a vocabulary of hundred thousands such as short social network text
+messages) can be hard to classify because of the sparsity it-self.
+
+This is especially true when the number of labeled samples is low but
+that we have a much larger amount of unlabeled data at our disposal:
+some feature might not be seen in the labeled training set while being
+highly correlated to another feature that is discriminant. Unsupervised
+methods such as PCA or k-means clustering can be used to exploit such
+correlated features in an unsupervised way to as to build new topical
+features with a broader coverage to feed them the classifier.
+
+TODO: write and example demonstrating how to do semi-supervised learning
+or transductive learning on short text classification with PCA or k-means
+and link to it.
+
+
+How to use PCA for classification?
+==================================
+
+Principal Component Analysis is a fundamentally unsupervised algorithm:
+it completely ignores any provided supervised labels to find the principal
+component directions.
+
+However PCA is often used as a dimensionality reduction preprocessing
+step for training supervised classifiers.
+
+Preprocessing with PCA can also be useful when classifying when working
+very sparse high dimensional data: each sample can have very few non
+zero features causing the classifier to perform badly by being unable
+to detect synonymic features: see :ref:`howto_very_sparse_samples`.
+
+TODO: add links to the doc and examples.
+
+TODO: add RandomizedPCA to the preprocessing documentation along with
+a simple Pipeline example to demonstrate the transformer pattern.
+
+
+
+.. _is_linearly_separable:
 
 Is my data linearly separable?
 ==============================
+
+TODO merge in the examples from the tutorials into the main doc so as
+to be able reference it with an internal link here.
+
+In practice very high dimensional datasets (for instance features
+extracted from text or transactional data) are more likely to be
+approximately linearly separable.
+
+Lower dimensional datasets such as the ones used in computer vision,
+audio or neuro imagery related tasks are likely to be non linearly
+separable as the measured data generally a low dimensional projection
+of hidden higher dimensional manifolds.
+
 
 For classification
 ------------------
@@ -181,6 +465,14 @@ overfitting issues.
 If not, linear model will fail due to their lack of degrees of freedom and more
 complex models such as non linear kernel support vector machines or random
 forests of decision trees.
+
+In practice on can quickly tests whether a problem as a chance
+to be linearly separable by trying to fit a simple linear model
+such as :class:`sklearn.linear_model.Perceptron`. If the results
+is good (f1-score more than 0.8) then the linear separability
+assumption might be reasonable. A more complete :ref:`error analysis
+<howto_analyze_classification_error>` will help further decide whether
+the linearly separable assumption is a good bias or not.
 
 
 For regression
@@ -265,7 +557,7 @@ How to find the parameters of a regression model?
 Which algorithm for clustering?
 ===============================
 
-- Is the input data sparse and or ?
+- Is the input data sparse (see :ref:`what_is_sparse_data`)?
 
   - KMeans
 
@@ -294,10 +586,14 @@ Which algorithm for clustering?
 See also the documentation section on :ref:`clustering`.
 
 
+.. _howto_feature_selection:
+
 How to filter non-important features (observered variables)?
 ============================================================
 
 
+
+.. _howto_clustering_perf:
 
 How to measure the performance of clustering algorithm?
 =======================================================
@@ -314,6 +610,8 @@ How to choose the number of clusters?
 - if for feature extraction: pickup an arbitrary large yet tracktable
   number of cluster (e.g. 100 for MiniBatchKMeans)
 
+
+.. _what_is_sparse_data:
 
 What is sparse data and what is it good for?
 ============================================
@@ -359,13 +657,16 @@ tutorial explains how to build and manipulate such datastructures.
 
   http://scipy-lectures.github.com/advanced/scipy_sparse/index.html
 
-If a scipy.sparse matrix is used for representing the word frequencies of our
-previous examples we will have approximately to allocate::
+If a ``scipy.sparse`` matrix is used for representing the word frequencies
+of our previous examples we will have approximately to allocate::
 
   50000 * 1000 * 2 * 8 / (1024 ** 2) == 762 MB
 
 Which is much more reasonable and can be handled and processed on today
-consumer laptops.
+consumer laptops. Note that this is not just a problem of memory: if
+the algorithms skips the zeros (for instance when doing a dot product
+of two samples) much less data has to be processed and the processing
+can be much faster too.
 
 In scikit-learn we mostly use:
 
@@ -389,23 +690,42 @@ Also note that only the CSR format can be efficiently sliced / indexed
 along the samples axis so as to form cross-validation folds for instance.
 
 
+.. _how_to_get_help:
+
 How to get help efficiently on the mailing list?
 ================================================
 
-- which platform (Linux, Max, Windows?), which version of scikit-learn, numpy,
-  scipy, was scikit-learn build from source?
+If this FAQ, the documentation and the examples do not answer your
+questions, please feel free to subscribe to the :ref:`project mailing
+list <mailing_lists>` to ask them there.
 
-- what is the goal (binary, multiclass, multilabel classification, regression,
-  clustering, other?)
+In order to maximize the chances to get useful replies please make sure give
+details on the following:
 
-- if error: full error message / traceback
+- which platform (Linux, Max, Windows?), which version of scikit-learn,
+  numpy, scipy, was scikit-learn build from source?
 
-- what kind of data (text features, is so which?, numerical ranges, categorical
-  features).
+- what is the primary type of task your are trying to achieve: binary
+  classification, multiclass classification, multilabel classification,
+  regression, clustering, other? (See :ref:`which_algorithm`)
 
-- how many samples, how many
+- if you get an error when trying to use scikit-learn, please include the
+  full error message (including the traceback) and a minimalistic script to
+  reproduce it.
 
-- which preprocessing was applied
+- what kind of data are you dealing with: text features, is so which?,
+  numerical ranges, categorical features...
 
-- minimalistic reproduction script (10 / 20 lines) + sample data files on
-  gist.github.com for instance
+- which preprocessing was applied ()?
+
+- how many samples, how many features where extracted, are you using
+  a :ref:`sparse reprensation <what_is_sparse_data>`?
+
+Whenever possible, **please include a minimalistic reproduction script**
+(e.g. 10-20 lines) along with sample data files on http://gist.github.com
+for instance (note that gists are regular git repositories that you can
+clone and hence upload small to medium data files there as well).
+
+The mailing list system will refuse emails with large attachements so
+please use gists to upload the datafile and reproduction scripts and
+just send the URL to the gist in the email to the mailing list.

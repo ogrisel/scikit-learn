@@ -615,6 +615,8 @@ using different (convex) loss functions and different penalties.
 
  * :ref:`sgd`
 
+.. _perceptron:
+
 Perceptron
 ==========
 
