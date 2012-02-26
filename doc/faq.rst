@@ -28,7 +28,7 @@ I am a beginner, where should I start?
 3. Depending on what you are trying to achieve with machine learning,
    start by asking yourself the :ref:`right questions <which_algorithm>`.
 
-4. Learn more about machine learning. 
+4. Learn more about machine learning.
    `meta-optimize <http://metaoptimize.com/qa>`_ has a great Q/A site.
 
    - `Good Freely Available Textbooks on Machine Learning
@@ -591,11 +591,11 @@ Which algorithm for regression?
 
     :class:`linear_model.LassoLars` (dense input only),
     :class:`linear_model.Lasso`, :class:`linear_model.ElasticNet`,
-    :class:`linear_model.SGDRregressor` with penalty='l1' 
+    :class:`linear_model.SGDRregressor` with penalty='l1'
     or 'elasticnet'.
 
   - Otherwise: class:`linear_model.RidgeRegression` (small to medium number
-    of samples) or class:`linear_model.SGDRegressor` with penalty = 'l2' 
+    of samples) or class:`linear_model.SGDRegressor` with penalty = 'l2'
     for large number of samples.
 
 
@@ -609,8 +609,8 @@ Which algorithm for regression?
 
 - How many target variables?
 
-  If more than one, only :class:`linear_model.RidgeRegression` is able to fit 
-  and predict for several targets at once. Other models need to consider 
+  If more than one, only :class:`linear_model.RidgeRegression` is able to fit
+  and predict for several targets at once. Other models need to consider
   each variable separately for now.
 
 
@@ -661,7 +661,7 @@ TODO: here is a skeleton
 
   - else:
 
-    - Ward clustering with :ref:`locality constraints 
+    - Ward clustering with :ref:`locality constraints
       <hierarchical_clustering_connectivity>`_ (dense data only for now).
 
 
