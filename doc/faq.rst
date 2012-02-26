@@ -10,22 +10,26 @@ on the right tools and methods for their specific issues and discover
 the relevant sections of the documentation along with worked examples
 that can be re-used or adapted.
 
+.. contents:: Questions and answers
+   :local:
+   :depth: 2
 
-I am a noob, where should I start?
-==================================
+I am a beginner, where should I start?
+======================================
 
-1- Learn about Python and the Scientific Python ecosystem (numpy, scipy,
+1. Learn about Python and the Scientific Python ecosystem (numpy, scipy,
    matplotlib...) by the first chapters of this `tutorial
    <http://scipy-lectures.github.com/>`_
 
-2- Follow the `scikit-learn tutorial <getting_started>` to get a quick
+2. Follow the :ref:`scikit-learn tutorial <getting_started>` to get a quick
    introduction to the main machine learning concepts and how they map to
    the scikit-learn project conventions.
 
-3- Depending on what you are trying to achieve with machine learning,
+3. Depending on what you are trying to achieve with machine learning,
    start by asking yourself the :ref:`right questions <which_algorithm>`.
 
-4- Learn more about machine learning:
+4. Learn more about machine learning. 
+   `meta-optimize <http://metaoptimize.com/qa>`_ has a great Q/A site.
 
    - `Good Freely Available Textbooks on Machine Learning
      <http://metaoptimize.com/qa/questions/186/>`_
@@ -166,6 +170,7 @@ To demonstrate the tradeoffs at play, here are a some typical examples:
   the No Free Lunch Theorem (or improve the wikipedia abstract to make
   it clearer).
 
+.. _which_algorithm_for_classification:
 
 Which algorithm for classification?
 ===================================
@@ -300,7 +305,7 @@ How to improve the classification performance?
 
 If you are still unhappy you can:
 
-- try to use unsupervied data to improve the model
+- try to use unsupervised data to improve the model
   with semi-supervised and / or active learning.
 
 - check whether you need to deal with :ref:`covariate shift correction
@@ -342,7 +347,7 @@ Link to:
   If after manual inspection you are pretty confident that the
   data is good.  Try more complex models such as for instance
   :ref:`extra_trees`. Some people say that they always work if you have
-  powerful enough hardware :)
+  powerful enough hardware and sufficient data :)
 
 
 How to choose the parameters of a classification algorithm?
@@ -542,7 +547,7 @@ For regression
 --------------
 
 Can the target variable iso-surface be reasonably be approximated by
-hyperplanes on the whole domain of interest? if so (regularized or not)
+hyperplanes on the whole domain of interest? If so (regularized or not)
 linear regression model will work.
 
 If the iso-surface have "hills" or some other kind of local structures,
@@ -565,10 +570,13 @@ structure.
 
 Example of half moons dataset.
 
+.. _which_algorithm_for_regression:
 
 Which algorithm for regression?
 ===============================
 
+
+.. currentmodule:: sklearn
 
 - Very large number of dimensions / input variables (more than 10k):
 
@@ -581,25 +589,29 @@ Which algorithm for regression?
   - If I can make the assumption that only a few (unidentified
     variables) are relevant to determine the value of the target variable:
 
-    LassoLars (dense input only), Lasso, ElasticNet,
-    SGDRregressor with penalty='l1' or 'elasticnet'.
+    :class:`linear_model.LassoLars` (dense input only),
+    :class:`linear_model.Lasso`, :class:`linear_model.ElasticNet`,
+    :class:`linear_model.SGDRregressor` with penalty='l1' 
+    or 'elasticnet'.
 
-  - Otherwise: RidgeRegression (small to medium number of samples)
-    or SGDRegressor with penalty = 'l2' for large number of samples.
+  - Otherwise: class:`linear_model.RidgeRegression` (small to medium number
+    of samples) or class:`linear_model.SGDRegressor` with penalty = 'l2' 
+    for large number of samples.
 
 
 - Small to medium number of dimensions:
 
-  - linear model: RidgeRegression
+  - linear model: :class:`linear_model.RidgeRegression`
 
-  - non-linear models: SVR, NuSVR or ExtraTreesRegressor.
+  - non-linear models: :class:`svm.SVR`, :class:`svm.NuSVR` or
+    :class:`ensemble.ExtraTreesRegressor`.
 
 
 - How many target variables?
 
-  If more than one, only RidgeRegression is able it fit and predict for
-  several targets at once. Other models need to consider each variable
-  separately for now.
+  If more than one, only :class:`linear_model.RidgeRegression` is able to fit 
+  and predict for several targets at once. Other models need to consider 
+  each variable separately for now.
 
 
 How to measure the performance of a regression model?
@@ -617,37 +629,40 @@ TODO
 
 - grid search for SVR and regression trees
 
-
+.. _which_algorithm_for_clustering:
 
 Which algorithm for clustering?
 ===============================
+
+.. currentmodule:: sklearn.cluster
 
 TODO: here is a skeleton
 
 - Is the input data sparse (see :ref:`what_is_sparse_data`)?
 
-  - KMeans
+  - :class:`KMeans`
 
-  - MiniBatchKMeans
+  - :class:`MiniBatchKMeans`
 
-  - SpetralClustering using a sparse kernel as affinity matrix.
+  - :class:`SpetralClustering` using a sparse kernel as affinity matrix.
 
 - Is the number of samples large (e.g. more than 50k)
 
-  - MiniBatchKMeans
+  - :class:`MiniBatchKMeans`
 
-  - SpetralClustering with a truncated k-NN
+  - :class`SpetralClustering` with a truncated k-NN
 
 - Is the data known to fail to have cluster with non regular shapes
   (e.g. clusters folder around one another)
 
   - if the number of cluster is small (less than 10)
 
-    - SpetralClustering
+    - :class:`SpetralClustering`
 
   - else:
 
-    - Ward clustering with locality constraints (dense data only for now).
+    - Ward clustering with :ref:`locality constraints 
+      <hierarchical_clustering_connectivity>`_ (dense data only for now).
 
 
 See also the documentation section on :ref:`clustering`.
@@ -793,13 +808,13 @@ give details on the following:
 - Which preprocessing was applied (centering, variance scaling, TF-IDF)?
 
 - How many samples? How many features where extracted? Are you using
-  a :ref:`sparse reprensation <what_is_sparse_data>`?
+  a :ref:`sparse representation <what_is_sparse_data>`?
 
 Whenever possible, **please include a minimalistic reproduction script**
 (e.g. 10-20 lines) along with sample data files on http://gist.github.com
 for instance (note that gists are regular git repositories that you can
 clone and hence upload small to medium data files there as well).
 
-The mailing list system will refuse emails with large attachements so
+The mailing list system will refuse emails with large attachments so
 please use gists to upload the datafile and reproduction scripts and
 just send the URL to the gist in the email to the mailing list.
