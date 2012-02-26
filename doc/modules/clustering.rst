@@ -233,6 +233,7 @@ with an connectivity matrix, but can be computationally expensive when no
 connectivity constraints are added between samples: it considers at each step
 all the possible merges.
 
+.. _hierarchical_clustering_connectivity:
 
 Adding connectivity constraints
 -------------------------------
