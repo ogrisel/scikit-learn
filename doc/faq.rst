@@ -344,8 +344,8 @@ Link to:
   not lie on this regularization path or that the data quality to too
   bad to get anything useful out of it.
 
-  If after manual inspection you are pretty confident that the
-  data is good.  Try more complex models such as for instance
+  If after manual inspection you are pretty confident that
+  the data is good. Try more complex models such as for instance
   :ref:`extra_trees`. Some people say that they always work if you have
   powerful enough hardware and sufficient data :)
 
@@ -400,7 +400,12 @@ features from the raw text strings. See :ref:`howto_text_data`.
    "learned" on the training set only and then reused to transform
    the test dataset in a consistent manner.
 
-   The use of the Transformer API and the sklearn.pipeline.Pipeline class
+   To make this easier, wrap any preprocessing in classes that implement
+   the fit / transform  API and chain them to the classifier using the
+   :class:`sklearn.pipeline.Pipeline` class.
+
+TODO: write some narrative doc with inline example for preprocessing
+and add a link to it.
 
 
 What is whitening, how and when to use it?
@@ -415,7 +420,7 @@ How to deal with text data?
 TODO
 
 
-How to deal with cagegorical data?
+How to deal with categorical data?
 ==================================
 
 TODO
@@ -444,7 +449,7 @@ TODO
 How to deal with imbalanced data (in a classification problem)?
 ===============================================================
 
-List classifiers that support the `class_weight='auto'` parameter.
+TODO: List classifiers that support the `class_weight='auto'` parameter.
 
 
 .. _howto_covariate_shift_correction:
@@ -497,8 +502,8 @@ to detect synonymic features: see :ref:`howto_very_sparse_samples`.
 
 TODO: add links to the doc and examples.
 
-TODO: add RandomizedPCA to the preprocessing documentation along with
-a simple Pipeline example to demonstrate the transformer pattern.
+TODO: write a narrative doc section on the usage of Pipeline with
+RandomizedPCA to demonstrate the transformer patter.
 
 
 
@@ -506,6 +511,8 @@ a simple Pipeline example to demonstrate the transformer pattern.
 
 Is my data linearly separable?
 ==============================
+
+TODO: simple 2D plot reused from the tutorial to introduce the concept.
 
 TODO merge in the examples from the tutorials into the main doc so as
 to be able reference it with an internal link here.
@@ -546,14 +553,15 @@ the linearly separable assumption is a good bias or not.
 For regression
 --------------
 
-Can the target variable iso-surface be reasonably be approximated by
-hyperplanes on the whole domain of interest? If so (regularized or not)
+Can the target variable iso-surfaces be reasonably be approximated by
+hyperplanes on the domain of interest? If so (regularized or not)
 linear regression model will work.
 
-If the iso-surface have "hills" or some other kind of local structures,
+If the iso-surfaces have "hills" or some other kind of local structures,
 linear regression will not have enough degrees of freedom to model
-them. Non linear kernel regression models or forest of trees will be
-required.
+them. :ref:`Non linear kernel regression models <svm_regression>`
+or :ref:`random forest and other randmized tree models <forest>` will
+be required.
 
 
 For clustering
