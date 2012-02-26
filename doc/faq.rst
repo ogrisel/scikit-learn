@@ -111,31 +111,40 @@ used to solve different kinds of machine learning problems, see
 The bad news is that **even for a specific task, there is no free lunch**:
 there is no algorithm that will be best (in terms of some predictive
 accuracy metrics) than others on all possible datasets. Hence the usual
-need to make assumptions on the data
+need to make assumptions on the data that reflects in the structure of
+the algorithm (e.g. linear model assumes that the data is :ref:`linearly
+separable <is_linearly_separable>`).
 
 Finally there are several ways to define what is a "good" algorithm. In
-particular we might look for some or all of the following properties:
+particular the following properties are often desirable:
 
-- good predictive accuracy evaluation both for supervised and for
+- **good predictive accuracy** evaluation both for supervised and for
   unsupervised models (see :ref:`howto_measure_performance_classification`
   and :ref:`howto_measure_performance_clustering`),
 
-- short training time and good scalability w.r.t. number of samples and
+- **short training time** and good scalability w.r.t. number of samples and
   features,
 
-- short prediction time,
+- **short prediction time**,
 
-- low memory usage,
+- **low memory usage** both during during and after the training process,
 
-- ability to leverage mutiple cores or even nodes in a HPC cluster,
+- ability work in a distributed with few synchronization barriers on
+  **mutiple cores** or even nodes in a HPC cluster,
 
 - ability to increment an existing model when new data is available
-  without restarting from scratch (warm restarts and online learning).
+  without restarting from scratch: **warm restarts** and **online
+  learning**.
 
+- ability to build **interpretable models** so that a human expert can
+  gain new insight on the data fitted by the model: the absolute value and
+  sign coefficients of a linear model can be interpreted as how important
+  the matching feature is and whether it contributing positively or
+  negatively to the likelyhood of the target class.
 
-For instance:
+To demonstrate the tradeoffs at play, here are a some typical examples:
 
-- Nearest Neighbor models models will have very low training time but
+- :ref:`neighbors` models models have very short training times but
   potentially much higher prediction times and high memory usage.
 
 - Some linear models such as :ref:`perceptron` or :ref:`sgd` are usually
@@ -146,9 +155,9 @@ For instance:
   it is not the case.
 
 - More complex models such as :ref:`extra_trees` will be potentially
-  more slower to train yet reasonably fast to make predictions and will
-  be able to perform reasonably well on a much wider scope of datasets
-  than linear models.
+  much slower to train yet reasonably fast to make predictions. They
+  will also be able to perform reasonably well on a much wider scope of
+  datasets than linear models.
 
 
 .. topic:: References:
