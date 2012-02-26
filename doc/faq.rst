@@ -3,12 +3,14 @@
 This section will try to organize the most frequent questions asked on
 the :ref:`mailing lists <mailing_lists>` or Q&A forums.
 
-Machine Learning is very large field and more often than not there is no
-generic answer to a generic question. This FAQ is thus built in a manner
-to help the newcomers ask themselves the right questions to narrow down
-on the right tools and methods for their specific issues and discover
-the relevant sections of the documentation along with worked examples
-that can be re-used or adapted.
+Machine Learning is very large field and more often than not **there is
+no generic answer to a generic question**: the most common answer would be
+"Well... it depends on your data.", which is arguably not very helpful.
+
+This FAQ is thus built in a manner to help the newcomers ask themselves
+the right questions to **narrow down on the right tools and methods**
+for their specific issues and discover the relevant sections of the
+documentation along with worked examples that can be re-used or adapted.
 
 .. contents:: Questions and answers
    :local:
@@ -170,6 +172,7 @@ To demonstrate the tradeoffs at play, here are a some typical examples:
   the No Free Lunch Theorem (or improve the wikipedia abstract to make
   it clearer).
 
+
 .. _which_algorithm_for_classification:
 
 Which algorithm for classification?
@@ -243,11 +246,12 @@ TODO: Warning on scalability of SVC + link to RBF kernel approximation.
   see :ref:`howto_improve_classification_perf`.
 
 
+.. _which_algorithm_multilabel:
+
 Which algorithm for multi-label classification?
 ===============================================
 
 TODO
-
 
 
 .. _howto_improve_classification_perf:
@@ -799,8 +803,8 @@ list <mailing_lists>` to ask them there.
 In order to maximize the chances to get useful replies please make sure
 give details on the following:
 
-- Which platform (Linux, Max, Windows?), which version of scikit-learn,
-  numpy, scipy, was scikit-learn build from source?
+- Which platform (Linux, Mac, Windows...)? which version of scikit-learn,
+  numpy, scipy, was scikit-learn built from source?
 
 - What is the primary type of task your are trying to achieve: binary
   classification, multiclass classification, multilabel classification,
