@@ -11,6 +11,35 @@ the relevant sections of the documentation along with worked examples
 that can be re-used or adapted.
 
 
+I am a noob, where should I start?
+==================================
+
+1- Learn about Python and the Scientific Python ecosystem (numpy, scipy,
+   matplotlib...) by the first chapters of this `tutorial
+   <http://scipy-lectures.github.com/>`_
+
+2- Follow the `scikit-learn tutorial <getting_started>` to get a quick
+   introduction to the main machine learning concepts and how they map to
+   the scikit-learn project conventions.
+
+3- Depending on what you are trying to achieve with machine learning,
+   start by asking yourself the :ref:`right questions <which_algorithm>`.
+
+4- Learn more about machine learning:
+
+   - `Good Freely Available Textbooks on Machine Learning
+     <http://metaoptimize.com/qa/questions/186/>`_
+
+   - `Good Freely Available Videos on Machine Learning
+     <http://metaoptimize.com/qa/questions/258/>`_
+
+   - `Good Machine Learning Blogs
+     <http://metaoptimize.com/qa/questions/3163>`_
+
+   You can also enroll in the free online Machine Learning class
+   at http://coursera.org .
+
+
 .. _which_algorithm:
 
 Which machine learning algorithm to use?
@@ -38,10 +67,11 @@ What is the nature of the problem I am trying to solve?
 
   See :ref:`which_algorithm_for_clustering`
 
-- Decompose data into a finite number of prototypes?
+- Decompose data into a finite number of topics / components / atoms /
+  factors / prototypes?
 
-  Example: find main topics of a corpus of document or protype faces for face
-  recognition.
+  Example: find the main topics of a corpus of document or prototype
+  faces for face recognition.
 
   See :ref:`which_algorithm_for_decomposition`
 
@@ -59,7 +89,14 @@ What is the nature of the problem I am trying to solve?
   on past purchasing history and similarity with other user purchasing
   habits.
 
-  See :ref:`how_to_recommender_system`
+  See :ref:`howto_recommender_system`
+
+- Build a model to detect novelty or anomaly in data?
+
+  Examples: fraud detection in financial transactions or computer network
+  monitoring.
+
+  See :ref:`howto_novelty_and_anomaly_detection`
 
 
 .. _what_is_the_best_algorithm:
@@ -127,8 +164,9 @@ Which algorithm for classification?
 The first question to ask is
 :ref:`Is the data linearly separable? <is_linearly_separable>`.
 
-If you don't know, make the assumption first (the linear model are
-simpler hence probably faster to train) and relax it if it fails.
+If you don't know, you can make the assumption first (the linear model
+are simpler hence often faster to train and evaluate) and relax it
+if it fails.
 
 
 Classifiers that assume linearly separable data
@@ -150,14 +188,16 @@ Classifiers that assume linearly separable data
   - :class:`sklearn.linear_model.LogisticRegression`
   - :class:`sklearn.linear_model.LinearSVC`
 
-- Are there few samples in the training set:
+- Are there few samples in the training set?
 
-  The following models are known to be able deal efficiently with datasets where
-  `n_samples << n_features`
+  The following models are known to be able deal efficiently with datasets
+  where `n_samples << n_features`
 
   - :class:`sklearn.linear_model.RidgeClassifier`
   - :class:`sklearn.linear_model.RidgeClassifierCV` (dense data only)
-  - :class:`sklearn.linear_model.RidgeClassifierCV` (dense data only)
+  - :class:`sklearn.naive_bayes.GaussianNB`
+  - :class:`sklearn.naive_bayes.MultinomialNB`
+  - :class:`sklearn.naive_bayes.BernoulliNB`
 
 
 TODO: finalize the time vs f1 score plot on the text classification
@@ -191,6 +231,8 @@ TODO: Warning on scalability of SVC + link to RBF kernel approximation.
 
 Which algorithm for multi-label classification?
 ===============================================
+
+TODO
 
 
 
@@ -350,25 +392,37 @@ features from the raw text strings. See :ref:`howto_text_data`.
 What is whitening, how and when to use it?
 ==========================================
 
+TODO
+
 
 How to deal with text data?
 ===========================
+
+TODO
 
 
 How to deal with cagegorical data?
 ==================================
 
+TODO
+
 
 How to deal with time-based data?
 =================================
+
+TODO
 
 
 How to deal with geo-location data?
 ===================================
 
+TODO
+
 
 How to deal with image data?
 ============================
+
+TODO
 
 
 .. _howto_imbalanced_data:
@@ -376,7 +430,7 @@ How to deal with image data?
 How to deal with imbalanced data (in a classification problem)?
 ===============================================================
 
-List classifiers with that support class_weight
+List classifiers that support the `class_weight='auto'` parameter.
 
 
 .. _howto_covariate_shift_correction:
@@ -542,11 +596,13 @@ Which algorithm for regression?
 How to measure the performance of a regression model?
 =====================================================
 
-
+TODO
 
 
 How to find the parameters of a regression model?
 =================================================
+
+TODO
 
 - lambda path, AIC and BIC
 
@@ -556,6 +612,8 @@ How to find the parameters of a regression model?
 
 Which algorithm for clustering?
 ===============================
+
+TODO: here is a skeleton
 
 - Is the input data sparse (see :ref:`what_is_sparse_data`)?
 
@@ -591,6 +649,7 @@ See also the documentation section on :ref:`clustering`.
 How to filter non-important features (observered variables)?
 ============================================================
 
+TODO
 
 
 .. _howto_clustering_perf:
@@ -598,10 +657,13 @@ How to filter non-important features (observered variables)?
 How to measure the performance of clustering algorithm?
 =======================================================
 
+TODO
 
 
 How to choose the number of clusters?
 =====================================
+
+TODO
 
 - if for exploratory purpose
 
@@ -609,6 +671,8 @@ How to choose the number of clusters?
 
 - if for feature extraction: pickup an arbitrary large yet tracktable
   number of cluster (e.g. 100 for MiniBatchKMeans)
+
+- stability selection : write an example that works first :)
 
 
 .. _what_is_sparse_data:
@@ -621,19 +685,20 @@ zeros.
 
 Examples:
 
- - features extracted from text documents: most documents use a very small
-   fraction of all the existing words
+ - **Features extracted from text documents**: most documents use a
+   very small fraction of all the existing words.
 
- - transactional data: most customers of a e-commerce shop have only
+ - **Transactional data**: most customers of a e-commerce shop have only
    bought a tiny fraction of all the available products for sale on the
    website (the same remark applies for advertisement clicks historical
    data).
 
- - graph data: the structure of a graph (with edges and vertices) can
-   be represented by an squared adjancency matrix where non-zero components
-   encode the weights of the edges connecting two vertices. Most social network
-   graph data is very sparse: a profile is typically connected to a few
-   hundreds of other profiles out of millions.
+ - **Graph data**: the structure of a graph (with edges and vertices) can
+   be represented by an squared adjancency matrix where non-zero
+   components encode the weights of the edges connecting two
+   vertices. Most social network graph data is very sparse: a profile
+   is typically connected to a few hundreds of other profiles out of
+   millions.
 
 The main consequence is that is often not possible to represent the all the
 features (zeros and non-zeros) explicitly in memory with a traditional numpy
@@ -699,26 +764,26 @@ If this FAQ, the documentation and the examples do not answer your
 questions, please feel free to subscribe to the :ref:`project mailing
 list <mailing_lists>` to ask them there.
 
-In order to maximize the chances to get useful replies please make sure give
-details on the following:
+In order to maximize the chances to get useful replies please make sure
+give details on the following:
 
-- which platform (Linux, Max, Windows?), which version of scikit-learn,
+- Which platform (Linux, Max, Windows?), which version of scikit-learn,
   numpy, scipy, was scikit-learn build from source?
 
-- what is the primary type of task your are trying to achieve: binary
+- What is the primary type of task your are trying to achieve: binary
   classification, multiclass classification, multilabel classification,
   regression, clustering, other? (See :ref:`which_algorithm`)
 
-- if you get an error when trying to use scikit-learn, please include the
-  full error message (including the traceback) and a minimalistic script to
-  reproduce it.
+- If you get an error when trying to use scikit-learn, please include the
+  full error message (including the traceback) and a minimalistic script
+  to reproduce it.
 
-- what kind of data are you dealing with: text features, is so which?,
+- What kind of data are you dealing with: text features, is so which?,
   numerical ranges, categorical features...
 
-- which preprocessing was applied ()?
+- Which preprocessing was applied (centering, variance scaling, TF-IDF)?
 
-- how many samples, how many features where extracted, are you using
+- How many samples? How many features where extracted? Are you using
   a :ref:`sparse reprensation <what_is_sparse_data>`?
 
 Whenever possible, **please include a minimalistic reproduction script**
