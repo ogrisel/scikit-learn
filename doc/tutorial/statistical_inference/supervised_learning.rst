@@ -74,7 +74,9 @@ Scikit-learn documentation for more information about this type of classifier.)
 
 **KNN (k nearest neighbors) classification example**:
 
-.. image:: ../examples/iris_knn.png
+.. image:: ../../auto_examples/tutorial/images/plot_knn_iris_1.png
+   :target: ../../auto_examples/tutorial/plot_knn_iris.html
+   :align: center
    :scale: 90
 
 ::
@@ -98,11 +100,13 @@ Scikit-learn documentation for more information about this type of classifier.)
     >>> iris_y_test
     array([1, 1, 1, 0, 0, 0, 2, 1, 2, 0])
 
+.. _curse_of_dimensionality:
+
 The curse of dimensionality
 -------------------------------
 
 If the data is only described by one feature, with values ranging from 0
-to 1, with `n` train observations, new data will no further away than
+to 1, with `n` train observations, new data will be no further away than
 `1/n` and the nearest neighbor decision rule will be efficient as soon as
 `1/n` is small compared to the scale of between-class feature variations.
 
@@ -111,8 +115,9 @@ the `[0, 1]` space with a between-point distance of `d`, is `1/d**p`.
 This number scales exponentialy `p`, the dimensionality of the problem.
 
 In other words, the prediction problem becomes much harder for
-high-dimensional data. This is called the **curse of dimensionality** and
-is the core problem that machine learning addresses.
+high-dimensional data. This is called the 
+`curse of dimensionality  <http://en.wikipedia.org/wiki/Curse_of_dimensionality>`_ 
+and is the core problem that machine learning addresses.
 
 Linear model: from regression to sparsity
 ==========================================
@@ -135,7 +140,13 @@ Linear model: from regression to sparsity
 Linear regression
 ------------------
 
-.. image:: plot_ols_1.png
+`Linear regression <http://en.wikipedia.org/wiki/Linear_regression>`_,
+in it's simplest form, fits a linear model to the data set by adjusting 
+a set of parameters, in order to make the sum of the squared residuals 
+of the model as small as possilbe.
+
+.. image:: ../../auto_examples/tutorial/images/plot_ols_1.png
+   :target: ../../auto_examples/tutorial/plot_ols.html
    :scale: 40
    :align: right
 
@@ -148,7 +159,7 @@ Linear models: :math:`y = X\beta + \epsilon`
 
 :: 
 
-    >>> from scikits.learn import linear_model
+    >>> from sklearn import linear_model
     >>> regr = linear_model.LinearRegression()
     >>> regr.fit(diabetes_X_train, diabetes_y_train)
     LinearRegression(copy_X=True, fit_intercept=True, normalize=False)
@@ -162,9 +173,13 @@ Linear models: :math:`y = X\beta + \epsilon`
     2004.5676026898223
 
     >>> # Explained variance score: 1 is perfect prediction
+    >>> # and 0 means that there is no linear relationship
+    >>> # between X and Y.
     >>> regr.score(diabetes_X_test, diabetes_y_test)
     0.58507530226905713
 
+
+.. _shrinkage:
 
 Shrinkage 
 ----------
@@ -172,7 +187,8 @@ Shrinkage
 If there are few data points per dimension, noise in the observations
 induces high variance:
 
-.. image:: auto_examples/images/plot_ols_variance_1.png
+.. image:: ../../auto_examples/tutorial/images/plot_ols_variance_1.png
+   :target: ../../auto_examples/tutorial/plot_ols_variance.html
    :scale: 70
    :align: right
 
@@ -195,12 +211,13 @@ induces high variance:
 
 
 
-A solution, in high-dimensional statistical learning, is to *srhink* the
+A solution, in high-dimensional statistical learning, is to *shrink* the
 regression coefficients to zero: any two randomly chosen set of
 observations are likely to be uncorrelated. This is called *ridge*
 regression:
 
-.. image:: auto_examples/images/plot_ridge_variance_1.png 
+.. image:: ../../auto_examples/tutorial/images/plot_ridge_variance_1.png
+   :target: ../../auto_examples/tutorial/plot_ridge_variance.html
    :scale: 70
    :align: right
 
@@ -233,28 +250,37 @@ diabetes dataset, rather than our synthetic data::
 .. note::
 
     Capturing in the fitted parameters noise that prevents the model to
-    generalize to new data is called **overfitting**. The bias introduced
-    by the ridge regression is called a **regularization**.
+    generalize to new data is called 
+    `overfitting <http://en.wikipedia.org/wiki/Overfitting>`_. The bias introduced
+    by the ridge regression is called a 
+    `regularization <http://en.wikipedia.org/wiki/Regularization_%28machine_learning%29>`_.
+
+.. _sparsity:
 
 Sparsity
 ----------
 
 
-.. |diabetes_ols_diag| image:: ../examples/diabetes_ols_diag.png
+.. |diabetes_ols_1| image:: ../../auto_examples/tutorial/images/plot_ols_3d_1.png
+   :target: ../../auto_examples/tutorial/plot_ols_3d.html
    :scale: 65
 
-.. |diabetes_ols_x1| image:: ../examples/diabetes_ols_x1.png
+.. |diabetes_ols_3| image:: ../../auto_examples/tutorial/images/plot_ols_3d_3.png
+   :target: ../../auto_examples/tutorial/plot_ols_3d.html
    :scale: 65
 
-.. |diabetes_ols_x2| image:: ../examples/diabetes_ols_x2.png
+.. |diabetes_ols_2| image:: ../../auto_examples/tutorial/images/plot_ols_3d_2.png
+   :target: ../../auto_examples/tutorial/plot_ols_3d.html
    :scale: 65
+
+
 
 
 .. rst-class:: centered
 
-    **Fitting only features 5 and 6**
+    **Fitting only features 1 and 2**
 
-    |diabetes_ols_diag| |diabetes_ols_x2| |diabetes_ols_x1| 
+.. centered:: |diabetes_ols_1| |diabetes_ols_3| |diabetes_ols_2| 
 
 .. note::
 
@@ -269,13 +295,14 @@ We can see that although feature 2 has a strong coefficient on the full
 model, it conveys little information on `y` when considered with feature
 1.
 
-To improve the conditioning of the problem (mitigate the curse of
-dimensionality), it would be interesting to select only the informative
-features and set non-informative ones, like feature 2 to 0. Ridge regression
-will decrease their contribution, but not set them to zero. Another
-penalization approach, called **Lasso**, can set some coefficients to zero.
-Such methods are called **sparse method**, and sparsity can be seen as an
-application of Occam's razor: prefer simpler models.
+To improve the conditioning of the problem (mitigate the 
+:ref:`curse_of_dimensionality`), it would be interesting to select only the 
+informative features and set non-informative ones, like feature 2 to 0. Ridge 
+regression will decrease their contribution, but not set them to zero. Another
+penalization approach, called :ref:`lasso` (least absolute shrinkage and 
+selection operator), can set some coefficients to zero. Such methods are 
+called **sparse method**, and sparsity can be seen as an
+application of Occam's razor: `prefer simpler models`.
 
 :: 
 
@@ -299,23 +326,26 @@ application of Occam's razor: prefer simpler models.
 
     Different algorithms can be used to solve the same mathematical
     problem. For instance the `Lasso` object in the `scikit-learn`
-    solves the lasso regression using a *coordinate descent* method, that
-    is efficient on large datasets. However, the `scikit-learn` also
-    provides the `LassoLARS` object, using the *LARS* which is very
+    solves the lasso regression using a 
+    `coordinate decent <http://en.wikipedia.org/wiki/Coordinate_descent>`_ method, 
+    that is efficient on large datasets. However, the `scikit-learn` also
+    provides the :class:`linear_model.LassoLars` object, using the *LARS* which is very
     efficient for problems in which the weight vector estimated is very
     sparse, that is problems with very few observations.
 
 Classification
 ---------------
 
-.. image:: ../examples/logistic_regression.png
+.. image:: ../../auto_examples/tutorial/images/plot_logistic_1.png
+   :target: ../../auto_examples/tutorial/plot_logistic.html
    :scale: 65
    :align: right
 
-For classification, as in the labeling iris task, linear regression is
-not the right approach, as it will give too much weight to data far from
-the decision frontier. A linear approach is to fit a sigmoid function, or
-**logistic** function:
+For classification, as in the labeling 
+`iris <http://en.wikipedia.org/wiki/Iris_flower_data_set>`_ task, linear 
+regression is not the right approach, as it will give too much weight to 
+data far from the decision frontier. A linear approach is to fit a sigmoid 
+function, or **logistic** function:
 
 .. math::
 
@@ -329,7 +359,8 @@ the decision frontier. A linear approach is to fit a sigmoid function, or
     LogisticRegression(C=100000.0, dual=False, fit_intercept=True,
               intercept_scaling=1, penalty='l2', tol=0.0001)
 
-.. image:: ../examples/iris_logistic.png
+.. image:: ../../auto_examples/tutorial/images/plot_iris_logistic_1.png
+   :target: ../../auto_examples/tutorial/plot_iris_logistic.html
    :scale: 83
 
 .. topic:: Multiclass classification
@@ -342,8 +373,8 @@ the decision frontier. A linear approach is to fit a sigmoid function, or
 
    The `C` parameter controls the amount of regularization in the
    `LogisticRegression` object, the bigger `C`, the less regularization.
-   `penalty="l2"` gives shrinkage (i.e. non-sparse coefficients), while 
-   `penalty="l1"` gives sparsity.
+   `penalty="l2"` gives :ref:`shrinkage` (i.e. non-sparse coefficients), while 
+   `penalty="l1"` gives :ref:`sparsity`.
 
 .. topic:: **Excercise**
    :class: green
@@ -362,17 +393,20 @@ Support vector machines (SVMs)
 Linear SVMs
 -------------
 
-SVMs are a discrimant model: they try to find a combination of samples to
+The SVM is a discrimant model: they try to find a combination of samples to
 build a plane maximizing the margin between the two classes.
-Regularization is set by the `C` parameter: with small `C` give
-(regularized problem) the margin is computed only on the observation
-close to the separating plane; with large `C` all the observations are
-used.
+Regularization is set by the `C` parameter: the small the choice of `C`,
+means a stronger regularization, which means the margin will be caluculated using many,
+to all the observations around the separation line; a larger choice of `C` 
+will thus have the margins computed on the observations that are close to 
+the separating line.
 
-.. |svm_margin| image:: ../examples/svm_margin.png
+.. |svm_margin_unreg| image:: ../../auto_examples/tutorial/images/plot_svm_margin_1.png
+   :target: ../../auto_examples/tutorial/plot_svm_margin.html
    :scale: 70
 
-.. |svm_margin_no_penalty| image:: ../examples/svm_margin_no_penalty.png
+.. |svm_margin_reg| image:: ../../auto_examples/tutorial/images/plot_svm_margin_2.png
+   :target: ../../auto_examples/tutorial/plot_svm_margin.html
    :scale: 70
 
 .. rst-class:: centered
@@ -380,10 +414,11 @@ used.
     ============================= ==============================
      **Unregularized SVM**         **Regularized SVM (default)**
     ============================= ==============================
-    |svm_margin_no_penalty|       |svm_margin|
+    |svm_margin_unreg|  	  |svm_margin_reg|
     ============================= ==============================
 
-.. image:: ../examples/iris_svm.png
+.. image:: ../../auto_examples/tutorial/images/plot_svm_iris_1.png
+   :target: ../../auto_examples/tutorial/plot_svm_iris.html
    :scale: 83
 
 SVMs can be used in regression --SVR (Support Vector Regression)--, or in
@@ -412,13 +447,12 @@ build a decision function that is not linear but that may be for instance
 polynomial. This is done using the *kernel trick* that can be seen as
 creating an decision energy by positioning *kernels* on observations:
 
-.. |svm_kernel_linear| image:: ../examples/svm_kernel_linear.png
-   :scale: 65
+.. |svm_kernel_linear| image:: ../../auto_examples/tutorial/images/plot_svm_kernels_1.png
+   :target: ../../auto_examples/tutorial/plot_svm_kernels.html
+   :scale: 65	       	   
 
-.. |svm_kernel_poly| image:: ../examples/svm_kernel_poly.png
-   :scale: 65
-
-.. |svm_kernel_rbf| image:: ../examples/svm_kernel_rbf.png
+.. |svm_kernel_poly| image:: ../../auto_examples/tutorial/images/plot_svm_kernels_2.png
+   :target: ../../auto_examples/tutorial/plot_svm_kernels.html
    :scale: 65
 
 .. rst-class:: centered
@@ -431,7 +465,7 @@ creating an decision energy by positioning *kernels* on observations:
      
        - **Polynomial kernel**
        
-       - **RBF kernel (Radial Basis Function)**
+       
 
      * 
      
@@ -439,7 +473,7 @@ creating an decision energy by positioning *kernels* on observations:
 
        - |svm_kernel_poly|
 
-       - |svm_kernel_rbf|
+       
 
      * 
      
@@ -453,18 +487,43 @@ creating an decision energy by positioning *kernels* on observations:
             ...               degree=3)
             >>> # degree: polynomial degree
 
+
+
+.. |svm_kernel_rbf| image:: ../../auto_examples/tutorial/images/plot_svm_kernels_3.png
+   :target: ../../auto_examples/tutorial/plot_svm_kernels.html
+   :scale: 65
+
+.. rst-class:: centered
+
+  .. list-table::
+    
+     * 
+     
+       - **RBF kernel (Radial Basis Function)**
+     
+       
+     * 
+     
+       - |svm_kernel_rbf|
+
+     * 
+     
        - ::
 
-            >>> svc = svm.SVC(kernel='rbf')
+            >>> svc = svm.SVC(kernel='rbf') 
             >>> # gamma: inverse of size of 
             >>> # radial kernel
 
+
+
 .. topic:: **Interactive example**
 
-   Download: :download:`../examples/svm_gui.py`, add data points of both classes with
-   right and left button, fit the model and change parameters and data.
+   See the :ref:`SVM GUI <example_applications_svm_gui.py>` to download 
+   `svm_gui.py`; add data points of both classes with right and left button, 
+   fit the model and change parameters and data.
 
-.. image:: auto_examples/images/plot_iris_dataset_1.png
+.. image:: ../../auto_examples/tutorial/images/plot_iris_dataset_3class_1.png
+    :target: ../../auto_examples/tutorial/plot_iris_dataset_3class.html
     :scale: 70
 
 .. topic:: **Excercise**
@@ -473,6 +532,8 @@ creating an decision energy by positioning *kernels* on observations:
    Try classifying classes 1 and 2 from the iris dataset with SVMs, with
    the 2 first features. Leave out 10% of each class and test prediction
    performance on these observations.
+
+   The solution is available below:
 
    .. toctree::
 
