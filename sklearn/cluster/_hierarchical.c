@@ -1361,7 +1361,7 @@ static PyObject *__pyx_pf_7sklearn_7cluster_13_hierarchical_compute_ward_dist(Py
  *         res[i] = pa * n
  *     return res             # <<<<<<<<<<<<<<
  * 
- *
+ * 
  */
   __Pyx_XDECREF(__pyx_r);
   __Pyx_INCREF(((PyObject *)__pyx_v_res));
@@ -1395,7 +1395,7 @@ static PyObject *__pyx_pf_7sklearn_7cluster_13_hierarchical_compute_ward_dist(Py
 }
 
 /* "sklearn/cluster/_hierarchical.pyx":31
- *
+ * 
  * 
  * def _hc_get_descendent(int node, children, int n_leaves):             # <<<<<<<<<<<<<<
  *     """
@@ -4005,7 +4005,7 @@ PyMODINIT_FUNC PyInit__hierarchical(void)
   __Pyx_DECREF(__pyx_t_1); __pyx_t_1 = 0;
 
   /* "sklearn/cluster/_hierarchical.pyx":31
- *
+ * 
  * 
  * def _hc_get_descendent(int node, children, int n_leaves):             # <<<<<<<<<<<<<<
  *     """

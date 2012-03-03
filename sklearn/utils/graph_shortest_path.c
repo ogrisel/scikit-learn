@@ -3225,7 +3225,7 @@ static void __pyx_f_7sklearn_5utils_19graph_shortest_path_decrease_val(struct __
  *         insert_node(heap, node)
  *     elif heap.min_node.val > node.val:             # <<<<<<<<<<<<<<
  *         heap.min_node = node
- *
+ * 
  */
   __pyx_t_2 = (__pyx_v_heap->min_node->val > __pyx_v_node->val);
   if (__pyx_t_2) {
