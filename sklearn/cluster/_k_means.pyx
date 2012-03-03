@@ -1,7 +1,3 @@
-# cython: profile=True
-# Profiling is enabled by default as the overhead does not seem to be measurable
-# on this specific use case.
-
 # Author: Peter Prettenhofer <peter.prettenhofer@gmail.com>
 #         Olivier Grisel <olivier.grisel@ensta.org>
 #
@@ -24,7 +20,6 @@ cdef extern from "cblas.h":
     double ddot "cblas_ddot"(int N, double *X, int incX, double *Y, int incY)
 
 
-@cython.profile(False)
 @cython.wraparound(False)
 cdef inline DOUBLE array_ddot(int n,
                 np.ndarray[DOUBLE, ndim=2] a, int a_idx,
