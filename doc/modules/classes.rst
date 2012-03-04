@@ -157,10 +157,12 @@ Samples generator
 
    datasets.make_blobs
    datasets.make_classification
+   datasets.make_circles
    datasets.make_friedman1
    datasets.make_friedman2
    datasets.make_friedman3
    datasets.make_low_rank_matrix
+   datasets.make_moons
    datasets.make_multilabel_classification
    datasets.make_regression
    datasets.make_s_curve
@@ -273,6 +275,8 @@ From images
 
    feature_extraction.image.PatchExtractor
 
+.. _text_feature_extraction_ref:
+
 From text
 ---------
 
@@ -286,9 +290,6 @@ From text
    :toctree: generated/
    :template: class.rst
 
-   feature_extraction.text.RomanPreprocessor
-   feature_extraction.text.WordNGramAnalyzer
-   feature_extraction.text.CharNGramAnalyzer
    feature_extraction.text.CountVectorizer
    feature_extraction.text.TfidfTransformer
    feature_extraction.text.Vectorizer
@@ -834,6 +835,21 @@ Pairwise metrics
    preprocessing.normalize
    preprocessing.binarize
 
+
+:mod:`sklearn.qda`: Quadratic Discriminant Analysis
+===================================================
+
+.. automodule:: sklearn.qda
+   :no-members:
+   :no-inherited-members:
+
+.. currentmodule:: sklearn
+
+.. autosummary::
+   :toctree: generated
+   :template: class.rst
+
+   qda.QDA
 
 .. _svm_ref:
 
