@@ -33,8 +33,8 @@ docs_train, docs_test, y_train, y_test = train_test_split(
 # with IDF weights disabled (normalized term frequencies only)
 vectorizer = Vectorizer(analyzer='char', min_n=1, max_n=3, use_idf=False)
 
-# TASK: Build a vectorizer / classifier pipeline using the previous analyzer
-# the pipeline instance should stored in a variable named `pipeline`
+# TASK: Chain the vectorizer with a linear classifier into a Pipeline
+# instance. Its variable should be named `pipeline`.
 pipeline = Pipeline([
     ('vec', vectorizer),
     ('clf', Perceptron()),

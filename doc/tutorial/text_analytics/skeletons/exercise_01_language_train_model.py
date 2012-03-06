@@ -32,8 +32,8 @@ docs_train, docs_test, y_train, y_test = train_test_split(
 # of 3 consecutive chars (1-grams, 2-grams and 3-grams of characters)
 # with IDF weights disabled (normalized term frequencies only)
 
-# TASK: Build a vectorizer / classifier pipeline using the previous analyzer
-# the pipeline instance should stored in a variable named `pipeline`
+# TASK: Chain the vectorizer with a linear classifier into a Pipeline
+# instance. Its variable should be named `pipeline`.
 
 # TASK: Fit the pipeline on the training set
 
