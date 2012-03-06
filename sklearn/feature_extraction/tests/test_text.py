@@ -1,3 +1,4 @@
+import warnings
 from sklearn.feature_extraction.text import strip_tags
 from sklearn.feature_extraction.text import strip_accents_unicode
 from sklearn.feature_extraction.text import strip_accents_ascii
@@ -216,6 +217,50 @@ def test_fit_countvectorizer_twice():
     assert_not_equal(X1.shape[1], X2.shape[1])
 
 
+def test_tf_idf_smoothing():
+    X = [[1, 1, 1],
+         [1, 1, 0],
+         [1, 0, 0]]
+    tr = TfidfTransformer(smooth_idf=True, norm='l2')
+    tfidf = tr.fit_transform(X).toarray()
+    assert_true((tfidf >= 0).all())
+
+    # check normalization
+    assert_array_almost_equal((tfidf ** 2).sum(axis=1), [1., 1., 1.])
+
+    # this is robust to features with only zeros
+    X = [[1, 1, 0],
+         [1, 1, 0],
+         [1, 0, 0]]
+    tr = TfidfTransformer(smooth_idf=True, norm='l2')
+    tfidf = tr.fit_transform(X).toarray()
+    assert_true((tfidf >= 0).all())
+
+
+def test_tfidf_no_smoothing():
+    X = [[1, 1, 1],
+         [1, 1, 0],
+         [1, 0, 0]]
+    tr = TfidfTransformer(smooth_idf=False, norm='l2')
+    tfidf = tr.fit_transform(X).toarray()
+    assert_true((tfidf >= 0).all())
+
+    # check normalization
+    assert_array_almost_equal((tfidf ** 2).sum(axis=1), [1., 1., 1.])
+
+    # the lack of smoothing make IDF fragile in the presence of feature with
+    # only zeros
+    X = [[1, 1, 0],
+         [1, 1, 0],
+         [1, 0, 0]]
+    tr = TfidfTransformer(smooth_idf=False, norm='l2')
+
+    with warnings.catch_warnings(record=True) as w:
+        tfidf = tr.fit_transform(X).toarray()
+        assert_equal(len(w), 1)
+        assert_true("divide by zero encountered in divide" in w[0].message)
+
+
 def test_sublinear_tf():
     X = [[1], [2], [3]]
     tr = TfidfTransformer(sublinear_tf=True, use_idf=False, norm=None)
@@ -312,7 +357,7 @@ def test_feature_names():
     assert_equal(len(cv.vocabulary_), n_features)
 
     feature_names = cv.get_feature_names()
-    assert_equal(feature_names.shape, (n_features,))
+    assert_equal(len(feature_names), n_features)
     assert_array_equal(['beer', 'burger', 'celeri', 'coke', 'pizza',
                         'salad', 'sparkling', 'tomato', 'water'],
                        feature_names)
@@ -380,19 +425,19 @@ def test_vectorizer_inverse_transform():
         transformed_data = vectorizer.fit_transform(data)
         inversed_data = vectorizer.inverse_transform(transformed_data)
         analyze = vectorizer.build_analyzer()
-        for i, doc in enumerate(data):
+        for doc, inversed_terms in zip(data, inversed_data):
             terms = np.sort(np.unique(analyze(doc)))
-            inversed_terms = np.sort(np.unique(inversed_data[i]))
+            inversed_terms = np.sort(np.unique(inversed_terms))
             assert_array_equal(terms, inversed_terms)
 
-    # Test that inverse_transform also works with numpy arrays
-    transformed_data = transformed_data.toarray()
-    inversed_data2 = vectorizer.inverse_transform(transformed_data)
-    for terms, terms2 in zip(inversed_data, inversed_data2):
-        assert_array_equal(terms, terms2)
+        # Test that inverse_transform also works with numpy arrays
+        transformed_data = transformed_data.toarray()
+        inversed_data2 = vectorizer.inverse_transform(transformed_data)
+        for terms, terms2 in zip(inversed_data, inversed_data2):
+            assert_array_equal(np.sort(terms), np.sort(terms2))
 
 
-def test_vectorizer_pipeline_grid_selection():
+def test_count_vectorizer_pipeline_grid_selection():
     # raw documents
     data = JUNK_FOOD_DOCS + NOTJUNK_FOOD_DOCS
     # simulate iterables
@@ -428,6 +473,46 @@ def test_vectorizer_pipeline_grid_selection():
     assert_equal(grid_search.best_score_, 1.0)
     best_vectorizer = grid_search.best_estimator_.named_steps['vect']
     assert_equal(best_vectorizer.max_n, 1)
+
+
+def test_vectorizer_pipeline_grid_selection():
+    # raw documents
+    data = JUNK_FOOD_DOCS + NOTJUNK_FOOD_DOCS
+    # simulate iterables
+    train_data = iter(data[1:-1])
+    test_data = iter([data[0], data[-1]])
+
+    # label junk food as -1, the others as +1
+    y = np.ones(len(data))
+    y[:6] = -1
+    y_train = y[1:-1]
+    y_test = np.array([y[0], y[-1]])
+
+    pipeline = Pipeline([('vect', Vectorizer()),
+                         ('svc', LinearSVC())])
+
+    parameters = {
+        'vect__max_n': (1, 2),
+        'vect__norm': ('l1', 'l2'),
+        'svc__loss': ('l1', 'l2'),
+    }
+
+    # find the best parameters for both the feature extraction and the
+    # classifier
+    grid_search = GridSearchCV(pipeline, parameters, n_jobs=1)
+
+    # cross-validation doesn't work if the length of the data is not known,
+    # hence use lists instead of iterators
+    pred = grid_search.fit(list(train_data), y_train).predict(list(test_data))
+    assert_array_equal(pred, y_test)
+
+    # on this toy dataset bigram representation which is used in the last of
+    # the grid_search is considered the best estimator since they all converge
+    # to 100% accuracy models
+    assert_equal(grid_search.best_score_, 1.0)
+    best_vectorizer = grid_search.best_estimator_.named_steps['vect']
+    assert_equal(best_vectorizer.max_n, 1)
+    assert_equal(best_vectorizer.norm, 'l2')
 
 
 def test_pickling_vectorizer():

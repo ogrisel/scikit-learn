@@ -98,7 +98,7 @@ class CountVectorizer(BaseEstimator):
         Otherwise the input is expected to be the sequence strings or
         bytes items are expected to be analyzed directly.
 
-    charset: string
+    charset: string, 'utf-8' by default.
         If bytes or files are given to analyze, this charset is used to
         decode.
 
@@ -108,8 +108,19 @@ class CountVectorizer(BaseEstimator):
         'strict', meaning that a UnicodeDecodeError will be raised. Other
         values are 'ignore' and 'replace'.
 
-    tokenize: string, {'word', 'char'}
+    analyzer: string, {'word', 'char'} or callable
         Whether the feature should be made of word or character n-grams.
+
+        If a callable is passed it is used to extract the sequence of features
+        out of the raw, unprocessed input.
+
+    preprocessor: callable or None (default)
+        Override the preprocessing (string transformation) stage while
+        preserving the tokenizing and n-grams generation steps.
+
+    tokenizer: callable or None (default)
+        Override the string tokenization step while preserving the
+        preprocessing and n-grams generation steps.
 
     min_n: integer
         The lower boundary of the range of n-values for different n-grams to be
@@ -118,16 +129,6 @@ class CountVectorizer(BaseEstimator):
     max_n: integer
         The upper boundary of the range of n-values for different n-grams to be
         extracted. All values of n such that min_n <= n <= max_n will be used.
-
-    strip_accents: string {'ascii', 'unicode'} or False
-        If False, accentuated chars are kept as this.
-
-        If 'ascii', accentuated chars are converted to there ascii non
-        accentuated equivalent: fast processing but only suitable for roman
-        languages.
-
-        If 'unicode', accentuated chars are converted to there non accentuated
-        equivalent: slower that 'ascii' but works for any language.
 
     stop_words: string {'english'}, list, or None (default)
         If a string, it is passed to _check_stop_list and the appropriate stop
@@ -217,7 +218,11 @@ class CountVectorizer(BaseEstimator):
         return doc
 
     def _word_ngrams(self, tokens, stop_words=None):
-        """Turn tokens into a sequence of n-grams and filter stop words"""
+        """Turn tokens into a sequence of n-grams after stop words filtering"""
+        # handle stop words
+        if stop_words is not None:
+            tokens = [w for w in tokens if w not in stop_words]
+
         # handle token n-grams
         if self.min_n != 1 or self.max_n != 1:
             original_tokens = tokens
@@ -227,10 +232,6 @@ class CountVectorizer(BaseEstimator):
                             min(self.max_n + 1, n_original_tokens + 1)):
                 for i in xrange(n_original_tokens - n + 1):
                     tokens.append(u" ".join(original_tokens[i: i + n]))
-
-        # handle stop words
-        if stop_words is not None:
-            tokens = [w for w in tokens if w not in stop_words]
 
         return tokens
 
@@ -484,8 +485,8 @@ class CountVectorizer(BaseEstimator):
         if not hasattr(self, 'vocabulary_') or len(self.vocabulary_) == 0:
             raise ValueError("Vocabulary wasn't fitted or is empty!")
 
-        return np.array([t for t, i in sorted(self.vocabulary_.iteritems(),
-                                              key=itemgetter(1))])
+        return [t for t, i in sorted(self.vocabulary_.iteritems(),
+                                     key=itemgetter(1))]
 
 
 class TfidfTransformer(BaseEstimator, TransformerMixin):
@@ -549,13 +550,21 @@ class TfidfTransformer(BaseEstimator, TransformerMixin):
             a matrix of term/token counts
         """
         if self.use_idf:
+            if not hasattr(X, 'nonzero'):
+                X = sp.csr_matrix(X)
+
             n_samples, n_features = X.shape
             df = np.bincount(X.nonzero()[1])
             if df.shape[0] < n_features:
                 # bincount might return fewer bins than there are features
                 df = np.concatenate([df, np.zeros(n_features - df.shape[0])])
+
+            # perform idf smoothing if required
             df += int(self.smooth_idf)
-            self.idf_ = np.log(float(n_samples) / df)
+            n_samples += int(self.smooth_idf)
+
+            # avoid division by zeros for features that occur in all documents
+            self.idf_ = np.log(float(n_samples) / df) + 1.0
 
         return self
 
@@ -571,7 +580,13 @@ class TfidfTransformer(BaseEstimator, TransformerMixin):
         -------
         vectors: sparse matrix, [n_samples, n_features]
         """
-        X = sp.csr_matrix(X, dtype=np.float64, copy=copy)
+        if hasattr(X, 'dtype') and np.issubdtype(X.dtype, np.float):
+            # preserve float family dtype
+            X = sp.csr_matrix(X, copy=copy)
+        else:
+            # convert counts or binary occurrences to floats
+            X = sp.csr_matrix(X, dtype=np.float64, copy=copy)
+
         n_samples, n_features = X.shape
 
         if self.sublinear_tf:
@@ -595,7 +610,7 @@ class TfidfTransformer(BaseEstimator, TransformerMixin):
         return X
 
 
-class Vectorizer(CountVectorizer, TfidfTransformer):
+class Vectorizer(CountVectorizer):
     """Convert a collection of raw documents to a matrix of TF-IDF features.
 
     Equivalent to CountVectorizer followed by TfidfTransformer.
@@ -621,27 +636,57 @@ class Vectorizer(CountVectorizer, TfidfTransformer):
                  norm='l2', use_idf=True, smooth_idf=True,
                  sublinear_tf=False):
 
-        CountVectorizer.__init__(self, input=input, charset=charset,
-                                 charset_error=charset_error,
-                                 strip_accents=strip_accents,
-                                 lowercase=lowercase,
-                                 preprocessor=preprocessor,
-                                 tokenizer=tokenizer, analyzer=analyzer,
-                                 stop_words=stop_words,
-                                 token_pattern=token_pattern, min_n=min_n,
-                                 max_n=max_n, max_df=max_df,
-                                 max_features=max_features,
-                                 vocabulary=vocabulary,
-                                 binary=False, dtype=dtype)
+        super(Vectorizer, self).__init__(
+            input=input, charset=charset, charset_error=charset_error,
+            strip_accents=strip_accents, lowercase=lowercase,
+            preprocessor=preprocessor, tokenizer=tokenizer, analyzer=analyzer,
+            stop_words=stop_words, token_pattern=token_pattern, min_n=min_n,
+            max_n=max_n, max_df=max_df, max_features=max_features,
+            vocabulary=vocabulary, binary=False, dtype=dtype)
 
-        TfidfTransformer.__init__(self, norm=norm, use_idf=use_idf,
-                                  smooth_idf=smooth_idf,
-                                  sublinear_tf=sublinear_tf)
+        self._tfidf = TfidfTransformer(norm=norm, use_idf=use_idf,
+                                       smooth_idf=smooth_idf,
+                                       sublinear_tf=sublinear_tf)
+
+    # Broadcast the TF-IDF parameters to the underlying transformer instance
+    # for easy grid search and repr
+
+    @property
+    def norm(self):
+        return self._tfidf.norm
+
+    @norm.setter
+    def norm(self, value):
+        self._tfidf.norm = value
+
+    @property
+    def use_idf(self):
+        return self._tfidf.use_idf
+
+    @use_idf.setter
+    def use_idf(self, value):
+        self._tfidf.use_idf = value
+
+    @property
+    def smooth_idf(self):
+        return self._tfidf.smooth_idf
+
+    @smooth_idf.setter
+    def smooth_idf(self, value):
+        self._tfidf.smooth_idf = value
+
+    @property
+    def sublinear_tf(self):
+        return self._tfidf.sublinear_tf
+
+    @sublinear_tf.setter
+    def sublinear_tf(self, value):
+        self._tfidf.sublinear_tf = value
 
     def fit(self, raw_documents):
         """Learn a conversion law from documents to array data"""
-        X = CountVectorizer.fit_transform(self, raw_documents)
-        TfidfTransformer.fit(self, X)
+        X = super(Vectorizer, self).fit_transform(raw_documents)
+        self._tfidf.fit(X)
         return self
 
     def fit_transform(self, raw_documents, y=None):
@@ -656,11 +701,11 @@ class Vectorizer(CountVectorizer, TfidfTransformer):
         -------
         vectors: array, [n_samples, n_features]
         """
-        X = CountVectorizer.fit_transform(self, raw_documents)
+        X = super(Vectorizer, self).fit_transform(raw_documents)
         # X is already a transformed view of raw_documents so
         # we set copy to False
-        TfidfTransformer.fit(self, X)
-        return TfidfTransformer.transform(self, X, copy=False)
+        self._tfidf.fit(X)
+        return self._tfidf.transform(X, copy=False)
 
     def transform(self, raw_documents, copy=True):
         """Transform raw text documents to tf–idf vectors
@@ -674,5 +719,5 @@ class Vectorizer(CountVectorizer, TfidfTransformer):
         -------
         vectors: sparse matrix, [n_samples, n_features]
         """
-        X = CountVectorizer.transform(self, raw_documents)
-        return TfidfTransformer.transform(self, X, copy)
+        X = super(Vectorizer, self).transform(raw_documents)
+        return self._tfidf.transform(X, copy)
