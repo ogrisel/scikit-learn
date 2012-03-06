@@ -12,8 +12,8 @@ In this examples we will use a movie review dataset.
 # License: Simplified BSD
 
 import sys
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfTransformer
+
+from sklearn.feature_extraction.text import Vectorizer
 from sklearn.svm import LinearSVC
 from sklearn.pipeline import Pipeline
 from sklearn.grid_search import GridSearchCV
@@ -44,15 +44,27 @@ if __name__ == "__main__":
     # TASK: Build a vectorizer / classifier pipeline using the previous
     # analyzer
 
-    parameters = {
-        'vect__analyzer__max_n': (1, 2),
-        'vect__max_df': (.95,),
-    }
+    # TASK: Define a parameters grid for searching whether extracting bi-grams
+    # is suited for this task, and which value of C in 1000 or 10000 is the
+    # best for LinearSVC on this dataset.
 
     # TASK: Build a grid search to find out whether unigrams or bigrams are
     # more useful.
     # Fit the pipeline on the training set using grid search for the parameters
-    # Refit the best parameter set on the complete training set
+    # To make this run faster, fit it only on the top first 200 documents of
+    # the training set.
+
+    print
+    print "Scores: "
+    print
+    for params, mean_score, scores in grid_search.grid_scores_:
+        print "%0.3f (+/- %0.3f) for %r" % (
+            mean_score, scores.std() / 2, params)
+    print
+
+    clf = grid_search.best_estimator_
+
+    # TASK: Refit the best estimator on the complete training set
 
     # Predict the outcome on the testing set
     y_predicted = clf.predict(docs_test)
