@@ -1,3 +1,5 @@
+.. _ta_tutorial_exercises:
+
 Exercises
 =========
 
@@ -23,11 +25,25 @@ statements, boilerplate code to load the data and sample code to evaluate
 the predictive accurracy of the model.**
 
 
+.. _digits_exercise:
+
+.. TODO
+
+  Exercise 0: Digits recognition
+  ------------------------------
+
+  - Train a Support Vector Machine classifier
+
+  - Use a Grid Search to tune the parameters.
+
+
+.. _language_id_exercise:
+
 Exercise 1: Language identification
 -----------------------------------
 
-- Write a text classification pipeline using a custom preprocessor and
-  ``CharNGramAnalyzer`` using data from Wikipedia articles as training set.
+- Write a text classification pipeline using 3-grams of characters
+  on data from Wikipedia articles as training set.
 
 - Evaluate the performance on some held out test set.
 
@@ -35,6 +51,8 @@ ipython command line::
 
   %run workspace/exercise_01_language_train_model.py data/languages/paragraphs/
 
+
+.. _sentiment_analysis_exercise:
 
 Exercise 2: Sentiment Analysis on movie reviews
 -----------------------------------------------
@@ -46,12 +64,29 @@ Exercise 2: Sentiment Analysis on movie reviews
 
 - Evaluate the performance on a held out test set.
 
+- Display the most discriminative features for the each class.
+
 ipython command line::
 
   %run workspace/exercise_02_sentiment.py data/movie_reviews/txt_sentoken/
 
 
-Exercise 3: CLI text classification utility
+.. _topic_extraction_exercise:
+
+Exercise 3: Unsupervised topic extraction
+-----------------------------------------
+
+- Train Non Negative Matrix Factorization model on the movie review
+  dataset to extract the 10 main topics.
+
+- Display the most important words for each topic.
+
+ipython command line::
+
+  %run workspace/exercise_03_topic.py data/movie_reviews/txt_sentoken/
+
+
+Exercise 4: CLI text classification utility
 -------------------------------------------
 
 Using the results of the previous exercises and the ``cPickle``
@@ -63,13 +98,5 @@ English.
 Bonus point if the utility is able to give a confidence level for its
 predictions.
 
-
-Exercise 4: Face recognition
-----------------------------
-
-Build a classifier that recognizes persons on face pictures from the
-Labeled Faces in the Wild dataset.
-
-ipython command line::
-
-  %run workspace/exercise_04_face_recognition.py data/data/labeled_faces_wild/lfw_preprocessed/
+.. note:: While python cPickle works it is recommended to use
+  ``sklearn.external.joblib`` optimized pickler for large models.
