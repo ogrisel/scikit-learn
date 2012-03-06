@@ -37,3 +37,12 @@ nips2010_pdf/
 *.nt.bz2
 *.tar.gz
 *.tgz
+
+doc/tutorial/text_analytics/data/languages/html/
+doc/tutorial/text_analytics/data/languages/paragraphs/
+doc/tutorial/text_analytics/data/languages/short_paragraphs/
+doc/tutorial/text_analytics/data/movie_reviews/poldata.README.2.0
+doc/tutorial/text_analytics/data/movie_reviews/txt_sentoken/
+doc/tutorial/text_analytics/data/twenty_newsgroups/20news-bydate-test/
+doc/tutorial/text_analytics/data/twenty_newsgroups/20news-bydate-train/
+
