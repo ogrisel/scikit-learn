@@ -12,6 +12,7 @@ In this examples we will use a movie review dataset.
 # License: Simplified BSD
 
 import sys
+import numpy as np
 
 from sklearn.feature_extraction.text import Vectorizer
 from sklearn.svm import LinearSVC
@@ -81,6 +82,19 @@ if __name__ == "__main__":
     print
     clf.fit(docs_train, y_train)
 
+    # TASK: (Optional) Display the most discriminative features
+    feature_names = clf.named_steps['vect'].get_feature_names()
+    sorted_indices = clf.named_steps['clf'].coef_[0].argsort()
+    sorted_features = np.array(feature_names)[sorted_indices]
+    print "Most negative words:"
+    for word in sorted_features[:10]:
+        print ' -', word
+    print
+    print "Most positive words:"
+    for word in sorted_features[:-10:-1]:
+        print ' -', word
+    print
+
     # Predict the outcome on the testing set
     y_predicted = clf.predict(docs_test)
 
@@ -91,6 +105,7 @@ if __name__ == "__main__":
     # Plot the confusion matrix
     cm = metrics.confusion_matrix(y_test, y_predicted)
     print cm
+
 
     #import pylab as pl
     #pl.matshow(cm)

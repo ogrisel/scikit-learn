@@ -12,6 +12,7 @@ In this examples we will use a movie review dataset.
 # License: Simplified BSD
 
 import sys
+import numpy as np
 
 from sklearn.feature_extraction.text import Vectorizer
 from sklearn.svm import LinearSVC
@@ -66,6 +67,8 @@ if __name__ == "__main__":
 
     # TASK: Refit the best estimator on the complete training set
 
+    # TASK: (Optional) Display the most discriminative features
+
     # Predict the outcome on the testing set
     y_predicted = clf.predict(docs_test)
 
@@ -76,6 +79,7 @@ if __name__ == "__main__":
     # Plot the confusion matrix
     cm = metrics.confusion_matrix(y_test, y_predicted)
     print cm
+
 
     #import pylab as pl
     #pl.matshow(cm)
