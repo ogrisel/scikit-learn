@@ -11,32 +11,12 @@ sequences as 'fingerprints'.
 
 import sys
 
-from sklearn.feature_extraction.text import CountVectorizer
-from sklearn.feature_extraction.text import TfidfTransformer
-from sklearn.feature_extraction.text import CharNGramAnalyzer
+from sklearn.feature_extraction.text import Vectorizer
 from sklearn.linear_model import Perceptron
 from sklearn.pipeline import Pipeline
 from sklearn.datasets import load_files
 from sklearn.cross_validation import train_test_split
 from sklearn import metrics
-
-#
-# New preprocessor better suited for language id than the default
-# preprocessor
-#
-
-class LowerCasePreprocessor(object):
-    """Simple preprocessor that should be available by default"""
-
-    def preprocess(self, unicode_content):
-        return unicode_content.lower()
-
-    def __repr__(self):
-        return "LowerCasePreprocessor()"
-
-#
-# The real code starts here
-#
 
 
 # The training data folder must be passed as first argument
@@ -48,27 +28,23 @@ docs_train, docs_test, y_train, y_test = train_test_split(
     dataset.data, dataset.target, test_fraction=0.5)
 
 
-# TASK: Build a an analyzer that split strings into sequence of 1 to 3
-# characters after using the previous preprocessor
-analyzer = CharNGramAnalyzer(
-    min_n=1,
-    max_n=3,
-    preprocessor=LowerCasePreprocessor(),
-)
+# TASK: Build a vectorizer that splits strings into sequence of 1 to 3
+# of 3 consecutive chars (1-grams, 2-grams and 3-grams of characters)
+# with IDF weights disabled (normalized term frequencies only)
+vectorizer = Vectorizer(analyzer='char', min_n=1, max_n=3, use_idf=False)
 
 # TASK: Build a vectorizer / classifier pipeline using the previous analyzer
-# the pipeline instance should stored in a variable named clf
-clf = Pipeline([
-    ('vec', CountVectorizer(analyzer=analyzer)),
-    ('tfidf', TfidfTransformer(use_idf=False)),
+# the pipeline instance should stored in a variable named `pipeline`
+pipeline = Pipeline([
+    ('vec', vectorizer),
     ('clf', Perceptron()),
 ])
 
 # TASK: Fit the pipeline on the training set
-clf.fit(docs_train, y_train)
+pipeline.fit(docs_train, y_train)
 
 # TASK: Predict the outcome on the testing set in a variable named y_predicted
-y_predicted = clf.predict(docs_test)
+y_predicted = pipeline.predict(docs_test)
 
 # Print the classification report
 print metrics.classification_report(y_test, y_predicted,
@@ -88,7 +64,7 @@ sentences = [
     u'Ceci est un test de d\xe9tection de la langue.',
     u'Dies ist ein Test, um die Sprache zu erkennen.',
 ]
-predicted = clf.predict(sentences)
+predicted = pipeline.predict(sentences)
 
 for s, p in zip(sentences, predicted):
     print u'The language of "%s" is "%s"' % (s, dataset.target_names[p])
