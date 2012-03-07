@@ -158,7 +158,9 @@ and ``scikit-learn`` has built-in support for these structures.
 Tokenizing text with ``scikit-learn``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-``scikit-learn`` offers a couple of basic yet useful utilities to
+``scikit-learn`` offers a provides basic tools to process text using
+the Bag of Words representation.
+
 work with text data. The first one is a preprocessor that removes
 accents and converts to lowercase on roman languages::
 
