@@ -12,11 +12,15 @@ the right algorithm when facing a practical problem.
   models (e.g. SVC with RBF kernel).
 
 - ``SVC`` with gaussian RBF kernel and ``KMeans`` clustering can
-  benefit a lot from data normalization with (``PCA`` or ``RandomizedPCA``
-  with ``whiten=True``). Try various values for ``n_components`` with grid
-  search to be sure no to truncate the data too hard.
+  benefit a lot from data normalization either with feature feature with
+  scaling using ``Scaler`` or doing whitening with ``RandomizedPCA``
+  with ``whiten=True``. Try various values for ``n_components`` with
+  grid search to be sure no to truncate the data too hard.
 
 - There is no free lunch: the best algorithm is data-dependent. If
   you try many different models, reserve a held out evaluation set
   that is not used during the model selection process.
 
+A comprehensive practical guide / FAQ / Howto is under work. Stay tuned!
+
+  http://scikit-learn.org
