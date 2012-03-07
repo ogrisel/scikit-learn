@@ -1,5 +1,8 @@
-Machine Learning 101
-====================
+.. _text_analytics_general_concepts:
+
+======================================
+Machine Learning 101: General Concepts
+======================================
 
 Machine Learning is about building **programs with tunable parameters**
 (typically an array of floating point values) that are adjusted
@@ -12,13 +15,12 @@ to make computers learn to behave more intelligently by somehow
 **generalizing** rather that just storing and retrieving data items
 like a database system would do.
 
-.. figure:: images/decision_boundary.png
-   :scale: 50%
+.. figure:: ../../auto_examples/linear_model/images/plot_sgd_separating_hyperplane_1.png
+   :target: ../../auto_examples/linear_model/plot_sgd_separating_hyperplane.html
    :align: center
+   :scale: 80%
 
-   Decision boundary learned from data points from two categories:
-   white and black
-
+   Decision boundary learned from two classes of data.
 
 The following will introduce the main concepts used to qualify
 machine learning algorithms as implemented in ``scikit-learn``:
@@ -56,7 +58,7 @@ expect a numpy array as input ``X``.  The expected shape of ``X`` is
 
 The number of features must be fixed in advance. However it can be
 very high dimensional (e.g. millions of features) with most of them
-being zeros for a given sample. In this case we use ``scipy.sparse``
+being zeros for a given sample. In this case we may use ``scipy.sparse``
 matrices instead of ``numpy`` arrays so as to make the data fit
 in memory.
 
@@ -67,15 +69,6 @@ A simple example: the iris dataset
 The machine learning community often uses a simple flowers database
 where each row in the database (or CSV file) is a set of measurements
 of an individual iris flower.
-
-.. figure:: images/Virginia_Iris.png
-   :scale: 100 %
-   :align: center
-   :alt: Photo of Iris Virginia
-
-   Iris Virginia (source: Wikipedia)
-
-
 Each sample in this dataset is described by 4 features and can
 belong to one of the target classes:
 
@@ -228,7 +221,8 @@ will be presented in the last sections of this tutorial.
 Supervised Learning: ``model.fit(X, y)``
 ----------------------------------------
 
-.. figure:: images/supervised.png
+.. figure:: ../../auto_examples/tutorial/images/plot_ML_flow_chart_1.png
+   :target: ../../auto_examples/tutorial/plot_ML_flow_chart.html
    :scale: 75 %
    :align: center
    :alt: Flow diagram for supervised learning
@@ -325,7 +319,9 @@ calls on the previous flow diagram. The ``vec`` object is a vectorizer
 used for feature extraction that is not used in the case of the iris
 data (it already comes as vectors of features):
 
-.. figure:: images/supervised_scikit_learn.png
+
+.. figure:: ../../auto_examples/tutorial/images/plot_ML_flow_chart_2.png
+   :target: ../../auto_examples/tutorial/plot_ML_flow_chart.html
    :scale: 75 %
    :align: center
    :alt: Flow diagram for supervised learning with scikit-learn
@@ -450,10 +446,11 @@ some input variables (a.k.a. the features, "predictors" or
 Unsupervised Learning: ``model.fit(X)``
 ---------------------------------------
 
-.. figure:: images/unsupervised.png
+.. figure:: ../../auto_examples/tutorial/images/plot_ML_flow_chart_3.png
+   :target: ../../auto_examples/tutorial/plot_ML_flow_chart.html
    :scale: 75 %
    :align: center
-   :alt: Flow diagram for unsupervised learning
+   :alt: Flow diagram for unsupervised learning with scikit-learn
 
    Unsupervised Learning overview
 
@@ -548,7 +545,8 @@ Calling ``plot_2D(X_pca, iris.target, iris.target_names)`` will
 display the following:
 
 
-.. figure:: images/iris_pca_2d.png
+.. figure:: ../../auto_examples/tutorial/images/plot_iris_projections_1.png
+   :target: ../../auto_examples/tutorial/plot_iris_projections.html
    :scale: 65 %
    :align: center
    :alt: 2D PCA projection of the iris dataset
@@ -618,7 +616,9 @@ with::
    plot_2D(X_pca, kmeans.labels_, ["c0", "c1", "c2"])
 
 
-.. figure:: images/iris_pca_2d_kmeans.png
+
+.. figure:: ../../auto_examples/tutorial/images/plot_iris_projections_2.png
+   :target: ../../auto_examples/tutorial/plot_iris_projections.html
    :scale: 65 %
    :align: center
    :alt: KMeans cluster assignements on 2D PCA iris data
@@ -714,21 +714,27 @@ The following figures demonstrate one case where a linear model can
 perfectly separate the two classes while the other is not linearly
 separable (a model with a gaussian kernel is required in that case).
 
-.. figure:: images/linearly_separable_data.png
-   :scale: 75 %
+
+.. figure:: ../../auto_examples/tutorial/images/plot_gui_example_1.png
+   :target: ../../auto_examples/tutorial/plot_gui_example.html
+   :scale: 65 %
    :align: center
+   :alt: Example of a linear SVM fit
 
-   Linear Support Vector Machine trained to perfectly separate 2
-   sets of data points labeled as white and black in a 2D space.
+   Linear Support Vector Machine trained to perfectly separate 2 sets of
+   data points labeled as white and black in a 2D space.
 
-.. figure:: images/non_linearly_separable_data.png
-   :scale: 75 %
+
+.. figure:: ../../auto_examples/tutorial/images/plot_gui_example_2.png
+   :target: ../../auto_examples/tutorial/plot_gui_example.html
+   :scale: 65 %
    :align: center
+   :alt: Example of a gaussian SVM fit
 
-   Support Vector Machine with gaussian kernel trained to separate
-   2 sets of data points labeled as white and black in a 2D space.
-   This dataset would not have been seperated by a simple linear
-   model.
+   Support Vector Machine with gaussian kernel trained to separate 2 sets of
+   data points labeled as white and black in a 2D space. This dataset would
+   not have been seperated by a simple linear model.
+
 
 :Exercise:
 
