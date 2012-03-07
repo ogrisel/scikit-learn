@@ -74,13 +74,12 @@ reference the filenames are also available::
 
 Let's print the first lines of the first loaded file::
 
-  >>> print "\n".join(twenty_train.data[0].split("\n")[:3])
-  Organization: Penn State University
-  From: Andrew Newell <TAN102@psuvm.psu.edu>
-  Subject: Re: Christian Morality is
+  >>> print "\n".join(twenty_train.data[0].split("\n")[:2])
+  From: sd345@city.ac.uk (Michael Collier)
+  Subject: Converting images to HP LaserJet III?
 
   >>> print twenty_train.target_names[twenty_train.target[0]]
-  alt.atheism
+  comp.graphics
 
 Supervised learning algorithms will require a category label for each
 document in the training set. In this case the category is the name of the
@@ -93,23 +92,23 @@ index of the category name in the ``target_names`` list. The category
 integer id of each sample is stored in the ``target`` attribute::
 
   >>> twenty_train.target[:10]
-  array([0, 1, 3, 1, 2, 1, 1, 1, 3, 3])
+  array([1, 1, 3, 3, 3, 3, 3, 2, 2, 2])
 
 It is possible to get back the category names as follows::
 
   >>> for t in twenty_train.target[:10]:
   ...     print twenty_train.target_names[t]
   ...
-  alt.atheism
+  comp.graphics
   comp.graphics
   soc.religion.christian
-  comp.graphics
+  soc.religion.christian
+  soc.religion.christian
+  soc.religion.christian
+  soc.religion.christian
   sci.med
-  comp.graphics
-  comp.graphics
-  comp.graphics
-  soc.religion.christian
-  soc.religion.christian
+  sci.med
+  sci.med
 
 You can notice that the samples have been shuffled randomly (with
 a fixed RNG seed): this is useful if you select only the first
@@ -181,9 +180,9 @@ This class exposes many utility functions, in particular the analyzer function
 used for tokenizing the text::
 
   >>> analyze = CountVectorizer().build_analyzer()
-  >>> text = "This is a WONDERFUL test sentence!"
+  >>> text = "A WONDERFUL test phrase!"
   >>> analyze(text)
-  []
+  [u'wonderful', u'test', u'phrase']
 
 Note that punctuation and single letter words have automatically
 been removed.
@@ -192,20 +191,20 @@ It is further possible to configure ``CountVectorizer`` to extract n-grams
 instead of single words::
 
   >>> CountVectorizer(min_n=1, max_n=2).build_analyzer()(text)
-  [u'ai', u'bien', u'mange', u'ai bien', u'bien mange']
+  [u'wonderful', u'test', u'phrase', u'wonderful test', u'test phrase']
 
 The analyzer is used internally by ``CountVectorizer`` to build a
 dictionary of features and transform documents to feature vectors::
 
-  >>> count_vect = CountVectorizer()
+  >>> count_vect = CountVectorizer(stop_words='english')
   >>> X_train_counts = count_vect.fit_transform(twenty_train.data)
   >>> X_train_counts.shape
-  (2257, 33883)
+  (2257, 35481)
 
 Once fitted, the vectorizer has built a dictionary of feature indices::
 
   >>> count_vect.vocabulary_.get(u'algorithm')
-  1512
+  4683
 
 The index value of a word in the vocabulary is linked to its frequency
 in the whole training corpus.
@@ -249,12 +248,12 @@ Both tf and tf–idf can be computed as follows::
   >>> tf_transformer = TfidfTransformer(use_idf=False).fit(X_train_counts)
   >>> X_train_tf = tf_transformer.transform(X_train_counts)
   >>> X_train_tf.shape
-  (2257, 33883)
+  (2257, 35481)
 
   >>> tfidf_transformer = TfidfTransformer()
   >>> X_train_tfidf = tfidf_transformer.fit_transform(X_train_counts)
   >>> X_train_tfidf.shape
-  (2257, 33883)
+  (2257, 35481)
 
 
 Training a classifier
@@ -320,7 +319,7 @@ Evaluating the predictive accuracy of the model is equally easy::
   >>> docs_test = twenty_test.data
   >>> predicted = text_clf.predict(docs_test)
   >>> np.mean(predicted == twenty_test.target)            # doctest: +ELLIPSIS
-  0.894...
+  0.834...
 
 I.e., we achieved 89.4% accuracy. Let's see if we can do better with a
 linear support vector machine (SVM), which is widely regarded as one of
@@ -338,7 +337,7 @@ classifier object into our pipeline::
   >>> _ = text_clf.fit(twenty_train.data, twenty_train.target)
   >>> predicted = text_clf.predict(docs_test)
   >>> np.mean(predicted == twenty_test.target)            # doctest: +ELLIPSIS
-  0.906...
+  0.912...
 
 ``scikit-learn`` further provides utilities for more detailed performance
 analysis of the results::
@@ -348,19 +347,19 @@ analysis of the results::
   ...     twenty_test.target, predicted,
   ...     target_names=twenty_test.target_names)
   ...                                         # doctest: +NORMALIZE_WHITESPACE
-                          precision    recall  f1-score   support
-             alt.atheism       0.95      0.78      0.86       319
-           comp.graphics       0.88      0.99      0.93       389
-                 sci.med       0.95      0.89      0.92       396
-  soc.religion.christian       0.88      0.94      0.91       398
-             avg / total       0.91      0.91      0.91      1502
+                            precision    recall  f1-score   support
+               alt.atheism       0.93      0.82      0.87       319
+             comp.graphics       0.88      0.98      0.93       389
+                   sci.med       0.95      0.89      0.92       396
+    soc.religion.christian       0.90      0.95      0.92       398
+               avg / total       0.92      0.91      0.91      1502
 
 
   >>> metrics.confusion_matrix(twenty_test.target, predicted)
-  array([[250,  14,  15,  40],
-         [  2, 384,   1,   2],
-         [  1,  30, 354,  11],
-         [ 10,  10,   4, 374]])
+  array([[261,  10,  12,  36],
+         [  5, 380,   2,   2],
+         [  7,  33, 352,   4],
+         [  7,   9,   4, 378]])
 
 As expected the confusion matrix shows that posts from the newsgroups
 on atheism and christian are more often confused for one another than
@@ -436,16 +435,15 @@ we can do::
   >>> for param_name in sorted(parameters.keys()):
   ...     print "%s: %r" % (param_name, best_parameters[param_name])
   ...
-  clf__alpha: 0.01
+  clf__alpha: 0.001
   tfidf__use_idf: True
   vect__max_n: 1
 
   >>> score                                              # doctest: +ELLIPSIS
-  0.922...
+  0.910...
 
 .. note:
 
   A ``GridSearchCV`` object also stores the best classifier that it trained
   as its ``best_estimator_`` attribute. In this case, that isn't much use as
   we trained on a small, 400-document subset of our full training set.
-
