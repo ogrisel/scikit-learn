@@ -347,11 +347,11 @@ of the outcome.  This is the case of logistic regression models::
 
 This means that the model estimates that the sample in ``X_new`` has:
 
-  - 90% likelyhood to belong to the 'setosa' class
+  - 91% likelyhood to belong to the 'setosa' class
 
-  - 9% likelyhood to belong to the 'versicolor' class
+  - ~9% likelyhood to belong to the 'versicolor' class
 
-  - 1% likelyhood to belong to the 'virginica' class
+  - ~0% likelyhood to belong to the 'virginica' class
 
 Of course, the ``predict`` method that outputs the label id of the
 most likely outcome is also available::
