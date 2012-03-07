@@ -48,4 +48,5 @@ doc/tutorial/text_analytics/data/movie_reviews/txt_sentoken/
 doc/tutorial/text_analytics/data/twenty_newsgroups/20news-bydate-test/
 doc/tutorial/text_analytics/data/twenty_newsgroups/20news-bydate-train/
 
-
+examples/cluster/joblib/
+examples/tutorial/cluster_iris_truth.png
