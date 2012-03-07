@@ -274,7 +274,7 @@ Once the data has this format it is trivial to train a classifier,
 for instance a support vector machine with a linear kernel::
 
   >>> from sklearn.svm import LinearSVC
-  >>> clf = LinearSVC()
+  >>> clf = LinearSVC(C=150)
 
 .. note::
 
@@ -291,8 +291,9 @@ a good combination using either simple empirical rules or data
 driven selection::
 
   >>> clf
-  LinearSVC(C=1.0, dual=True, fit_intercept=True, intercept_scaling=1,
-       loss='l2', multi_class=False, penalty='l2', scale_C=None, tol=0.0001)
+  LinearSVC(C=150, class_weight=None, dual=True, fit_intercept=True,
+       intercept_scaling=1, loss='l2', multi_class='ovr', penalty='l2',
+       scale_C=True, tol=0.0001)
 
 By default the real model parameters are not initialized. They will be
 tuned automatically from the data by calling the ``fit`` method::
@@ -336,12 +337,10 @@ Some ``scikit-learn`` classifiers can further predict probabilities
 of the outcome.  This is the case of logistic regression models::
 
   >>> from sklearn.linear_model import LogisticRegression
-  >>> clf2 = LogisticRegression().fit(X, y)
+  >>> clf2 = LogisticRegression(C=150).fit(X, y)
   >>> clf2
-  LogisticRegression(C=1.0, dual=False, fit_intercept=True, intercept_scaling=1,
-            penalty='l2', scale_C=False, tol=0.0001)
-
-
+  LogisticRegression(C=150, class_weight=None, dual=False, fit_intercept=True,
+            intercept_scaling=1, penalty='l2', scale_C=True, tol=0.0001)
 
   >>> clf2.predict_proba(X_new)
   array([[  9.07512928e-01,   9.24770379e-02,   1.00343962e-05]])
@@ -851,7 +850,7 @@ We can now split the data using a 2/3 - 1/3 ratio::
 
 We can now re-train a new linear classifier on the training set only::
 
-  >>> clf = LinearSVC().fit(X_train, y_train)
+  >>> clf = LinearSVC(C=150).fit(X_train, y_train)
 
 To evaluate its quality we can compute the average number of correct
 classifications on the test set::
