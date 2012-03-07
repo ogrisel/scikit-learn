@@ -649,6 +649,12 @@ to be clustered to have the shape ``(n_samples, n_features)``:
   in the input space are likely to become inter-cluster boundaries. Can also
   detect outliers (samples that are not part of a cluster).
 
+:``sklearn.cluster.Ward``:
+  Hierarchical clustering computes a minim spanning tree between samples and cut
+  it to find the required number of cluster. This can give good results on small
+  to medium dataset. It further give the ability to give connectivity
+  constraints between the samples.
+
 Other clustering algorithms do not work with a data array of shape
 ``(n_samples, n_features)`` but directly with a precomputed affinity matrix
 of shape ``(n_samples, n_samples)``:
@@ -665,9 +671,11 @@ of shape ``(n_samples, n_samples)``:
 
 ``DBSCAN`` can work with either an array of samples or an affinity matrix.
 
-Hierarchical clustering is being implemented in a branch that is
-likely to be merged into master before the release of ``scikit-learn``
-0.9.
+
+.. figure:: ../../auto_examples/cluster/images/plot_cluster_comparison_1.png
+   :target: ../../auto_examples/cluster/plot_cluster_comparison.html
+   :align: center
+   :scale: 50
 
 
 Applications of clustering
@@ -818,29 +826,13 @@ held-out part.
 Measuring classification performance on a test set
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Here is an example on you to split the data on the iris dataset.
+Here is an example on you to split the data on the iris dataset using
+the :func:`sklearn.cross_validation.train_test_split` helper function::
 
-First we need to shuffle the order of the samples and the target
-to ensure that all classes are well represented on both sides of
-the split::
-
-  >>> indices = np.arange(n_samples)
-  >>> indices[:10]
-  array([0, 1, 2, 3, 4, 5, 6, 7, 8, 9])
-
-  >>> RandomState(42).shuffle(indices)
-  >>> indices[:10]
-  array([ 73,  18, 118,  78,  76,  31,  64, 141,  68,  82])
-
-  >>> X = iris.data[indices]
-  >>> y = iris.target[indices]
-
-We can now split the data using a 2/3 - 1/3 ratio::
-
-  >>> split = (n_samples * 2) / 3
-
-  >>> X_train, X_test = X[:split], X[split:]
-  >>> y_train, y_test = y[:split], y[split:]
+  >>> from sklearn.cross_validation import train_test_split
+  >>> X_train, X_test, y_train, y_test = train_test_split(
+  ...    iris.data, iris.target,
+  ...    test_fraction=0.333, shuffle=True, random_state=42)
 
   >>> X_train.shape
   (100, 4)
@@ -861,14 +853,13 @@ We can now re-train a new linear classifier on the training set only::
 To evaluate its quality we can compute the average number of correct
 classifications on the test set::
 
-  >>> np.mean(clf.predict(X_test) == y_test)
-  1.0
+  >>> np.mean(clf.predict(X_test) == y_test)              # doctest: +ELLIPSIS
+  0.979...
 
-This shows that the model has a predictive accurracy of 100% which
-means that the classification model was perfectly capable of
-generalizing what was learned from the training set to the test
-set: this is rarely so easy on real life datasets as we will see
-in the following chapter.
+This shows that the model has a predictive accurracy very close to 100%
+which means that the classification model was capable of generalizing
+what was learned from the training set to the test set: this is rarely
+so easy on real life datasets as we will see in the following chapter.
 
 
 Key takeaway points
@@ -901,16 +892,16 @@ Key takeaway points
 
 - Before starting to train a model: split train / test data:
 
-  - use training set for model selection and fitting
+  - Use training set for model selection and fitting.
 
-  - use test set for model evaluation
+  - Use test set for model evaluation.
 
-  - use cross-validation when your dataset is small
+  - Use cross-validation when your dataset is small.
 
 - Complex models can overfit (learn by heart) the training data and
   fail to generalize correctly on test data:
 
-  - try simpler models first
+  - Try simpler models first.
 
-  - tune the regularization parameter on a validation set
+  - Tune the regularization parameter on a validation set.
 
