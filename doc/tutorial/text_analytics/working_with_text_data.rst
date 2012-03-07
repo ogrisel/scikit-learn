@@ -36,11 +36,11 @@ description, quoted from the `website
 To download the dataset, go to ``$TUTORIAL_HOME/data/twenty_newsgroups``
 and run the ``fetch_data.py`` script.
 
-In the following we will use the built-in dataset loader for 20 newsgroups
-from scikit-learn. Alternatively it is possible to download the dataset
-manually from the web-site and use the :func:`sklearn.datasets.load_files`
-function by pointing it to the ``20news-bydate-train`` subfolder of the
-uncompressed archive folder.
+In the following **we will use the built-in dataset loader for
+20 newsgroups from scikit-learn**. Alternatively it is possible
+to download the dataset manually from the web-site and use the
+:func:`sklearn.datasets.load_files` function by pointing it to the
+``20news-bydate-train`` subfolder of the uncompressed archive folder.
 
 In order to get faster execution times for this first example we will
 work on a partial dataset with only 4 categories out of the 20 available
@@ -159,36 +159,44 @@ Tokenizing text with ``scikit-learn``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 ``scikit-learn`` offers a provides basic tools to process text using
-the Bag of Words representation.
+the **Bag of Words** representation.
 
-work with text data. The first one is a preprocessor that removes
-accents and converts to lowercase on roman languages::
+To build such a representation we will proceed as follows:
 
-  >>> from sklearn.feature_extraction.text import RomanPreprocessor
-  >>> text = u"J'ai bien mang\xe9."
-  >>> print RomanPreprocessor().preprocess(text)
-  j'ai bien mange.
+- **tokenize** strings and give an integer id for each possible token,
+  for instance by using whitespaces and punctuation as token separators.
 
-The second one is a utility that splits the text into words after
-having applied the preprocessor::
+- **count** the occurrences of tokens in each document.
 
-  >>> from sklearn.feature_extraction.text import WordNGramAnalyzer
-  >>> WordNGramAnalyzer().analyze(text)
-  ['ai', 'bien', 'mange']
+- **normalize** and weighting with diminishing importance tokens that
+  occur in the majority of samples / documents.
+
+
+In order to do the first two steps, scikit-learn provides the
+:class:``sklearn.feature_extraction.text.CountVectorizer`` class::
+
+  >>> from sklearn.feature_extraction.text import CountVectorizer
+
+This class exposes many utility functions, in particular the analyzer function
+used for tokenizing the text::
+
+  >>> analyze = CountVectorizer().build_analyzer()
+  >>> text = "This is a WONDERFUL test sentence!"
+  >>> analyze(text)
+  []
 
 Note that punctuation and single letter words have automatically
 been removed.
 
-It is further possible to configure ``WordNGramAnalyzer`` to extract n-grams
+It is further possible to configure ``CountVectorizer`` to extract n-grams
 instead of single words::
 
-  >>> WordNGramAnalyzer(min_n=1, max_n=2).analyze(text)
+  >>> CountVectorizer(min_n=1, max_n=2).build_analyzer()(text)
   [u'ai', u'bien', u'mange', u'ai bien', u'bien mange']
 
-These tools are wrapped into a higher level component that is able to build a
+The analyzer is used internally by ``CountVectorizer`` to build a
 dictionary of features and transform documents to feature vectors::
 
-  >>> from sklearn.feature_extraction.text import CountVectorizer
   >>> count_vect = CountVectorizer()
   >>> X_train_counts = count_vect.fit_transform(twenty_train.data)
   >>> X_train_counts.shape
@@ -196,7 +204,7 @@ dictionary of features and transform documents to feature vectors::
 
 Once fitted, the vectorizer has built a dictionary of feature indices::
 
-  >>> count_vect.vocabulary.get(u'algorithm')
+  >>> count_vect.vocabulary_.get(u'algorithm')
   1512
 
 The index value of a word in the vocabulary is linked to its frequency
@@ -212,8 +220,8 @@ in the whole training corpus.
   but doing so would tokenize and vectorize each text file twice.
 
 
-From occurrences to frequencies
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+From occurrence counts to normalized frequencies
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Occurrence count is a good start but there is an issue: longer
 documents will have higher average count values than shorter documents,
@@ -394,7 +402,7 @@ parameter of either 100 or 1000 for the linear SVM::
 
   >>> from sklearn.grid_search import GridSearchCV
   >>> parameters = {
-  ...     'vect__analyzer__max_n': (1, 2),
+  ...     'vect__max_n': (1, 2),
   ...     'tfidf__use_idf': (True, False),
   ...     'clf__alpha': (1e-2, 1e-3),
   ... }
@@ -405,7 +413,7 @@ parameter combinations in parallel with the ``n_jobs`` parameter. If we give
 this parameter a value of ``-1``, grid search will detect how many cores
 are installed and uses them all::
 
-  >>> gs_clf = GridSearchCV(text_clf, parameters, n_jobs=-1)
+  >>> gs_clf = GridSearchCV(text_clf, parameters, n_jobs=1)
 
 The grid search instance behaves like a normal ``scikit-learn``
 model. Let's perform the search on a smaller subset of the training data
@@ -430,7 +438,7 @@ we can do::
   ...
   clf__alpha: 0.01
   tfidf__use_idf: True
-  vect__analyzer__max_n: 1
+  vect__max_n: 1
 
   >>> score                                              # doctest: +ELLIPSIS
   0.922...
