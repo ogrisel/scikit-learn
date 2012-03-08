@@ -1,3 +1,6 @@
+=====================================================
+Machine Learning for Text Analytics with scikit-learn
+=====================================================
 
 
 .. topic:: Machine Learning for Text Analytics with scikit-learn
