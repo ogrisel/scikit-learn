@@ -27,14 +27,19 @@ the predictive accurracy of the model.**
 
 .. _digits_exercise:
 
-.. TODO
+Exercise 0: Digits recognition
+------------------------------
 
-  Exercise 0: Digits recognition
-  ------------------------------
+- Train a Support Vector Machine classifier.
 
-  - Train a Support Vector Machine classifier
+- Evaluate the performance using cross validation.
 
-  - Use a Grid Search to tune the parameters.
+- Change the value of C and gamma to see the impact on the generalization
+  performance.
+
+ipython command line::
+
+  %run workspace/exercise_00_digits.py
 
 
 .. _language_id_exercise:
