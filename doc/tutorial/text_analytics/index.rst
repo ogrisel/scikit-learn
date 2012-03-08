@@ -1,6 +1,6 @@
 
 
-.. topic:: Applied machine learning in Python with scikit-learn
+.. topic:: Machine Learning for Text Analytics with scikit-learn
 
     ``scikit-learn`` is a Python module integrating classic machine
     learning algorithms in the tightly-knit world of scientific Python

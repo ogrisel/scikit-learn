@@ -37,6 +37,7 @@ Here a visual comparison of some of the clustering algorithms in scikit-learn:
    :align: center
    :scale: 50
 
+
 .. _k_means:
 
 K-means

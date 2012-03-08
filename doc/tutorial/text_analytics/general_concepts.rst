@@ -359,27 +359,32 @@ most likely outcome is also available::
 Notable implementations of classifiers
 ++++++++++++++++++++++++++++++++++++++
 
-:``sklearn.linear_model.LogisticRegression``:
+:class:`sklearn.linear_model.LogisticRegression`
 
   Regularized Logistic Regression based on ``liblinear``
 
-:``sklearn.svm.LinearSVC``:
+:class:`sklearn.svm.LinearSVC`
 
   Support Vector Machines without kernels based on ``liblinear``
 
-:``sklearn.svm.SVC``:
+:class:`sklearn.svm.SVC`
 
   Support Vector Machines with kernels based on ``libsvm``
 
-:``sklearn.linear_model.SGDClassifier``:
+:class:`sklearn.linear_model.SGDClassifier`
 
   Regularized linear models (SVM or logistic regression) using a Stochastic
   Gradient Descent algorithm written in ``Cython``
 
-:``sklearn.neighbors.NeighborsClassifier``:
+:class:`sklearn.neighbors.NeighborsClassifier`
 
   k-Nearest Neighbors classifier based on the ball tree datastructure for low
   dimensional data and brute force search for high dimensional data
+
+:class:`sklearn.ensemble.ExtraTreesClassifier`
+
+  A variant of Random Forests classifier: aggregation of many simple
+  decision tree classifiers that each vote for the best class.
 
 
 Sample application of classifiers
@@ -414,33 +419,35 @@ some input variables (a.k.a. the features, "predictors" or
 "regressors"). Some notable implementations of regression models in
 ``scikit-learn`` include:
 
-:``sklearn.linear_model.Ridge``:
+:class:`sklearn.linear_model.Ridge`
 
   L2-regularized least squares linear model
 
-:``sklearn.linear_model.ElasticNet``:
+:class:`sklearn.linear_model.ElasticNet`
 
   L1+L2-regularized least squares linear model trained using
   Coordinate Descent
 
-:``sklearn.linear_model.LassoLARS``:
+:class:`sklearn.linear_model.LassoLARS`
 
   L1-regularized least squares linear model trained with Least Angle
   Regression
 
-:``sklearn.linear_model.SGDRegressor``:
+:class:`sklearn.linear_model.SGDRegressor`
 
   L1+L2-regularized least squares linear model trained using
   Stochastic Gradient Descent
 
-:``sklearn.linear_model.ARDRegression``:
-
-  Bayesian Automated Relevance Determination regression
-
-:``sklearn.svm.SVR``:
+:class:`sklearn.svm.SVR`
 
   Non-linear regression using Support Vector Machines (wrapper for
   ``libsvm``)
+
+:class:`sklearn.ensemble.ExtraTreesRegressor`:
+
+  A variant of Random Forests applied to regression problems: aggregation
+  of many simple decision tree trained for regression. The mean prediction
+  of the trees is the prediction of the forest.
 
 
 Unsupervised Learning: ``model.fit(X)``
@@ -553,16 +560,12 @@ display the following:
 
    2D PCA projection of the iris dataset
 
-
 .. note::
 
-  The default implementation of PCA computes the SVD of the full
-  data matrix, which is not scalable when both ``n_samples`` and
-  ``n_features`` are big (more that a few thousands).
+  scikit-learn also provides implementation for various
+  :ref:`manifold_learning` algorithm that might render more interesting
+  visualization than PCA on complex data.
 
-  If you are interested in a number of components that is much
-  smaller than both ``n_samples`` and ``n_features``, consider using
-  ``sklearn.decomposition.RandomizedPCA`` instead.
 
 
 Other applications of dimensionality reduction
@@ -577,9 +580,14 @@ instance or that do not work well with linearly correlated features.
 
 .. note::
 
-  ``scikit-learn`` also features an implementation of Independant
-  Component Analysis (ICA) and work is under way to implement common
-  manifold extraction strategies.
+  The default implementation of PCA computes the SVD of the full
+  data matrix, which is not scalable when both ``n_samples`` and
+  ``n_features`` are big (more that a few thousands).
+
+  If you are interested in a number of components that is much
+  smaller than both ``n_samples`` and ``n_features``, consider using
+  :class:`sklearn.decomposition.RandomizedPCA` instead.
+
 
 
 Clustering
@@ -633,37 +641,41 @@ The following are two well-known clustering algorithms. Like most
 unsupervised learning models in the scikit, they expect the data
 to be clustered to have the shape ``(n_samples, n_features)``:
 
-:``sklearn.cluster.KMeans``:
+:class:`sklearn.cluster.KMeans` and :class:`sklearn.cluster.MiniBatchKMeans`
 
-  The simplest, yet effective clustering algorithm. Needs to be
-  provided with the number of clusters in advance, and assumes that the
-  data is normalized as input (but use a PCA model as preprocessor).
+  The simplest, yet effective clustering algorithm. Needs
+  to be provided with the number of clusters in advance,
+  and assumes that the data is normalized as input (for
+  instance using :class:`sklearn.preprocessing.Scaler` or
+  :class:`sklearn.decomposition.PCA` as preprocessor).
 
-:``sklearn.cluster.MeanShift``:
+:class:`sklearn.cluster.MeanShift`
 
   Can find better looking clusters than KMeans but is not scalable
-  to high number of samples.
+  to a high number of samples.
 
-:``sklearn.cluster.DBSCAN``:
+:class:`sklearn.cluster.DBSCAN`
+
   Can detect irregularly shaped clusters based on density, i.e. sparse regions
   in the input space are likely to become inter-cluster boundaries. Can also
   detect outliers (samples that are not part of a cluster).
 
-:``sklearn.cluster.Ward``:
-  Hierarchical clustering computes a minim spanning tree between samples and cut
-  it to find the required number of cluster. This can give good results on small
-  to medium dataset. It further give the ability to give connectivity
-  constraints between the samples.
+:class:`sklearn.cluster.Ward`
+
+  Hierarchical clustering computes a minim spanning tree between samples
+  and cut it to find the required number of cluster. This can give good
+  results on small to medium dataset. It further give the ability to
+  give connectivity constraints between the samples.
 
 Other clustering algorithms do not work with a data array of shape
 ``(n_samples, n_features)`` but directly with a precomputed affinity matrix
 of shape ``(n_samples, n_samples)``:
 
-:``sklearn.cluster.AffinityPropagation``:
+:class:`sklearn.cluster.AffinityPropagation`
 
   Clustering algorithm based on message passing between data points.
 
-:``sklearn.cluster.SpectralClustering``:
+:class:`sklearn.cluster.SpectralClustering`
 
   KMeans applied to a projection of the normalized graph Laplacian:
   finds normalized graph cuts if the affinity matrix is interpreted
@@ -771,10 +783,10 @@ Training set, test set and overfitting
 --------------------------------------
 
 The most common mistake beginners do when training statistical
-models is to evaluate the quality of the model on the same data
-used for fitting the model:
+models is too overestimate the predictive performance of their model
+by computing the accurracy on the dataset used to train the model.
 
-  If you do this, **you are doing it wrong!**
+  **Never measure the quality of the model on the training dataset!**
 
 
 The overfitting issue
@@ -805,16 +817,10 @@ The solution to this issue is twofold:
 
     - one for evaluation: the **test set**
 
-  2. Avoid overfitting by using simpler models (e.g. linear classifiers
-     instead of gaussian kernel SVM) or by increasing the regularization
-     parameter of the model if available (see the docstring of the
-     model for details)
-
-An even better option when experimenting with classifiers is to divide
-the data into three sets: training, testing and holdout. You can then
-optimize your features, settings and algorithms for the testing set until
-they seem good enough, and finally test on the holdout set (perhaps after
-adding the test set to the training set).
+  2. Avoid overfitting by using **simpler models** (e.g. linear
+     classifiers instead of gaussian kernel SVM) or by **increasing the
+     regularization** parameter of the model if available (see the
+     docstring of the model for details)
 
 When the amount of labeled data available is small, it may not be feasible
 to construct training and test sets. In that case, use **cross validation**:
@@ -830,9 +836,12 @@ Here is an example on you to split the data on the iris dataset using
 the :func:`sklearn.cross_validation.train_test_split` helper function::
 
   >>> from sklearn.cross_validation import train_test_split
+
+This function will split any dataset by applying random shuffling and selecting
+a fraction of the sample as held out test set::
+
   >>> X_train, X_test, y_train, y_test = train_test_split(
-  ...    iris.data, iris.target,
-  ...    test_fraction=0.333, shuffle=True, random_state=42)
+  ...    iris.data, iris.target, test_fraction=0.333, random_state=42)
 
   >>> X_train.shape
   (100, 4)
@@ -862,6 +871,38 @@ what was learned from the training set to the test set: this is rarely
 so easy on real life datasets as we will see in the following chapter.
 
 
+Measuring performance using cross-validation
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The simple train / test split gives one value the impact of the random
+shuffling and split is unknown. To get a better idea of the variance
+of the generalization score one can repeat the process several times
+using cross-validation.
+
+Let's build a new, untrained classifier::
+
+  >>> clf = LinearSVC(C=150)
+
+We can use the :func:`sklearn.cross_validation.cross_val_score` utility to
+perform Cross-Validation in a single call::
+
+  >>> from sklearn.cross_validation import cross_val_score
+  >>> scores = cross_val_score(clf, X, y, cv=10)
+  >>> scores
+  array([ 1.        ,  0.86666667,  0.93333333,  1.        ,  1.        ,
+          0.86666667,  0.93333333,  1.        ,  1.        ,  1.        ])
+
+
+This generalization performance can be summarized by the mean and standard
+deviation::
+
+  >>> scores.mean(), scores.std()                         # doctest: +ELLIPSIS
+  (0.959..., 0.053...)
+
+There are many ways to do cross-validation, more details available in the
+:ref:`cross_validation` section of the documentation.
+
+
 Key takeaway points
 -------------------
 
@@ -883,7 +924,9 @@ Key takeaway points
 
   - Clustering finds group id for each sample
 
-- Some models work much better with data normalized with PCA
+- Some models work much better with data normalized with PCA but also
+  simpler :ref:`preprocessing` schemes such as centering and
+  variance scaling.
 
 - Simple linear models can fail completely (non linearly separable data)
 
@@ -901,7 +944,6 @@ Key takeaway points
 - Complex models can overfit (learn by heart) the training data and
   fail to generalize correctly on test data:
 
-  - Try simpler models first.
+  - **Try simpler models first**.
 
-  - Tune the regularization parameter on a validation set.
-
+  - Tune the regularization parameter on a development set.
