@@ -41,7 +41,7 @@ n_samples = len(digits.images)
 data = digits.images.reshape((n_samples, -1))
 
 # Create a classifier: a support vector classifier
-classifier = svm.SVC(gamma=0.001)
+classifier = svm.SVC(C=100, gamma=0.001)
 
 # We learn the digits on the first half of the digits
 classifier.fit(data[:n_samples / 2], digits.target[:n_samples / 2])
