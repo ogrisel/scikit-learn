@@ -62,8 +62,7 @@ Build scikit-learn from source
 ------------------------------
 
 Here are the instructions to install the current master from source
-on a POSIX system (e.g. Linux and MacOSX). **In the folder next to
-$TUTORIAL_HOME** do::
+on a POSIX system (e.g. Linux and MacOSX)::
 
     % git clone https://github.com/scikit-learn/scikit-learn.git
     % cd scikit-learn
@@ -74,7 +73,7 @@ You can then build it locally and install this working directory as an
     % python setup.py build_ext -i
     % pip install -e .
 
-Alternatively you can install the library globally::
+Alternatively you can install the library globally (or in a virtualenv)::
 
     % python setup.py build
     % sudo python setup.py install
