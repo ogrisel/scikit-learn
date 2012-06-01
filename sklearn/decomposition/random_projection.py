@@ -138,7 +138,7 @@ def sparse_random_matrix(n_components, n_features, density='auto',
     --------
 
       >>> import numpy as np
-      >>> from sklearn.random_projection import sparse_random_matrix
+      >>> from sklearn.decomposition.random_projection import sparse_random_matrix
 
       >>> n_components, n_features = 10, 10000
 

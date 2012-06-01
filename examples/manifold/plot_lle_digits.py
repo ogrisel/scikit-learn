@@ -18,7 +18,7 @@ import numpy as np
 import pylab as pl
 from matplotlib import offsetbox
 from sklearn import manifold, datasets, decomposition, lda
-from sklearn import random_projection
+from sklearn.decomposition import random_projection
 
 digits = datasets.load_digits(n_class=6)
 X = digits.data
