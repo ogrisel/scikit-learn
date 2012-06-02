@@ -2,19 +2,34 @@
 #          Alexandre Gramfort <alexandre.gramfort@inria.fr>
 # License: BSD Style.
 
+import warnings
+from sys import version_info
+
 import numpy as np
+from scipy import interpolate
 from numpy.testing import assert_array_almost_equal, assert_almost_equal, \
                           assert_equal
+from nose import SkipTest
+from nose.tools import assert_true
+
+from sklearn.utils.testing import assert_greater
 
 from sklearn.linear_model.coordinate_descent import Lasso, \
     LassoCV, ElasticNet, ElasticNetCV
+from sklearn.linear_model import LassoLarsCV
+
+
+def check_warnings():
+    if version_info < (2, 6):
+        raise SkipTest("Testing for warnings is not supported in versions \
+        older than Python 2.6")
 
 
 def test_lasso_zero():
     """Check that the lasso can handle zero data without crashing"""
     X = [[0], [0], [0]]
     y = [0, 0, 0]
-    clf = Lasso(alpha=0).fit(X, y)
+    clf = Lasso(alpha=0.1).fit(X, y)
     pred = clf.predict([[1], [2], [3]])
     assert_array_almost_equal(clf.coef_, [0])
     assert_array_almost_equal(pred, [0, 0, 0])
@@ -33,7 +48,7 @@ def test_lasso_toy():
     Y = [-1, 0, 1]       # just a straight line
     T = [[2], [3], [4]]  # test sample
 
-    clf = Lasso(alpha=0)
+    clf = Lasso(alpha=1e-8)
     clf.fit(X, Y)
     pred = clf.predict(T)
     assert_array_almost_equal(clf.coef_, [1])
@@ -77,7 +92,7 @@ def test_enet_toy():
     T = [[2.], [3.], [4.]]  # test sample
 
     # this should be the same as lasso
-    clf = ElasticNet(alpha=0, rho=1.0)
+    clf = ElasticNet(alpha=1e-8, rho=1.0)
     clf.fit(X, Y)
     pred = clf.predict(T)
     assert_array_almost_equal(clf.coef_, [1])
@@ -138,26 +153,48 @@ def test_lasso_path():
     clf.fit(X, y)
     assert_almost_equal(clf.alpha, 0.026, 2)
 
+    # Check that the lars and the coordinate descent implementation
+    # select a similar alpha
+    lars = LassoLarsCV(normalize=False, max_iter=30).fit(X, y)
+    # for this we check that they don't fall in the grid of
+    # clf.alphas further than 1
+    assert_true(np.abs(
+            np.searchsorted(clf.alphas[::-1], lars.alpha)
+            - np.searchsorted(clf.alphas[::-1], clf.alpha)
+                ) <= 1)
+    # check that they also give a similar MSE
+    mse_lars = interpolate.interp1d(lars.cv_alphas, lars.cv_mse_path_.T)
+    np.testing.assert_approx_equal(
+                            mse_lars(clf.alphas[5]).mean(),
+                            clf.mse_path_[5].mean(),
+                            significant=2)
+
     # test set
-    assert clf.score(X_test, y_test) > 0.99
+    assert_greater(clf.score(X_test, y_test), 0.99)
 
 
 def test_enet_path():
     X, y, X_test, y_test = build_dataset()
     max_iter = 150
 
-    clf = ElasticNetCV(n_alphas=10, eps=1e-3, rho=0.95, cv=5,
-            max_iter=max_iter)
-    clf.fit(X, y)
-    assert_almost_equal(clf.alpha, 0.002, 2)
+    with warnings.catch_warnings():
+        # Here we have a small number of iterations, and thus the
+        # ElasticNet might not converge. This is to speed up tests
+        warnings.simplefilter("ignore", UserWarning)
+        clf = ElasticNetCV(n_alphas=5, eps=2e-3, rho=[0.9, 0.95], cv=3,
+                           max_iter=max_iter)
+        clf.fit(X, y)
+        assert_almost_equal(clf.alpha, 0.002, 2)
+        assert_equal(clf.rho_, 0.95)
 
-    clf = ElasticNetCV(n_alphas=10, eps=1e-3, rho=0.95, cv=5,
-                       max_iter=max_iter, precompute=True)
-    clf.fit(X, y)
+        clf = ElasticNetCV(n_alphas=5, eps=2e-3, rho=[0.9, 0.95], cv=3,
+                           max_iter=max_iter, precompute=True)
+        clf.fit(X, y)
     assert_almost_equal(clf.alpha, 0.002, 2)
+    assert_equal(clf.rho_, 0.95)
 
     # test set
-    assert clf.score(X_test, y_test) > 0.99
+    assert_greater(clf.score(X_test, y_test), 0.99)
 
 
 def test_path_parameters():
@@ -192,6 +229,44 @@ def test_warm_start():
 
     assert_array_almost_equal(clf3.coef_, clf2.coef_)
 
+
+def test_lasso_alpha_warning():
+    check_warnings()  # Skip if unsupported Python version
+    with warnings.catch_warnings(record=True) as w:
+        warnings.simplefilter('always')
+        X = [[-1], [0], [1]]
+        Y = [-1, 0, 1]       # just a straight line
+
+        clf = Lasso(alpha=0)
+        clf.fit(X, Y)
+
+        assert_greater(len(w), 0)  # warnings should be raised
+
+
+def test_lasso_positive_constraint():
+    X = [[-1], [0], [1]]
+    y = [1, 0, -1]       # just a straight line with negative slope
+
+    lasso = Lasso(alpha=0.1, max_iter=1000, positive=True)
+    lasso.fit(X, y)
+    assert_true(min(lasso.coef_) >= 0)
+
+    lasso = Lasso(alpha=0.1, max_iter=1000, precompute=True, positive=True)
+    lasso.fit(X, y)
+    assert_true(min(lasso.coef_) >= 0)
+
+
+def test_enet_positive_constraint():
+    X = [[-1], [0], [1]]
+    y = [1, 0, -1]       # just a straight line with negative slope
+
+    enet = ElasticNet(alpha=0.1, max_iter=1000, positive=True)
+    enet.fit(X, y)
+    assert_true(min(enet.coef_) >= 0)
+
+    enet = ElasticNet(alpha=0.1, max_iter=1000, precompute=True, positive=True)
+    enet.fit(X, y)
+    assert_true(min(enet.coef_) >= 0)
 
 if __name__ == '__main__':
     import nose

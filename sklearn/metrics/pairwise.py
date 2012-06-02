@@ -59,8 +59,9 @@ def check_pairwise_arrays(X, Y):
     given parameters are correct and safe to use.
 
     Specifically, this function first ensures that both X and Y are arrays,
-    then checkes that they are at least two dimensional. Finally, the function
-    checks that the size of the second dimension of the two arrays is equal.
+    then checks that they are at least two dimensional while ensuring that
+    their elements are floats. Finally, the function checks that the size
+    of the second dimension of the two arrays is equal.
 
     Parameters
     ----------
@@ -79,12 +80,13 @@ def check_pairwise_arrays(X, Y):
 
     """
     if Y is X or Y is None:
-        X = Y = safe_asarray(X)
+        X = safe_asarray(X)
+        X = Y = atleast2d_or_csr(X, dtype=np.float)
     else:
         X = safe_asarray(X)
         Y = safe_asarray(Y)
-    X = atleast2d_or_csr(X)
-    Y = atleast2d_or_csr(Y)
+        X = atleast2d_or_csr(X, dtype=np.float)
+        Y = atleast2d_or_csr(Y, dtype=np.float)
     if len(X.shape) < 2:
         raise ValueError("X is required to be at least two dimensional.")
     if len(Y.shape) < 2:
@@ -219,21 +221,22 @@ def manhattan_distances(X, Y=None, sum_over_features=True):
     Examples
     --------
     >>> from sklearn.metrics.pairwise import manhattan_distances
-    >>> manhattan_distances(3, 3)
-    array([[0]])
-    >>> manhattan_distances(3, 2)
-    array([[1]])
-    >>> manhattan_distances(2, 3)
-    array([[1]])
-    >>> manhattan_distances([[1, 2], [3, 4]], [[1, 2], [0, 3]])
-    array([[0, 2],
-           [4, 4]])
+    >>> manhattan_distances(3, 3)#doctest:+ELLIPSIS
+    array([[ 0.]])
+    >>> manhattan_distances(3, 2)#doctest:+ELLIPSIS
+    array([[ 1.]])
+    >>> manhattan_distances(2, 3)#doctest:+ELLIPSIS
+    array([[ 1.]])
+    >>> manhattan_distances([[1, 2], [3, 4]],\
+         [[1, 2], [0, 3]])#doctest:+ELLIPSIS
+    array([[ 0.,  2.],
+           [ 4.,  4.]])
     >>> import numpy as np
     >>> X = np.ones((1, 2))
     >>> y = 2 * np.ones((2, 2))
-    >>> manhattan_distances(X, y, sum_over_features=False)
+    >>> manhattan_distances(X, y, sum_over_features=False)#doctest:+ELLIPSIS
     array([[ 1.,  1.],
-           [ 1.,  1.]])
+           [ 1.,  1.]]...)
     """
     X, Y = check_pairwise_arrays(X, Y)
     n_samples_X, n_features_X = X.shape
@@ -423,7 +426,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", n_jobs=1, **kwds):
 
     Valid values for metric are:
 
-    - from scikits.learn: ['euclidean', 'l2', 'l1', 'manhattan', 'cityblock']
+    - from scikit-learn: ['euclidean', 'l2', 'l1', 'manhattan', 'cityblock']
 
     - from scipy.spatial.distance: ['braycurtis', 'canberra', 'chebyshev',
       'correlation', 'cosine', 'dice', 'hamming', 'jaccard', 'kulsinski',
@@ -433,9 +436,9 @@ def pairwise_distances(X, Y=None, metric="euclidean", n_jobs=1, **kwds):
       metrics.
 
     Note in the case of 'euclidean' and 'cityblock' (which are valid
-    scipy.spatial.distance metrics), the values will use the scikits.learn
+    scipy.spatial.distance metrics), the values will use the scikit-learn
     implementation, which is faster and has support for sparse matrices.
-    For a verbose description of the metrics from scikits.learn, see the
+    For a verbose description of the metrics from scikit-learn, see the
     __doc__ of the sklearn.pairwise.distance_metrics function.
 
     Parameters
@@ -452,8 +455,7 @@ def pairwise_distances(X, Y=None, metric="euclidean", n_jobs=1, **kwds):
         feature array. If metric is a string, it must be one of the options
         allowed by scipy.spatial.distance.pdist for its metric parameter, or
         a metric listed in pairwise.pairwise_distance_functions.
-        If metric is "precomputed", X is assumed to be a distance matrix and
-        must be square.
+        If metric is "precomputed", X is assumed to be a distance matrix.
         Alternatively, if metric is a callable function, it is called on each
         pair of instances (rows) and the resulting value recorded. The callable
         should take two arrays from X as input and return a value indicating
@@ -484,8 +486,6 @@ def pairwise_distances(X, Y=None, metric="euclidean", n_jobs=1, **kwds):
 
     """
     if metric == "precomputed":
-        if X.shape[0] != X.shape[1]:
-            raise ValueError("X is not square!")
         return X
     elif metric in pairwise_distance_functions:
         func = pairwise_distance_functions[metric]
@@ -598,8 +598,7 @@ def pairwise_kernels(X, Y=None, metric="linear", filter_params=False,
         The metric to use when calculating kernel between instances in a
         feature array. If metric is a string, it must be one of the metrics
         in pairwise.pairwise_kernel_functions.
-        If metric is "precomputed", X is assumed to be a kernel matrix and
-        must be square.
+        If metric is "precomputed", X is assumed to be a kernel matrix.
         Alternatively, if metric is a callable function, it is called on each
         pair of instances (rows) and the resulting value recorded. The callable
         should take two arrays from X as input and return a value indicating

@@ -10,13 +10,14 @@ Generalized Linear Model for a complete discussion.
 # License: BSD Style.
 
 from math import log
+import sys
+
 import numpy as np
 from scipy import linalg, interpolate
 from scipy.linalg.lapack import get_lapack_funcs
 
 from .base import LinearModel
 from ..utils import array2d, arrayfuncs, deprecated
-from ..utils.extmath import norm
 from ..cross_validation import check_cv
 from ..externals.joblib import Parallel, delayed
 
@@ -130,7 +131,13 @@ def lars_path(X, y, Xy=None, Gram=None, max_iter=500,
         Cov = Xy.copy()
 
     if verbose:
-        print "Step\t\tAdded\t\tDropped\t\tActive set size\t\tC"
+        if verbose > 1:
+            print "Step\t\tAdded\t\tDropped\t\tActive set size\t\tC"
+        else:
+            sys.stdout.write('.')
+            sys.stdout.flush()
+
+    tiny = np.finfo(np.float).tiny  # to avoid division by 0 warning
 
     while True:
         if Cov.size:
@@ -197,10 +204,9 @@ def lars_path(X, y, Xy=None, Gram=None, max_iter=500,
             active.append(indices[n_active])
             n_active += 1
 
-            if verbose:
+            if verbose > 1:
                 print "%s\t\t%s\t\t%s\t\t%s\t\t%s" % (n_iter, active[-1], '',
                                                             n_active, C)
-
         # least squares solution
         least_squares, info = solve_cholesky(L[:n_active, :n_active],
                                sign_active[:n_active], lower=True)
@@ -222,8 +228,8 @@ def lars_path(X, y, Xy=None, Gram=None, max_iter=500,
             corr_eq_dir = np.dot(Gram[:n_active, n_active:].T,
                                  least_squares)
 
-        g1 = arrayfuncs.min_pos((C - Cov) / (AA - corr_eq_dir))
-        g2 = arrayfuncs.min_pos((C + Cov) / (AA + corr_eq_dir))
+        g1 = arrayfuncs.min_pos((C - Cov) / (AA - corr_eq_dir + tiny))
+        g2 = arrayfuncs.min_pos((C + Cov) / (AA + corr_eq_dir + tiny))
         gamma_ = min(g1, g2, C / AA)
 
         # TODO: better names for these variables: z
@@ -298,7 +304,7 @@ def lars_path(X, y, Xy=None, Gram=None, max_iter=500,
 
             sign_active = np.delete(sign_active, idx)
             sign_active = np.append(sign_active, 0.)  # just to maintain size
-            if verbose:
+            if verbose > 1:
                 print "%s\t\t%s\t\t%s\t\t%s\t\t%s" % (n_iter, '', drop_idx,
                                                       n_active, abs(temp))
 
@@ -363,7 +369,7 @@ class Lars(LinearModel):
     ... # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
     Lars(copy_X=True, eps=..., fit_intercept=True, n_nonzero_coefs=1,
        normalize=True, precompute='auto', verbose=False)
-    >>> print clf.coef_ # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+    >>> print(clf.coef_) # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
     [ 0. -1.11...]
 
     See also
@@ -432,7 +438,7 @@ class Lars(LinearModel):
         self.alphas_, self.active_, self.coef_path_ = lars_path(X, y,
                   Gram=Gram, copy_X=self.copy_X,
                   copy_Gram=False, alpha_min=alpha,
-                  method=self.method, verbose=self.verbose,
+                  method=self.method, verbose=max(0, self.verbose - 1),
                   max_iter=max_iter, eps=self.eps)
 
         self.coef_ = self.coef_path_[:, -1]
@@ -499,7 +505,7 @@ class LassoLars(Lars):
     ... # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
     LassoLars(alpha=0.01, copy_X=True, eps=..., fit_intercept=True,
          max_iter=500, normalize=True, precompute='auto', verbose=False)
-    >>> print clf.coef_ # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+    >>> print(clf.coef_) # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
     [ 0.         -0.963257...]
 
     See also
@@ -622,7 +628,7 @@ def _lars_path_residues(X_train, y_train, X_test, y_test, Gram=None,
 
     alphas, active, coefs = lars_path(X_train, y_train, Gram=Gram,
                             copy_X=False, copy_Gram=False,
-                            method=method, verbose=verbose,
+                            method=method, verbose=max(0, verbose - 1),
                             max_iter=max_iter, eps=eps)
     if normalize:
         coefs[nonzeros] /= norms[nonzeros][:, np.newaxis]
@@ -732,9 +738,6 @@ class LarsCV(LARS):
 
         Gram = 'auto' if self.precompute else None
 
-        # Scaling factor for the residues, to avoid overflows
-        X_norm = norm(X)
-
         cv_paths = Parallel(n_jobs=self.n_jobs, verbose=self.verbose)(
                     delayed(_lars_path_residues)(X[train], y[train],
                             X[test], y[test], Gram=Gram,
@@ -746,7 +749,8 @@ class LarsCV(LARS):
                             eps=self.eps)
                     for train, test in cv)
         all_alphas = np.concatenate(list(zip(*cv_paths))[0])
-        all_alphas.sort()
+        # Unique also sorts
+        all_alphas = np.unique(all_alphas)
         # Take at most max_n_alphas values
         stride = int(max(1, int(len(all_alphas) / float(self.max_n_alphas))))
         all_alphas = all_alphas[::stride]
@@ -764,7 +768,6 @@ class LarsCV(LARS):
             this_residues = interpolate.interp1d(alphas,
                                                  residues,
                                                  axis=0)(all_alphas)
-            this_residues /= X_norm
             this_residues **= 2
             mse_path[:, index] = np.mean(this_residues, axis=-1)
 
@@ -944,7 +947,7 @@ class LassoLarsIC(LassoLars):
     LassoLarsIC(copy_X=True, criterion='bic', eps=..., fit_intercept=True,
           max_iter=500, normalize=True, precompute='auto',
           verbose=False)
-    >>> print clf.coef_ # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
+    >>> print(clf.coef_) # doctest: +ELLIPSIS, +NORMALIZE_WHITESPACE
     [ 0.  -1.11...]
 
     Notes

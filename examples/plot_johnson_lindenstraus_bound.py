@@ -67,8 +67,8 @@ and the distances are well preserved by the random projection.
 from time import time
 import numpy as np
 import pylab as pl
-from sklearn.random_projection import johnson_lindenstrauss_min_dim
-from sklearn.random_projection import SparseRandomProjection
+from sklearn.decomposition.random_projection import johnson_lindenstrauss_min_dim
+from sklearn.decomposition.random_projection import SparseRandomProjection
 from sklearn.datasets import fetch_20newsgroups_vectorized
 from sklearn.metrics.pairwise import euclidean_distances
 

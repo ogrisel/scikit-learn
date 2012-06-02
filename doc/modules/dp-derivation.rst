@@ -1,5 +1,5 @@
 
-.. _dpgmm:
+.. _dpgmm_derivation:
 
 .. currentmodule:: sklearn.mixture
 
@@ -348,6 +348,7 @@ The tied model
 ----------------
 
 The model then is
+
 .. math::
 
   \begin{array}{rcl}

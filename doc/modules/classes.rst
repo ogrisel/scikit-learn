@@ -22,6 +22,8 @@ uses.
 
 **User guide:** See the :ref:`clustering` section for further details.
 
+Classes
+-------
 .. currentmodule:: sklearn
 
 .. autosummary::
@@ -36,6 +38,19 @@ uses.
    cluster.SpectralClustering
    cluster.Ward
 
+Functions
+---------
+.. autosummary::
+   :toctree: generated/
+   :template: function.rst
+
+   cluster.estimate_bandwidth
+   cluster.k_means
+   cluster.ward_tree
+   cluster.affinity_propagation
+   cluster.dbscan
+   cluster.mean_shift
+   cluster.spectral_clustering
 
 .. _covariance_ref:
 
@@ -55,12 +70,13 @@ uses.
    :template: class.rst
 
    covariance.EmpiricalCovariance
-   covariance.ShrunkCovariance
-   covariance.LedoitWolf
-   covariance.OAS
+   covariance.EllipticEnvelope
    covariance.GraphLasso
    covariance.GraphLassoCV
+   covariance.LedoitWolf
    covariance.MinCovDet
+   covariance.OAS
+   covariance.ShrunkCovariance
 
 .. autosummary::
    :toctree: generated/
@@ -98,6 +114,7 @@ uses.
    cross_validation.LeavePOut
    cross_validation.StratifiedKFold
    cross_validation.ShuffleSplit
+   cross_validation.StratifiedShuffleSplit
 
 .. autosummary::
    :toctree: generated/
@@ -144,6 +161,7 @@ Loaders
    datasets.fetch_olivetti_faces
    datasets.load_sample_image
    datasets.load_sample_images
+   datasets.load_svmlight_file
 
 Samples generator
 -----------------
@@ -156,10 +174,13 @@ Samples generator
 
    datasets.make_blobs
    datasets.make_classification
+   datasets.make_circles
    datasets.make_friedman1
    datasets.make_friedman2
    datasets.make_friedman3
+   datasets.make_hastie_10_2
    datasets.make_low_rank_matrix
+   datasets.make_moons
    datasets.make_multilabel_classification
    datasets.make_regression
    datasets.make_s_curve
@@ -231,6 +252,8 @@ Samples generator
    ensemble.RandomForestRegressor
    ensemble.ExtraTreesClassifier
    ensemble.ExtraTreesRegressor
+   ensemble.GradientBoostingClassifier
+   ensemble.GradientBoostingRegressor
 
 .. autosummary::
    :toctree: generated/
@@ -249,6 +272,12 @@ Samples generator
 **User guide:** See the :ref:`feature_extraction` section for further details.
 
 .. currentmodule:: sklearn
+
+.. autosummary::
+   :toctree: generated/
+   :template: class.rst
+
+   feature_extraction.DictVectorizer
 
 From images
 -----------
@@ -272,6 +301,8 @@ From images
 
    feature_extraction.image.PatchExtractor
 
+.. _text_feature_extraction_ref:
+
 From text
 ---------
 
@@ -285,12 +316,9 @@ From text
    :toctree: generated/
    :template: class.rst
 
-   feature_extraction.text.RomanPreprocessor
-   feature_extraction.text.WordNGramAnalyzer
-   feature_extraction.text.CharNGramAnalyzer
    feature_extraction.text.CountVectorizer
    feature_extraction.text.TfidfTransformer
-   feature_extraction.text.Vectorizer
+   feature_extraction.text.TfidfVectorizer
 
 
 .. _feature_selection_ref:
@@ -452,6 +480,8 @@ From text
    :no-members:
    :no-inherited-members:
 
+**User guide:** See the :ref:`lda_qda` section for further details.
+
 .. currentmodule:: sklearn
 
 .. autosummary::
@@ -484,6 +514,7 @@ For dense data
    linear_model.LinearRegression
    linear_model.Ridge
    linear_model.RidgeClassifier
+   linear_model.RidgeClassifierCV
    linear_model.RidgeCV
    linear_model.Lasso
    linear_model.LassoCV
@@ -603,7 +634,7 @@ Regression metrics
    :template: function.rst
 
    metrics.r2_score
-   metrics.mean_square_error
+   metrics.mean_squared_error
 
 Clustering metrics
 ------------------
@@ -752,6 +783,7 @@ Pairwise metrics
    neighbors.KNeighborsRegressor
    neighbors.RadiusNeighborsRegressor
    neighbors.BallTree
+   neighbors.NearestCentroid
 
 .. autosummary::
    :toctree: generated/
@@ -834,6 +866,23 @@ Pairwise metrics
    preprocessing.binarize
 
 
+:mod:`sklearn.qda`: Quadratic Discriminant Analysis
+===================================================
+
+.. automodule:: sklearn.qda
+   :no-members:
+   :no-inherited-members:
+
+**User guide:** See the :ref:`lda_qda` section for further details.
+
+.. currentmodule:: sklearn
+
+.. autosummary::
+   :toctree: generated
+   :template: class.rst
+
+   qda.QDA
+
 .. _svm_ref:
 
 :mod:`sklearn.svm`: Support Vector Machines
@@ -845,8 +894,8 @@ Pairwise metrics
 
 **User guide:** See the :ref:`svm` section for further details.
 
-For dense data
---------------
+Estimators
+----------
 
 .. currentmodule:: sklearn
 

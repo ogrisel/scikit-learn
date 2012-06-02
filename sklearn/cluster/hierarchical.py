@@ -18,6 +18,7 @@ from scipy.cluster import hierarchy
 from ..base import BaseEstimator
 from ..utils._csgraph import cs_graph_components
 from ..externals.joblib import Memory
+from ..metrics import euclidean_distances
 
 from . import _hierarchical
 from ._feature_agglomeration import AgglomerationTransform
@@ -73,11 +74,18 @@ def ward_tree(X, connectivity=None, n_components=None, copy=True):
     # Compute the number of nodes
     if connectivity is not None:
         if n_components is None:
-            n_components, _ = cs_graph_components(connectivity)
+            n_components, labels = cs_graph_components(connectivity)
         if n_components > 1:
             warnings.warn("the number of connected components of the"
-            " connectivity matrix is %d > 1. The tree will be stopped early."
+            " connectivity matrix is %d > 1. Completing it to avoid"
+            " stopping the tree early."
             % n_components)
+            if copy:
+                connectivity = connectivity.copy()
+                copy = False
+            connectivity = _fix_connectivity(X, connectivity,
+                                            n_components, labels)
+            n_components = 1
     else:
         out = hierarchy.ward(X)
         children_ = out[:, :2].astype(np.int)
@@ -114,11 +122,12 @@ def ward_tree(X, connectivity=None, n_components=None, copy=True):
     coord_col = np.array(coord_col, dtype=np.int)
 
     # build moments as a list
-    moments = [np.zeros(n_nodes), np.zeros((n_nodes, n_features))]
-    moments[0][:n_samples] = 1
-    moments[1][:n_samples] = X
+    moments_1 = np.zeros(n_nodes)
+    moments_1[:n_samples] = 1
+    moments_2 = np.zeros((n_nodes, n_features))
+    moments_2[:n_samples] = X
     inertia = np.empty(len(coord_row), dtype=np.float)
-    _hierarchical.compute_ward_dist(moments[0], moments[1],
+    _hierarchical.compute_ward_dist(moments_1, moments_2,
                              coord_row, coord_col, inertia)
     inertia = zip(inertia, coord_row, coord_col)
     heapify(inertia)
@@ -143,16 +152,15 @@ def ward_tree(X, connectivity=None, n_components=None, copy=True):
         used_node[i] = used_node[j] = False
 
         # update the moments
-        for p in xrange(2):
-            moments[p][k] = moments[p][i] + moments[p][j]
+        moments_1[k] = moments_1[i] + moments_1[j]
+        moments_2[k] = moments_2[i] + moments_2[j]
 
         # update the structure matrix A and the inertia matrix
         coord_col = []
         visited[:] = False
         visited[k] = True
         for l in set(A[i]).union(A[j]):
-            while parent[l] != l:
-                l = parent[l]
+            l = _hierarchical._get_parent(l, parent)
             if not visited[l]:
                 visited[l] = True
                 coord_col.append(l)
@@ -163,7 +171,7 @@ def ward_tree(X, connectivity=None, n_components=None, copy=True):
         coord_row.fill(k)
         ini = np.empty(len(coord_row), dtype=np.float)
 
-        _hierarchical.compute_ward_dist(moments[0], moments[1],
+        _hierarchical.compute_ward_dist(moments_1, moments_2,
                                    coord_row, coord_col, ini)
         for tupl in itertools.izip(ini, coord_row, coord_col):
             heappush(inertia, tupl)
@@ -176,7 +184,29 @@ def ward_tree(X, connectivity=None, n_components=None, copy=True):
 
 
 ###############################################################################
+# For non fully-connected graphs
+
+def _fix_connectivity(X, connectivity, n_components, labels):
+    """
+    Warning: modifies connectivity in place
+    """
+    for i in range(n_components):
+        idx_i = np.where(labels == i)[0]
+        Xi = X[idx_i]
+        for j in range(i):
+            idx_j = np.where(labels == j)[0]
+            Xj = X[idx_j]
+            D = euclidean_distances(Xi, Xj)
+            ii, jj = np.where(D == np.min(D))
+            ii = ii[0]
+            jj = jj[0]
+            connectivity[idx_i[ii], idx_j[jj]] = True
+            connectivity[idx_j[jj], idx_i[ii]] = True
+    return connectivity
+
+###############################################################################
 # Functions for cutting  hierarchical clustering tree
+
 
 def _hc_cut(n_clusters, children, n_leaves):
     """Function cutting the ward tree for a given number of clusters.
@@ -287,6 +317,16 @@ class Ward(BaseEstimator):
         memory = self.memory
         if isinstance(memory, basestring):
             memory = Memory(cachedir=memory)
+
+        if not self.connectivity is None:
+            if not sparse.issparse(self.connectivity):
+                raise TypeError("`connectivity` should be a sparse matrix or "
+                        "None, got: %r" % type(self.connectivity))
+
+            if (self.connectivity.shape[0] != X.shape[0] or
+                    self.connectivity.shape[1] != X.shape[0]):
+                raise ValueError("`connectivity` does not have shape "
+                        "(n_samples, n_samples)")
 
         # Construct the tree
         self.children_, self.n_components, self.n_leaves_ = \
