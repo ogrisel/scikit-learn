@@ -110,6 +110,7 @@ Changelog
 
 API changes summary
 -------------------
+
    - Renamed all occurences of ``n_atoms`` to ``n_components`` for consistency.
      This applies to :class:`decomposition.DictionaryLearning`,
      :class:`decomposition.MiniBatchDictionaryLearning`,
