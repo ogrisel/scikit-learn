@@ -46,13 +46,13 @@ We validate the above bounds on the the digits dataset or on the 20 newsgroups
 text document (TF-IDF word frequencies) dataset:
 
 - for the digits dataset, some 8x8 gray level pixels data for 500
-  handwritten digits picture are projected to
+  handwritten digits pictures are randomly projected to spaces for various
+  larger number of dimensions ``n_components``.
 
 - for the 20 newsgroups dataset some 500 documents with 100k
   features in total are projected using a sparse random matrix to smaller
   euclidean spaces with various values for the target number of dimensions
-  n_components.
-
+  ``n_components``.
 
 The default dataset is the digits dataset. To run the example on the twenty
 newsgroups dataset, pass the --twenty-newsgroups command line argument to this
