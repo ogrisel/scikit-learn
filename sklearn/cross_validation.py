@@ -195,12 +195,17 @@ class LeavePOut(object):
                    / factorial(self.p))
 
 
-def _validate_kfold(k, n_samples):
-    if k <= 0:
-        raise ValueError("Cannot have number of folds k below 1.")
-    if k > n_samples:
-        raise ValueError("Cannot have number of folds k=%d greater than"
-                         " the number of samples: %d." % (k, n_samples))
+def _validate_kfold(n_folds, n):
+    if abs(n - int(n)) >= np.finfo('f').eps:
+        raise ValueError("n must be an integer")
+    if abs(n_folds - int(n_folds)) >= np.finfo('f').eps:
+        raise ValueError("n_folds must be an integer")
+    if n_folds < 2:
+        raise ValueError("Cannot have number of folds n_folds below 2.")
+    if n_folds > n:
+        raise ValueError("Cannot have number of folds n_folds=%d greater than"
+                         " the number of samples: %d." % (n_folds, n))
+    return int(n_folds), int(n)
 
 
 class KFold(object):
@@ -266,23 +271,10 @@ class KFold(object):
             warnings.warn("The parameter k was renamed to n_folds and will be"
                           " removed in 0.15.", DeprecationWarning)
             n_folds = k
-        _validate_kfold(n_folds, n)
+        self.n_folds, self.n = _validate_kfold(n_folds, n)
         random_state = check_random_state(random_state)
-
-        if abs(n - int(n)) >= np.finfo('f').eps:
-            raise ValueError("n must be an integer")
-        self.n = int(n)
-        if abs(n_folds - int(n_folds)) >= np.finfo('f').eps:
-            raise ValueError("n_folds must be an integer")
-        self.n_folds = n_folds = int(n_folds)
-        if n_folds < 2:
-            raise ValueError(
-                "KFold cross validation requires at least one"
-                " train / test split by setting n_folds=2 or more,"
-                " got n_folds=%d."
-                % n_folds)
         self.indices = indices
-        self.idxs = np.arange(n)
+        self.idxs = np.arange(self.n)
         if shuffle:
             random_state.shuffle(self.idxs)
 
@@ -369,22 +361,15 @@ class StratifiedKFold(object):
             n_folds = k
         y = np.asarray(y)
         n = y.shape[0]
-        _validate_kfold(n_folds, n)
+        self.n_folds, self.n = _validate_kfold(n_folds, n)
         _, y_sorted = unique(y, return_inverse=True)
         min_labels = np.min(np.bincount(y_sorted))
-        n_folds = int(n_folds)
-        if n_folds < 2:
-            raise ValueError(
-                "StratifiedKFold cross validation requires at least one"
-                " train / test split by setting n_folds=2 or more,"
-                " got n_folds=%d."
-                % n_folds)
-        if n_folds > min_labels:
+        if self.n_folds > min_labels:
             warnings.warn(("The least populated class in y has only %d"
                           " members, which is too few. The minimum"
                           " number of labels for any class cannot"
                           " be less than n_folds=%d."
-                          % (min_labels, n_folds)), Warning)
+                          % (min_labels, self.n_folds)), Warning)
         self.y = y
         self.n_folds = n_folds
         self.indices = indices
