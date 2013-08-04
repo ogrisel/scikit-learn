@@ -42,10 +42,7 @@ def configuration(parent_package='', top_path=None):
     config.add_subpackage('gaussian_process/tests')
     config.add_subpackage('neighbors')
     config.add_subpackage('neural_network')
-<<<<<<< HEAD
     config.add_subpackage('preprocessing')
-=======
->>>>>>> 341a8af3287966e5b26238f54a9aa7001f828a4a
     config.add_subpackage('manifold')
     config.add_subpackage('metrics')
     config.add_subpackage('semi_supervised')

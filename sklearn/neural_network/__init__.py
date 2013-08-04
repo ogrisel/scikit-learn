@@ -5,3 +5,4 @@ networks.
 """
 
 from .rbm import BernoulliRBM
+from .mlp import MultilayerPerceptronClassifier
