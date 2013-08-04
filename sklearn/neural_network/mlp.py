@@ -16,6 +16,10 @@ from sklearn.preprocessing import LabelBinarizer
 from sklearn.utils import atleast2d_or_csr, check_random_state
 from sklearn.utils.extmath import logsumexp, safe_sparse_dot
 from itertools import cycle, izip
+from sklearn.linear_model.sgd_fast import SquaredHinge
+from sklearn.linear_model.sgd_fast import Hinge
+from sklearn.linear_model.sgd_fast import ModifiedHuber
+from sklearn.linear_model.sgd_fast import SquaredLoss
 
 
 def _logistic(x):
@@ -111,8 +115,17 @@ def _d_tanh(X):
     X += 1
     return X
 
-
-class BaseMLP(BaseEstimator):
+#TODO: use sgd_fast loss functions instead
+def _logistic_loss(y_true, y_pred):
+    return -np.mean(y_true * np.log(y_pred) + (1 - y_true) * np.log(1 - y_pred))
+    
+def _squared_loss(y_true, y_pred):
+    return np.sum((y_true-y_pred)**2)/ (2 * n_samples)
+    
+def _log_loss(y_true, y_pred):
+    return -np.sum(y_true * np.log(y_pred))
+    
+class BaseMultilayerPerceptron(BaseEstimator):
     """Base class for  MLP.
 
     Warning: This class should not be used directly.
@@ -168,7 +181,12 @@ class BaseMLP(BaseEstimator):
             'tanh': _d_tanh,
             'logistic': _d_logistic
         }
-    
+    loss_functions = {
+            'squared_loss': _squared_loss,
+            'log': _log_loss,
+            'logistic_log': _logistic_loss
+     }
+     
     @abstractmethod
     def __init__(
         self, n_hidden, activation, loss, algorithm,
@@ -256,7 +274,7 @@ class BaseMLP(BaseEstimator):
         if len(self.classes_)  > 2:
             self.output_func =  _softmax
         else:
-            self.output_func =  self.activation_functions[self.activation]
+            self.output_func =  _logistic
         
     def fit(self, X, Y):
         """
@@ -290,7 +308,8 @@ class BaseMLP(BaseEstimator):
                 self.batch_size,
                 n_batches))
         #l-bfgs does not work well with batches
-        if self.algorithm == 'l-bfgs': self.batch_size = n_samples 
+        if self.algorithm == 'l-bfgs': 
+            self.batch_size = n_samples 
         # preallocate memory
         a_hidden = np.empty((self.batch_size, self.n_hidden))
         a_output = np.empty((self.batch_size, n_classes))
@@ -353,15 +372,10 @@ class BaseMLP(BaseEstimator):
                                        self.intercept_output_)
         # Backward propagate
         diff = Y - a_output
-        delta_o[:] = -diff
+        delta_o[:] = -diff 
         delta_h = np.dot(delta_o, self.coef_output_.T) *\
                     self.derivative_func(a_hidden)
-        if self.loss == 'squared_loss':
-            cost = np.sum(diff**2)/ (2 * n_samples)
-        elif self.loss == 'log':
-            # To avoid math error, tanh values are re-scaled
-            if self.activation == 'tanh': a_output = 0.5*(a_output + 1) 
-            cost = -np.sum(Y * np.log(a_output))
+        cost = self.loss_functions[self.loss](Y, a_output)
         # Get regularized gradient
         W1grad = safe_sparse_dot(X.T, delta_h) + \
                 (self.alpha * self.coef_hidden_)
@@ -567,7 +581,7 @@ class BaseMLP(BaseEstimator):
         X = atleast2d_or_csr(X)
         return self.decision_function(X)
 
-class MLPClassifier(BaseMLP, ClassifierMixin):
+class MultilayerPerceptronClassifier(BaseMultilayerPerceptron, ClassifierMixin):
 
     def __init__(
         self, n_hidden=100, activation="logistic",
@@ -575,7 +589,7 @@ class MLPClassifier(BaseMLP, ClassifierMixin):
         learning_rate="constant", eta0=0.8, power_t=0.5, max_iter=200,
         shuffle_data=False, random_state=None, tol=1e-5, verbose=False):
         super(
-            MLPClassifier, self).__init__(n_hidden, activation, loss,
+            MultilayerPerceptronClassifier, self).__init__(n_hidden, activation, loss,
                                           algorithm, alpha, batch_size, learning_rate, eta0, 
                                           power_t, max_iter, shuffle_data, random_state, tol, verbose)
         self.classes_ = None
@@ -600,8 +614,10 @@ class MLPClassifier(BaseMLP, ClassifierMixin):
         self.classes_ = np.unique(y)
         self._lbin = LabelBinarizer()
         Y = self._lbin.fit_transform(y)
-        if len(self.classes_) == 2: Y[np.where(Y==0)]=-1
-        super(MLPClassifier, self).fit(
+        if len(self.classes_) == 2: 
+            Y[np.where(Y==0)]=0
+            self.loss = 'logistic_log'
+        super(MultilayerPerceptronClassifier, self).fit(
                 X, Y)
         return self
     
@@ -617,9 +633,9 @@ class MLPClassifier(BaseMLP, ClassifierMixin):
         array, shape = [n_samples]
            Predicted target values per element in X.
         """
-        scores = super(MLPClassifier, self).predict(X)
+        scores = super(MultilayerPerceptronClassifier, self).predict(X)
         if len(scores.shape) == 1:
-            indices = (scores > 0).astype(np.int)
+            indices = (scores > 0.5).astype(np.int)
         else:
             indices = scores.argmax(axis=1)
         return self._lbin.classes_[indices]
@@ -638,7 +654,7 @@ class MLPClassifier(BaseMLP, ClassifierMixin):
             model, where classes are ordered as they are in
             `self.classes_`.
         """
-        scores = super(MLPClassifier, self).predict(X)
+        scores = super(MultilayerPerceptronClassifier, self).predict(X)
         if len(scores.shape) == 1:
             return np.log(self.activation_func(scores))
         else:
@@ -657,7 +673,7 @@ class MLPClassifier(BaseMLP, ClassifierMixin):
             Returns the probability of the sample for each class in the model,
             where classes are ordered as they are in `self.classes_`.
         """
-        scores = super(MLPClassifier, self).predict(X)
+        scores = super(MultilayerPerceptronClassifier, self).predict(X)
         if len(scores.shape) == 1:
             scores *= -1
             np.exp(scores, scores)
