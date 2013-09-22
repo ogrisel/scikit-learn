@@ -65,5 +65,6 @@
    unsupervised_learning.rst
    model_selection.rst
    data_transforms.rst
+   modules/data_loading.rst
    Dataset loading utilities <datasets/index.rst>
    modules/scaling_strategies.rst

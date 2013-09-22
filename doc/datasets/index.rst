@@ -18,6 +18,13 @@ This package also features helpers to fetch larger datasets commonly
 used by the machine learning community to benchmark algorithm on data
 that comes from the 'real world'.
 
+.. warning::
+
+  The following dataset loading utilities are only useful to load data to
+  benchmark models. If you want to load your own data (for instance from a CSV
+  file) please instead refer to the :ref:`loading_data` section.
+
+
 General dataset API
 ===================
 

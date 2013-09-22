@@ -1,4 +1,4 @@
-.. _scaling_strategies:
+.. _saling_strategies:
 
 ==================
 Scaling Strategies
@@ -8,6 +8,9 @@ For some applications the amount of examples, features (or both) and/or the
 speed at which they need to be processed are challenging for traditional 
 approaches. In these cases scikit-learn has a number of options you can 
 consider to make your system scale. 
+
+
+.. _out_of_core_learning:
 
 Scaling with instances using out-of-core learning
 =================================================
