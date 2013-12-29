@@ -67,19 +67,17 @@ __all__ = ["RandomForestClassifier",
 MAX_INT = np.iinfo(np.int32).max
 
 
-def _parallel_build_trees(n_trees, forest, X, y,
-                          sample_weight, seeds, verbose):
+def _parallel_build_trees(seeds, forest, X, y, sample_weight, verbose):
     """Private function used to build a batch of trees within a job."""
     trees = []
 
-    for i in range(n_trees):
-        random_state = check_random_state(seeds[i])
+    for i, seed in enumerate(seeds):
+        random_state = check_random_state(seed)
         if verbose > 1:
             print("building tree %d of %d" % (i + 1, n_trees))
-        seed = random_state.randint(MAX_INT)
 
         tree = forest._make_estimator(append=False)
-        tree.set_params(random_state=seed)
+        tree.set_params(random_state=random_state)
 
         if forest.bootstrap:
             n_samples = X.shape[0]
@@ -256,7 +254,8 @@ class BaseForest(six.with_metaclass(ABCMeta, BaseEnsemble,
                              " if bootstrap=True")
 
         # Assign chunk of trees to jobs
-        n_jobs, n_trees, _ = _partition_estimators(self)
+        #n_jobs, n_trees, _ = _partition_estimators(self)
+        n_trees = np.ones(self.n_estimators, dtype=np.int)
 
         # Precalculate the random states
         seeds = [random_state.randint(MAX_INT, size=i) for i in n_trees]
@@ -267,17 +266,16 @@ class BaseForest(six.with_metaclass(ABCMeta, BaseEnsemble,
         # Parallel loop: we use the threading backend as the Cython code for
         # fitting the trees is internally releasing the Python GIL making
         # threading always more efficient than multiprocessing in that case.
-        all_trees = Parallel(n_jobs=n_jobs, verbose=self.verbose,
+        all_trees = Parallel(n_jobs=self.n_jobs, verbose=self.verbose,
                              backend="threading")(
             delayed(_parallel_build_trees)(
-                n_trees[i],
+                seeds[i],
                 self,
                 X,
                 y,
                 sample_weight,
-                seeds[i],
                 verbose=self.verbose)
-            for i in range(n_jobs))
+            for i in range(self.n_estimators))
 
         # Reduce
         self.estimators_ = list(itertools.chain(*all_trees))
