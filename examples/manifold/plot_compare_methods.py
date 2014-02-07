@@ -45,11 +45,11 @@ pl.suptitle("Manifold Learning with %i points, %i neighbors"
 
 try:
     # compatibility matplotlib < 1.0
-    ax = fig.add_subplot(241, projection='3d')
+    ax = fig.add_subplot(251, projection='3d')
     ax.scatter(X[:, 0], X[:, 1], X[:, 2], c=color, cmap=pl.cm.Spectral)
     ax.view_init(4, -72)
 except:
-    ax = fig.add_subplot(241, projection='3d')
+    ax = fig.add_subplot(251, projection='3d')
     pl.scatter(X[:, 0], X[:, 2], c=color, cmap=pl.cm.Spectral)
 
 methods = ['standard', 'ltsa', 'hessian', 'modified']
@@ -63,7 +63,7 @@ for i, method in enumerate(methods):
     t1 = time()
     print("%s: %.2g sec" % (methods[i], t1 - t0))
 
-    ax = fig.add_subplot(242 + i)
+    ax = fig.add_subplot(252 + i)
     pl.scatter(Y[:, 0], Y[:, 1], c=color, cmap=pl.cm.Spectral)
     pl.title("%s (%.2g sec)" % (labels[i], t1 - t0))
     ax.xaxis.set_major_formatter(NullFormatter())
@@ -74,7 +74,7 @@ t0 = time()
 Y = manifold.Isomap(n_neighbors, n_components).fit_transform(X)
 t1 = time()
 print("Isomap: %.2g sec" % (t1 - t0))
-ax = fig.add_subplot(246)
+ax = fig.add_subplot(257)
 pl.scatter(Y[:, 0], Y[:, 1], c=color, cmap=pl.cm.Spectral)
 pl.title("Isomap (%.2g sec)" % (t1 - t0))
 ax.xaxis.set_major_formatter(NullFormatter())
@@ -87,7 +87,7 @@ mds = manifold.MDS(n_components, max_iter=100, n_init=1)
 Y = mds.fit_transform(X)
 t1 = time()
 print("MDS: %.2g sec" % (t1 - t0))
-ax = fig.add_subplot(247)
+ax = fig.add_subplot(258)
 pl.scatter(Y[:, 0], Y[:, 1], c=color, cmap=pl.cm.Spectral)
 pl.title("MDS (%.2g sec)" % (t1 - t0))
 ax.xaxis.set_major_formatter(NullFormatter())
@@ -101,9 +101,23 @@ se = manifold.SpectralEmbedding(n_components=n_components,
 Y = se.fit_transform(X)
 t1 = time()
 print("SpectralEmbedding: %.2g sec" % (t1 - t0))
-ax = fig.add_subplot(248)
+ax = fig.add_subplot(259)
 pl.scatter(Y[:, 0], Y[:, 1], c=color, cmap=pl.cm.Spectral)
 pl.title("SpectralEmbedding (%.2g sec)" % (t1 - t0))
+ax.xaxis.set_major_formatter(NullFormatter())
+ax.yaxis.set_major_formatter(NullFormatter())
+pl.axis('tight')
+
+
+t0 = time()
+tsne = manifold.TSNE(n_components=n_components, perplexity=40,
+                     random_state=0, n_iter=50)
+Y = tsne.fit_transform(X)
+t1 = time()
+print("t-SNE: %.2g sec" % (t1 - t0))
+ax = fig.add_subplot(250)
+pl.scatter(Y[:, 0], Y[:, 1], c=color, cmap=pl.cm.Spectral)
+pl.title("t-SNE (%.2g sec)" % (t1 - t0))
 ax.xaxis.set_major_formatter(NullFormatter())
 ax.yaxis.set_major_formatter(NullFormatter())
 pl.axis('tight')
