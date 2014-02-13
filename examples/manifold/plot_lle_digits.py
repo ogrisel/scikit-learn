@@ -224,4 +224,3 @@ plot_embedding(X_tsne,
                (time() - t0))
 
 pl.show()
-
