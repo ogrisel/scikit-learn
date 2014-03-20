@@ -83,6 +83,18 @@ def _d_tanh(Z):
     return Z
 
 
+def _relu(X):
+    X_new = X.copy()
+    X_new[X < 0] = 0
+    return X_new
+
+
+def _d_relu(X):
+    D = np.zeros_like(X)
+    D[X > 1] = 1
+    return D
+
+
 def _squared_loss(Y, Z):
     """Implements the square loss for regression."""
     return np.sum((Y - Z) ** 2) / (2 * len(Y))
@@ -109,11 +121,13 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
     activation_functions = {
         'tanh': _tanh,
         'logistic': logistic_sigmoid,
-        'softmax': _softmax
+        'softmax': _softmax,
+        'relu': _relu,
     }
     derivative_functions = {
         'tanh': _d_tanh,
-        'logistic': _d_logistic
+        'logistic': _d_logistic,
+        'relu': _d_relu,
     }
     loss_functions = {
         'squared_loss': _squared_loss,

@@ -27,7 +27,7 @@ np.seterr(all='warn')
 
 LEARNING_RATE_TYPES = ["constant", "invscaling"]
 
-ACTIVATION_TYPES = ["logistic", "tanh"]
+ACTIVATION_TYPES = ["logistic", "tanh", "relu"]
 
 digits_dataset_multi = load_digits(n_class=3)
 
