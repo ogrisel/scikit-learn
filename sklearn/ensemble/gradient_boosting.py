@@ -428,7 +428,9 @@ class NormalizedDiscountedCumulativeGain(RegressionLossFunction):
                     tmp_grad, tmp_weights = _lambda(y_true[ix + start_ix],
                                                     y_pred[ix + start_ix])
                     grad[start_ix:end_ix] = tmp_grad[inv_ix]
-                    self.weights[start_ix:end_ix] = tmp_weights[inv_ix]
+                    temp_weights = tmp_weights[inv_ix]
+                    temp_weights = np.reshape(temp_weights, (temp_weights.shape[0], 1))
+                    self.weights[start_ix:end_ix] = temp_weights
                     start_ix = i + 1
                     last_q = q
 
@@ -443,7 +445,9 @@ class NormalizedDiscountedCumulativeGain(RegressionLossFunction):
             tmp_grad, tmp_weights = _lambda(y_true[ix + start_ix],
                                             y_pred[ix + start_ix])
             grad[start_ix:] = tmp_grad[inv_ix]
-            self.weights[start_ix:] = tmp_weights[inv_ix]
+            temp_weights = tmp_weights[inv_ix]
+            temp_weights = np.reshape(temp_weights, (temp_weights.shape[0], 1))
+            self.weights[start_ix:] = temp_weights
 
         return grad
 
