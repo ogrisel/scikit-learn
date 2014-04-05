@@ -79,7 +79,7 @@ class LogisticSag(BaseEstimator):
 
             # Compute the gradient with respect to the output for that batch.
             ybatch_pred = self.predict(Xbatch)
-            gradient_batch_output = ybatch - ybatch_pred
+            gradient_batch_output = ybatch_pred - ybatch
 
             # Had we seen this batch already
             if is_seen[batch] == 0:
@@ -98,8 +98,9 @@ class LogisticSag(BaseEstimator):
             else:
                 # Remove the old gradient and add in the new one.
                 old_gradient_batch_output = all_gradients[batch_indices]
-                sum_gradient_weights = np.dot(Xbatch.T, gradient_batch_output - old_gradient_batch_output)
-                sum_gradient_intercept += np.sum(gradient_batch_output - old_gradient_batch_output)
+                diff_gradient = gradient_batch_output - old_gradient_batch_output
+                sum_gradient_weights = np.dot(Xbatch.T, diff_gradient)
+                sum_gradient_intercept += np.sum(diff_gradient)
 
             # Store the new gradients.
             all_gradients[batch_indices] = gradient_batch_output
