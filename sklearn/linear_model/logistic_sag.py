@@ -116,22 +116,6 @@ class LogisticSag(BaseEstimator):
             if l1reg > 0:
                 self.weights *= np.fmax(0, 1 - l1reg*stepsize/np.abs(self.weights))
 
-
-    def decision_function(self, X):
-        """Decision function of the linear model
-
-        Parameters
-        ----------
-        X : numpy array of shape [n_samples, n_features]
-
-        Returns
-        -------
-        C : array, shape = [n_samples]
-            Returns predicted values.
-        """
-        X = safe_asarray(X)
-        return safe_sparse_dot(X, self.coef_.T) + self.intercept_
-
     def predict(self, X):
         """Predict using the linear model
 
