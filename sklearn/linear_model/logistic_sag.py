@@ -6,21 +6,10 @@ Learning a logistic regression using the SAG optimizer.
 #
 # License: BSD Style.
 
-from abc import ABCMeta, abstractmethod
+from abc import ABCMeta
 
 import numpy as np
-import scipy.sparse as sp
-from scipy import linalg
-
-from ..externals.joblib import Parallel, delayed
 from ..base import BaseEstimator
-from ..base import RegressorMixin
-from ..utils.extmath import safe_sparse_dot
-from ..utils import as_float_array, safe_asarray
-from ..utils.fixes import lsqr
-from ..utils.sparsefuncs import csc_mean_variance_axis0, \
-                                inplace_csc_column_scale
-from cd_fast import sparse_std
 
 def sigm(x):
     small_x = np.where(x < -20) # Avoid overflows.
