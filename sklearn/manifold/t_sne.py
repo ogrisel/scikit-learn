@@ -5,7 +5,7 @@ from scipy.spatial.distance import squareform
 from ..base import BaseEstimator
 from ..utils import check_arrays
 from ..utils import check_random_state
-from . import _binary_search
+from . import _utils
 
 
 MACHINE_EPSILON = np.finfo(np.double).eps
@@ -34,7 +34,7 @@ def _joint_probabilities(affinities, desired_perplexity, verbose):
     """
     # Compute conditional probabilities such that they approximately match
     # the desired perplexity
-    conditional_P = _binary_search._binary_search_perplexity(
+    conditional_P = _utils._binary_search_perplexity(
         affinities, desired_perplexity, verbose)
     P = conditional_P + conditional_P.T
     sum_P = np.maximum(np.sum(P), MACHINE_EPSILON)
@@ -220,10 +220,10 @@ def trustworthiness(X, X_embedded, n_neighbors=5, precomputed=False):
     neighbors in the embedded space but not in the original space.
 
     * "Neighborhood Preservation in Nonlinear Projection Methods: An
-    Experimental Study"
-    J. Venna, S. Kaski
+      Experimental Study"
+      J. Venna, S. Kaski
     * "Learning a Parametric Embedding by Preserving Local Structure"
-    L.J.P. van der Maaten
+      L.J.P. van der Maaten
 
     Parameters
     ----------
