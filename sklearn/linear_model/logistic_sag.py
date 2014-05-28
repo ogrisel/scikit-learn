@@ -6,10 +6,11 @@ Learning a logistic regression using the SAG optimizer.
 #
 # License: BSD Style.
 
-from abc import ABCMeta
-
 import numpy as np
+from .base import LinearClassifierMixin
 from ..base import BaseEstimator
+from ..utils.multiclass import unique_labels
+
 
 def sigm(x):
     small_x = np.where(x < -20) # Avoid overflows.
@@ -17,11 +18,11 @@ def sigm(x):
     sigm_x[small_x] = np.exp(small_x)
     return sigm_x
 
-class LogisticSag(BaseEstimator):
-    """Base class for Linear Models"""
-    __metaclass__ = ABCMeta
 
-    def __init__(self, n_iter, batch_size = 50, l1reg = 0., l2reg = 0.):
+class LogisticSag(BaseEstimator, LinearClassifierMixin):
+    """Logistic regression trained with SAG"""
+
+    def __init__(self, n_iter, batch_size=50, l1reg=0., l2reg=0.):
         self.n_iter = n_iter # The equivalent number of passes through the data, since we are doing sampling with replacement.
         self.batch_size = batch_size # The size of the batches
         self.l1reg = l1reg # The strength of the l1 regularizer
@@ -29,6 +30,12 @@ class LogisticSag(BaseEstimator):
 
     def fit(self, X, y):
         """Fit model."""
+
+        self.classes_ = unique_labels(y)
+        if len(self.classes_) > 2:
+            # TODO: implement OvR reduction by default
+            raise ValueError("LogisticSag only support binary classification, "
+                             "got targets: %r" % list(self.classes_))
 
         # Initializing
         batch_size = self.batch_size
@@ -108,9 +115,6 @@ class LogisticSag(BaseEstimator):
                 self.coef_ *= np.fmax(0, update_scale)
         return self
 
-    def decision_function(self, X):
-        return np.dot(X, self.coef_) + self.intercept_
-
     def predict_proba(self, X):
         """Predict using the linear model
 
@@ -123,5 +127,4 @@ class LogisticSag(BaseEstimator):
         C : array, shape = [n_samples]
             Returns predicted values.
         """
-
-        return sigm(self.decision_function(X))
+        return self._predict_proba_lr(X)
