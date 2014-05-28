@@ -38,8 +38,8 @@ class LogisticSag(BaseEstimator):
         n_data, n_dims = X.shape
         stepsize = 0 # This value will actually not be used but I find it cleaner to initialize the variable outside an if statement.
 
-        self.weights = np.zeros(n_dims)
-        self.intercept = 0
+        self.coef_ = np.zeros(n_dims)
+        self.intercept_ = 0
 
         # The number of batches in the set. The last batch might be bigger.
         n_batches = np.ceil(n_data/batch_size)
@@ -52,7 +52,7 @@ class LogisticSag(BaseEstimator):
         is_seen = np.zeros(n_batches) # Which batches have already been seen?
         n_updates = n_iter * n_batches # Total number of updates
 
-        for update in xrange(n_updates):
+        for update in range(n_updates):
 
             # Pick a minibatch at random
             batch = np.random.randint(n_batches)
@@ -96,17 +96,22 @@ class LogisticSag(BaseEstimator):
 
             # Apply the l2 regularizer first.
             if l2reg > 0:
-                self.weights *= 1 - l2reg*stepsize
+                self.coef_ *= 1 - l2reg * stepsize
 
             # Apply the gradient
-            self.weights -= stepsize*sum_gradient_weights/n_seen
-            self.intercept -= stepsize*sum_gradient_intercept/n_seen
+            self.coef_ -= stepsize * sum_gradient_weights / n_seen
+            self.intercept_ -= stepsize*sum_gradient_intercept / n_seen
 
             # Apply the l1 regularizer if needed.
             if l1reg > 0:
-                self.weights *= np.fmax(0, 1 - l1reg*stepsize/np.abs(self.weights))
+                update_scale = 1 - l1reg * stepsize / np.abs(self.coef_)
+                self.coef_ *= np.fmax(0, update_scale)
+        return self
 
-    def predict(self, X):
+    def decision_function(self, X):
+        return np.dot(X, self.coef_) + self.intercept_
+
+    def predict_proba(self, X):
         """Predict using the linear model
 
         Parameters
@@ -119,4 +124,4 @@ class LogisticSag(BaseEstimator):
             Returns predicted values.
         """
 
-        return sigm(np.dot(X, self.weights) + self.intercept)
+        return sigm(self.decision_function(X))
