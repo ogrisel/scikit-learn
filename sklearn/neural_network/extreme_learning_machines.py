@@ -202,7 +202,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
 
         super(ELMClassifier, self).__init__(n_hidden, activation, random_state)
 
-        self._lbin = LabelBinarizer(-1, 1)
+        self._lbin = LabelBinarizer()
         self.classes_ = None
 
     def fit(self, X, y):
@@ -327,6 +327,8 @@ class ELMRegressor(BaseELM, RegressorMixin):
         self
         """
         y = np.atleast_1d(y)
+        if y.ndim == 1:
+            y = np.reshape(y, (-1, 1))
         super(ELMRegressor, self).fit(X, y)
 
         return self
