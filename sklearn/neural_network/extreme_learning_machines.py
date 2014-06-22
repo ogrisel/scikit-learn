@@ -202,7 +202,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
 
         super(ELMClassifier, self).__init__(n_hidden, activation, random_state)
 
-        self._lbin = LabelBinarizer()
+        self._lbin = LabelBinarizer(-1, 1)
         self.classes_ = None
 
     def fit(self, X, y):
@@ -260,9 +260,9 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         """
         scores = self.decision_function(X)
 
-        if len(scores.shape) == 1:
+        if len(self.classes_) == 2:
             scores = logistic_sigmoid(scores)
-            return np.vstack([1 - scores, scores]).T
+            return np.hstack([1 - scores, scores])
         else:
             return _softmax(scores)
 
