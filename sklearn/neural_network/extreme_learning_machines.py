@@ -53,6 +53,7 @@ def _softmax(Z):
 
 
 class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
+
     """Base class for ELM classification and regression.
 
     Warning: This class should not be used directly.
@@ -80,7 +81,6 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         """Set the activation functions."""
         self._activation_func = self._activation_functions[self.activation]
 
-
     def _scaled_weight_init(self, fan_in, fan_out):
         """Scale the initial, random parameters for a specific layer."""
         if self.activation == 'tanh':
@@ -99,9 +99,9 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         interval = self._scaled_weight_init(fan_in, fan_out)
 
         self.coef_hidden_ = rng.uniform(
-                -interval, interval, (fan_in, fan_out))
+            -interval, interval, (fan_in, fan_out))
         self.intercept_hidden_ = rng.uniform(
-                -interval, interval, (fan_out))
+            -interval, interval, (fan_out))
 
     def _get_hidden_activations(self, X):
         """Compute the values of the neurons in the hidden layer."""
@@ -121,7 +121,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
+        y : array-like, shape (n_samples)
              Subset of the target values.
 
         Returns
@@ -162,7 +162,9 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
 
         return output
 
+
 class ELMClassifier(BaseELM, ClassifierMixin):
+
     """Extreme learning machines classifier.
 
     The algorithm trains a single-hidden layer feedforward network by computing
@@ -198,7 +200,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
 
     """
 
-    def __init__(self, n_hidden=100, activation = 'tanh', random_state = None):
+    def __init__(self, n_hidden=100, activation='tanh', random_state=None):
 
         super(ELMClassifier, self).__init__(n_hidden, activation, random_state)
 
@@ -214,7 +216,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
+        y : array-like, shape (n_samples)
 
         Returns
         -------
@@ -225,7 +227,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         y = self._lbin.fit_transform(y)
 
         super(ELMClassifier, self).fit(X, y)
-        
+
         return self
 
     def predict(self, X):
@@ -268,6 +270,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
 
 
 class ELMRegressor(BaseELM, RegressorMixin):
+
     """Extreme learning machines regressor.
 
     The algorithm trains a single-hidden layer feedforward network by computing
@@ -302,9 +305,8 @@ class ELMRegressor(BaseELM, RegressorMixin):
         Number of output neurons.
 
     """
-    
 
-    def __init__(self, n_hidden=100, activation = 'tanh', random_state = None):
+    def __init__(self, n_hidden=100, activation='tanh', random_state=None):
 
         super(ELMRegressor, self).__init__(n_hidden, activation, random_state)
 
@@ -319,7 +321,7 @@ class ELMRegressor(BaseELM, RegressorMixin):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
+        y : array-like, shape (n_samples)
             Subset of the target values.
 
         Returns
