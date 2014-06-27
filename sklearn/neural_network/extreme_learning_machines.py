@@ -123,7 +123,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
+        y : array-like, shape (n_samples)
              Subset of the target values.
 
         Returns
@@ -218,7 +218,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
+        y : array-like, shape (n_samples)
 
         Returns
         -------
@@ -339,7 +339,7 @@ class ELMRegressor(BaseELM, RegressorMixin):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
+        y : array-like, shape (n_samples)
             Subset of the target values.
 
         Returns
