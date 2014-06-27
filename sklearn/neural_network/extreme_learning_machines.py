@@ -61,8 +61,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
     """
     _activation_functions = {
         'tanh': _tanh,
-        'logistic': logistic_sigmoid,
-        'softmax': _softmax
+        'logistic': logistic_sigmoid
     }
 
     @abstractmethod
@@ -73,6 +72,9 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
 
     def _validate_params(self):
         """Validate input params. """
+        if self.n_hidden <= 0:
+            raise ValueError("n_hidden must be greater or equal zero")
+
         if self.activation not in self._activation_functions:
             raise ValueError("The activation %s"
                              " is not supported. " % self.activation)
@@ -121,7 +123,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : array-like, shape (n_samples)
+        y : numpy array of shape (n_samples)
              Subset of the target values.
 
         Returns
@@ -216,7 +218,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : array-like, shape (n_samples)
+        y : numpy array of shape (n_samples)
 
         Returns
         -------
@@ -267,6 +269,22 @@ class ELMClassifier(BaseELM, ClassifierMixin):
             return np.hstack([1 - scores, scores])
         else:
             return _softmax(scores)
+
+    def predict_log_proba(self, X):
+        """Return the log of probability estimates.
+
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+
+        Returns
+        -------
+        T : array-like, shape (n_samples, n_outputs)
+            Returns the log-probability of the sample for each class in the
+            model, where classes are ordered as they are in
+            `self.classes_`. Equivalent to log(predict_proba(X))
+        """
+        return np.log(self.predict_proba(X))
 
 
 class ELMRegressor(BaseELM, RegressorMixin):
@@ -321,7 +339,7 @@ class ELMRegressor(BaseELM, RegressorMixin):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : array-like, shape (n_samples)
+        y : numpy array of shape (n_samples)
             Subset of the target values.
 
         Returns
@@ -329,10 +347,11 @@ class ELMRegressor(BaseELM, RegressorMixin):
         self
         """
         y = np.atleast_1d(y)
+
         if y.ndim == 1:
             y = np.reshape(y, (-1, 1))
-        super(ELMRegressor, self).fit(X, y)
 
+        super(ELMRegressor, self).fit(X, y)
         return self
 
     def predict(self, X):
