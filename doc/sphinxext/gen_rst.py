@@ -988,12 +988,15 @@ def generate_file_rst(fname, target_dir, src_dir, root_dir, plot_gallery):
             print(" - time elapsed : %.2g sec" % time_elapsed)
         else:
             figure_list = [f[len(image_dir):]
-                            for f in glob.glob(image_path % '[1-9]')]
-                            #for f in glob.glob(image_path % '*')]
-            # Catter for the fact that there can be more than 10 images
-            if len(figure_list) >= 9:
-                figure_list.extend([f[len(image_dir):]
-                            for f in glob.glob(image_path % '1[0-9]')])
+                            for f in glob.glob(image_path % '*')]
+            pattern = re.compile(r"(.+)_(\d+).png")
+            figure_list_components = [pattern.match(name).groups()
+                                      for name in figure_list]
+            figure_list_components = [(c[0], int(c[1]))
+                                      for c in figure_list_components]
+            figure_list_components.sort()
+            figure_list = ["{0}_{1}.png".format(*c)
+                           for c in figure_list_components]
 
         # generate thumb file
         this_template = plot_rst_template
