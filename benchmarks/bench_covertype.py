@@ -19,6 +19,7 @@ magnitude faster to train::
     liblinear     15.9744s    0.0705s     0.2305
     GaussianNB    3.0666s     0.3884s     0.4841
     SGD           1.0558s     0.1152s     0.2300
+    ELMClassifier 84.6731s    2.6530s     0.1717
     CART          79.4296s    0.0523s     0.0469
     RandomForest  1190.1620s  0.5881s     0.0243
     ExtraTrees    640.3194s   0.6495s     0.0198
@@ -59,6 +60,7 @@ from sklearn.datasets import fetch_covtype, get_data_home
 from sklearn.svm import LinearSVC
 from sklearn.linear_model import SGDClassifier
 from sklearn.naive_bayes import GaussianNB
+from sklearn.neural_network import ELMClassifier
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.ensemble import RandomForestClassifier, ExtraTreesClassifier
 from sklearn.ensemble import GradientBoostingClassifier
@@ -104,22 +106,20 @@ m = Memory(joblib_cache_folder, mmap_mode='r')
 # Load the data, then cache and memmap the train/test split
 @m.cache
 def load_data(dtype=np.float32, order='C'):
-    ######################################################################
-    ## Load dataset
+    # Load dataset
     print("Loading dataset...")
     data = fetch_covtype(download_if_missing=True, shuffle=True,
                          random_state=opts.random_seed)
     X, y = data['data'], data['target']
     X = np.asarray(X, dtype=dtype)
-    
+
     if order.lower() == 'f':
         X = np.asfortranarray(X)
 
     # class 1 vs. all others.
     y[np.where(y != 1)] = -1
 
-    ######################################################################
-    ## Create train-test split (as [Joachims, 2006])
+    # Create train-test split (as [Joachims, 2006])
     logger.info("Creating train-test split...")
     n_train = 522911
 
@@ -128,8 +128,7 @@ def load_data(dtype=np.float32, order='C'):
     X_test = X[n_train:]
     y_test = y[n_train:]
 
-    ######################################################################
-    ## Standardize first 10 features (the numerical ones)
+    # Standardize first 10 features (the numerical ones)
     mean = X_train.mean(axis=0)
     std = X_train.std(axis=0)
     mean[10:] = 0.0
@@ -141,8 +140,8 @@ def load_data(dtype=np.float32, order='C'):
 
 X_train, X_test, y_train, y_test = load_data()
 
-######################################################################
-## Print dataset statistics
+#
+# Print dataset statistics
 print("")
 print("Dataset statistics:")
 print("===================")
@@ -157,15 +156,14 @@ print("%s %d (pos=%d, neg=%d, size=%dMB)"
          np.sum(y_train == -1), int(X_train.nbytes / 1e6)))
 print("%s %d (pos=%d, neg=%d, size=%dMB)"
       % ("number of test samples:".ljust(25),
-      X_test.shape[0], np.sum(y_test == 1),
-      np.sum(y_test == -1), int(X_test.nbytes / 1e6)))
+         X_test.shape[0], np.sum(y_test == 1),
+         np.sum(y_test == -1), int(X_test.nbytes / 1e6)))
 
 
 classifiers = dict()
 
 
-######################################################################
-## Benchmark classifiers
+# Benchmark classifiers
 def benchmark(clf):
     t0 = time()
     clf.fit(X_train, y_train)
@@ -176,8 +174,7 @@ def benchmark(clf):
     err = metrics.zero_one_loss(y_test, pred, normalize=True)
     return err, train_time, test_time
 
-######################################################################
-## Train Liblinear model
+# Train Liblinear model
 liblinear_parameters = {
     'loss': 'l2',
     'penalty': 'l2',
@@ -188,12 +185,10 @@ liblinear_parameters = {
 }
 classifiers['liblinear'] = LinearSVC(**liblinear_parameters)
 
-######################################################################
-## Train GaussianNB model
+# Train GaussianNB model
 classifiers['GaussianNB'] = GaussianNB()
 
-######################################################################
-## Train SGD model
+# Train SGD model
 sgd_parameters = {
     'alpha': 0.001,
     'n_iter': 2,
@@ -202,14 +197,12 @@ sgd_parameters = {
 }
 classifiers['SGD'] = SGDClassifier(**sgd_parameters)
 
-######################################################################
-## Train CART model
+# Train CART model
 classifiers['CART'] = DecisionTreeClassifier(min_samples_split=5,
                                              max_depth=None,
                                              random_state=opts.random_seed)
 
-######################################################################
-## Train RandomForest model
+# Train RandomForest model
 rf_parameters = {
     "n_estimators": 20,
     "n_jobs": opts.n_jobs,
@@ -217,17 +210,18 @@ rf_parameters = {
 }
 classifiers['RandomForest'] = RandomForestClassifier(**rf_parameters)
 
-######################################################################
-## Train Extra-Trees model
+# Train Extra-Trees model
 classifiers['ExtraTrees'] = ExtraTreesClassifier(n_estimators=20,
                                                  n_jobs=opts.n_jobs,
                                                  random_state=opts.random_seed)
 
-######################################################################
-## Train GBRT model
+# Train GBRT model
 classifiers['GBRT'] = GradientBoostingClassifier(n_estimators=250,
                                                  random_state=opts.random_seed)
 
+# Train ELMClassifier model
+classifiers['ELMClassifier'] = ELMClassifier(n_hidden=1000, C=10e4,
+                                             random_state=opts.random_seed)
 
 selected_classifiers = opts.classifiers.split(',')
 for name in selected_classifiers:
@@ -244,8 +238,7 @@ for name in sorted(selected_classifiers):
     print("Training %s ..." % name)
     err[name], train_time[name], test_time[name] = benchmark(classifiers[name])
 
-######################################################################
-## Print classification performance
+# Print classification performance
 print()
 print("Classification performance:")
 print("===========================")
