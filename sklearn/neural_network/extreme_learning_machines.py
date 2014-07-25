@@ -1,116 +1,231 @@
 """Extreme Learning Machines
 """
 
+# Author: Issam H. Laradji <issam.laradji@gmail.com>
 # Licence: BSD 3 clause
 
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
 
-from scipy.linalg import pinv2
-
 from ..base import BaseEstimator, ClassifierMixin, RegressorMixin
 from ..externals import six
 from ..preprocessing import LabelBinarizer
-from ..utils import atleast2d_or_csr, check_random_state, column_or_1d
-from ..utils import check_random_state, atleast2d_or_csr
+from ..metrics import mean_squared_error
+from ..metrics.pairwise import pairwise_kernels
+from ..linear_model.ridge import ridge_regression
+from ..utils import gen_even_slices
+from ..utils import check_array, check_X_y, check_random_state
 from ..utils.extmath import safe_sparse_dot
 from ..utils.fixes import expit as logistic_sigmoid
 
 
-def _identity(X):
-    """Return the same input array."""
+def _inplace_logistic_sigmoid(X):
+    """Compute logistic function. """
+    return logistic_sigmoid(X, out=X)
+
+
+def _inplace_tanh(X):
+    """Compute the hyperbolic tan function."""
+    return np.tanh(X, out=X)
+
+
+def _inplace_relu(X):
+    """Compute the rectified linear unit function."""
+    np.clip(X, 0, np.finfo(X.dtype).max, out=X)
     return X
 
 
-def _tanh(X):
-    """Compute the hyperbolic tan function
+def _inplace_softmax(X):
+    """Compute the K-way softmax function. """
+    X = np.exp(X - X.max(axis=1)[:, np.newaxis])
+    X /= X.sum(axis=1)[:, np.newaxis]
 
-    Parameters
-    ----------
-    X : {array-like, sparse matrix}, shape (n_samples, n_features)
-
-    Returns
-    -------
-    X_new : {array-like, sparse matrix}, shape (n_samples, n_features)
-    """
-    return np.tanh(X, X)
+    return X
 
 
-def _softmax(Z):
-    """Compute the K-way softmax, (exp(Z).T / exp(Z).sum(axis=1)).T
-
-    Parameters
-    ----------
-    X : {array-like, sparse matrix}, shape (n_samples, n_features)
-
-    Returns
-    -------
-    X_new : {array-like, sparse matrix}, shape (n_samples, n_features)
-    """
-    exp_Z = np.exp(Z.T - Z.max(axis=1)).T
-    return (exp_Z.T / exp_Z.sum(axis=1)).T
+ACTIVATIONS = {'tanh': _inplace_tanh, 'logistic': _inplace_logistic_sigmoid,
+               'relu': _inplace_relu}
 
 
 class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
+
     """Base class for ELM classification and regression.
 
     Warning: This class should not be used directly.
     Use derived classes instead.
     """
-    _activation_functions = {
-        'tanh': _tanh,
-        'logistic': logistic_sigmoid,
-        'softmax': _softmax
-    }
 
     @abstractmethod
-    def __init__(self, n_hidden, activation, random_state):
-        self.n_hidden = n_hidden
+    def __init__(self, n_hidden, activation, algorithm, kernel, C, degree,
+                 gamma, coef0, class_weight, weight_scale, batch_size, verbose,
+                 random_state):
+        self.C = C
         self.activation = activation
+        self.algorithm = algorithm
+        self.kernel = kernel
+        self.degree = degree
+        self.gamma = gamma
+        self.coef0 = coef0
+        self.class_weight = class_weight
+        self.weight_scale = weight_scale
+        self.batch_size = batch_size
+        self.n_hidden = n_hidden
+        self.verbose = verbose
         self.random_state = random_state
 
+        self.classes_ = None
+        self.coef_hidden_ = None
+        self.coef_output_ = None
+
     def _validate_params(self):
-        """Validate input params. """
-        if self.activation not in self._activation_functions:
+        """Validate input params."""
+        ALGORITHMS = ['standard', 'recursive_lsqr']
+        KERNELS = ['random', 'linear', 'poly', 'rbf', 'sigmoid']
+
+        if self.n_hidden <= 0:
+            raise ValueError("n_hidden must be greater or equal zero")
+
+        if self.C <= 0.0:
+            raise ValueError("C must be > 0")
+
+        if self.activation not in ACTIVATIONS:
             raise ValueError("The activation %s"
                              " is not supported. " % self.activation)
 
-    def _init_param(self):
-        """Set the activation functions."""
-        self._activation_func = self._activation_functions[self.activation]
+        if self.algorithm not in ALGORITHMS:
+            raise ValueError("The algorithm %s is not supported. Supported "
+                             "algorithms are %s" % (self.algorithm,
+                                                    ALGORITHMS))
 
+        if self.kernel not in KERNELS:
+            raise ValueError("The kernel %s is not supported. Supported "
+                             "kernels are %s" % (self.kernel, KERNELS))
 
-    def _scaled_weight_init(self, fan_in, fan_out):
-        """Scale the initial, random parameters for a specific layer."""
-        if self.activation == 'tanh':
-                interval = np.sqrt(6. / (fan_in + fan_out))
+        if self.algorithm != 'standard' and self.class_weight is not None:
+                raise NotImplementedError("class_weight is only supported "
+                                          "when algorithm='standard'.")
 
-        elif self.activation == 'logistic':
-                interval = 4. * np.sqrt(6. / (fan_in + fan_out))
+    def _init_param(self, X):
+        """Set initial parameters."""
+        self._inplace_activation = ACTIVATIONS[self.activation]
 
-        return interval
+        if self.kernel in ['poly', 'rbf', 'sigmoid'] and self.gamma is None:
+            # if custom gamma is not provided ...
+            self.gamma = 1.0 / self._n_features
 
-    def _init_random_weights(self):
-        """Initialize weight and bias parameters."""
+        if self.kernel != 'random':
+            self._X_train = X
+
+    def _init_hidden_weights(self):
+        """Initialize coef and intercept parameters for the hidden layer."""
         rng = check_random_state(self.random_state)
 
-        fan_in, fan_out = self._n_features, self.n_hidden
-        interval = self._scaled_weight_init(fan_in, fan_out)
+        # scale the initial, random parameters
+        if self.weight_scale == 'auto':
+            if self.activation == 'tanh':
+                weight_scale = np.sqrt(6. / (self._n_features + self.n_hidden))
 
-        self.coef_hidden_ = rng.uniform(
-                -interval, interval, (fan_in, fan_out))
-        self.intercept_hidden_ = rng.uniform(
-                -interval, interval, (fan_out))
+            elif self.activation == 'logistic':
+                weight_scale = 4. * np.sqrt(6. / (self._n_features +
+                                                  self.n_hidden))
+
+            else:
+                weight_scale = np.sqrt(1. / self._n_features)
+        else:
+            weight_scale = self.weight_scale
+
+        self.coef_hidden_ = rng.uniform(-weight_scale, weight_scale,
+                                       (self._n_features, self.n_hidden))
+        self.intercept_hidden_ = rng.uniform(-weight_scale, weight_scale,
+                                            (self.n_hidden))
+
+    def _print_training_error(self, X, y):
+        """Print training mean square error."""
+        y_pred = self._predict(X)
+        error = mean_squared_error(y, y_pred)
+
+        print("Training mean square error = %f" % error)
 
     def _get_hidden_activations(self, X):
-        """Compute the values of the neurons in the hidden layer."""
-        A = safe_sparse_dot(X, self.coef_hidden_)
-        A += self.intercept_hidden_
+        """Compute the hidden activations using the set kernel.
+        """
+        if self.kernel == 'random':
+            if self.coef_hidden_ is None:
+                self._init_hidden_weights()
 
-        Z = self._activation_func(A)
+            hidden_activations = (safe_sparse_dot(X, self.coef_hidden_) +
+                                  self.intercept_hidden_)
 
-        return Z
+            self._inplace_activation(hidden_activations)
+
+        else:
+            args = {'degree': self.degree, 'coef0': self.coef0,
+                    'gamma': self.gamma}
+
+            hidden_activations = pairwise_kernels(X, self._X_train,
+                                                  metric=self.kernel,
+                                                  filter_params=True, **args)
+
+        return hidden_activations
+
+    def _solve_lsqr(self, X, y):
+        """Compute the least-square solutions for the whole dataset."""
+        hidden_activations = self._get_hidden_activations(X)
+
+        if self.class_weight is not None:
+            # assign weight to each sample based on its class
+            n_samples = y.shape[0]
+            diagonals = np.zeros(n_samples)
+
+            y_original = self._lbin.inverse_transform(y)
+
+            if self.class_weight == 'auto':
+                # assign weights as, w[i] = 0.618 / (n_samples of class i)
+                class_weight = {}
+
+                for class_ in np.unique(y_original):
+                    class_size = len(np.where(y_original == class_)[0])
+                    class_weight[class_] = 0.618 / class_size
+            else:
+                class_weight = dict(self.class_weight)
+
+            for class_ in self.classes_:
+                indices = np.where(y_original == class_)[0]
+                if class_ in class_weight.keys():
+                    diagonals[indices] = class_weight[class_]
+                else:
+                    diagonals[indices] = 1
+            sample_weight = diagonals
+        else:
+            sample_weight = None
+
+        self.coef_output_ = ridge_regression(hidden_activations, y,
+                                             1.0 / self.C,
+                                             sample_weight=sample_weight).T
+
+    def _recursive_lsqr(self, X_batch, y_batch):
+        """Compute the least-square solutions for one batch."""
+        hidden_activations = self._get_hidden_activations(X_batch)
+
+        if self._recursive_var is None:
+            # initialize K and coef_output_
+            self.coef_output_ = np.zeros((self.n_hidden, self.n_outputs_))
+            self._recursive_var = safe_sparse_dot(hidden_activations.T,
+                                                  hidden_activations)
+            y_ = safe_sparse_dot(hidden_activations.T, y_batch)
+
+        else:
+            self._recursive_var += safe_sparse_dot(hidden_activations.T,
+                                                   hidden_activations)
+
+            hidden_activations_updated = safe_sparse_dot(hidden_activations,
+                                                         self.coef_output_)
+            y_ = safe_sparse_dot(hidden_activations.T,
+                                (y_batch - hidden_activations_updated))
+
+        self.coef_output_ += ridge_regression(self._recursive_var, y_,
+                                              1.0 / self.C).T
 
     def fit(self, X, y):
         """Fit the model to the data X and target y.
@@ -118,71 +233,177 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            Training data, where n_samples in the number of samples
+            Training data, where n_samples is the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
-             Subset of the target values.
+        y : array-like, shape (n_samples,)
+            Target values.
 
         Returns
         -------
-        self
+        self : returns an instance of self.
         """
-        X = atleast2d_or_csr(X)
-
-        self._validate_params()
-
         n_samples, self._n_features = X.shape
         self.n_outputs_ = y.shape[1]
-        self._init_param()
 
-        self._init_random_weights()
+        self._validate_params()
+        self._init_param(X)
 
-        H = self._get_hidden_activations(X)
-        self.coef_output_ = safe_sparse_dot(pinv2(H), y)
+        if self.algorithm == 'standard':
+            # compute the least-square solutions for the whole dataset
+            self._solve_lsqr(X, y)
+
+        elif self.algorithm == 'recursive_lsqr':
+            # compute the least-square solutions in batches
+            batch_size = np.clip(self.batch_size, 0, n_samples)
+            n_batches = n_samples // batch_size
+            batch_slices = list(gen_even_slices(n_batches * batch_size,
+                                                n_batches))
+            self._recursive_var = None
+
+            for batch, batch_slice in enumerate(batch_slices):
+                self._recursive_lsqr(X[batch_slice], y[batch_slice])
+
+                if self.verbose:
+                    print("Batch %d," % batch),
+                    self._print_training_error(X[batch_slice], y[batch_slice])
+
+        if self.verbose:
+            self._print_training_error(X, y)
 
         return self
 
-    def decision_function(self, X):
+    def partial_fit(self, X, y):
         """Fit the model to the data X and target y.
 
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Subset of training data.
+
+        y : array-like, shape (n_samples,)
+            Subset of target values.
 
         Returns
         -------
-        array, shape (n_samples)
-        Predicted target values per element in X.
+        self : returns an instance of self.
         """
-        X = atleast2d_or_csr(X)
+        n_samples, self._n_features = X.shape
+        self.n_outputs_ = y.shape[1]
+
+        self._validate_params()
+        self._init_param(X)
+
+        if self.coef_output_ is None:
+            self._recursive_var = None
+
+        self._recursive_lsqr(X, y)
+
+        if self.verbose:
+            self._print_training_error(X, y)
+
+        return self
+
+    def _predict(self, X):
+        """Predict using the trained model
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
+
+        Returns
+        -------
+        y_pred : array-like, shape (n_samples,) or (n_samples, n_outputs)
+                 The predicted values.
+        """
+        X = check_array(X, accept_sparse='csr')
 
         self.hidden_activations_ = self._get_hidden_activations(X)
-        output = safe_sparse_dot(self.hidden_activations_, self.coef_output_)
+        y_pred = safe_sparse_dot(self.hidden_activations_, self.coef_output_)
 
-        return output
+        return y_pred
+
 
 class ELMClassifier(BaseELM, ClassifierMixin):
     """Extreme learning machines classifier.
 
     The algorithm trains a single-hidden layer feedforward network by computing
     the hidden layer values using randomized parameters, then solving
-    for the output weights using least-square solutions.
+    for the output weights using least-square solutions. For prediction,
+    after computing the forward pass, the continuous output values pass
+    through a gate function converting them to integers that represent classes.
 
     This implementation works with data represented as dense and sparse numpy
     arrays of floating point values for the features.
 
     Parameters
     ----------
-    n_hidden : int, default 100
-       The number of neurons in the hidden layer.
+    C : float, optional, default 1
+        A regularization term that controls the linearity of the decision
+        function. Smaller value of C makes the decision boundary more linear.
 
-    activation : {'logistic', 'tanh'}, default 'tanh'
-        Activation function for the hidden layer.
+    class_weight : {dict, 'auto'}, optional
+        Set the parameter C of class i to class_weight[i]*C for ELMClassifier.
+        If not given, all classes are supposed to have weight one. The 'auto'
+        mode uses the values of y to automatically adjust weights inversely
+        proportional to class frequencies.
+
+    weight_scale : float or 'auto', default 'auto'
+        Scales the weights that initialize the outgoing weights of the first
+        hidden layer. The weight values will range between plus and minus an
+        interval based on the uniform distribution. That interval
+        is 1. / n_features if weight_scale='auto'; otherwise,
+        the interval is the value given to weight_scale.
+
+    n_hidden: int, default 100
+        The number of neurons in the hidden layer, it only applies to
+        kernel='random'.
+
+    activation : {'logistic', 'tanh', 'relu'}, default 'tanh'
+        Activation function for the hidden layer. It only applies to
+        kernel='random'.
 
          - 'logistic' for 1 / (1 + exp(x)).
 
          - 'tanh' for the hyperbolic tangent.
+
+         - 'relu' for log(1 + exp(x))
+
+    algorithm : {'standard', 'recursive_lsqr'}, default 'standard'
+        The algorithm for computing least-square solutions.
+        Defaults to 'recursive_lsqr'
+
+        - 'standard' computes the least-square solutions using the
+          whole matrix at once.
+
+        - 'recursive_lsqr' computes the least-square solutions by training
+          on the dataset in batches using a recursive least-square
+          algorithm.
+
+    kernel : {'random', 'linear', 'poly', 'rbf', 'sigmoid'},
+             optional, default 'random'
+        Specifies the kernel type to be used in the algorithm.
+
+    degree : int, optional, default 3
+        Degree of the polynomial kernel function 'poly'.
+        Ignored by all other kernels.
+
+    gamma : float, optional, default None
+        Kernel coefficient for 'rbf', 'poly' and 'sigmoid'. If gamma is
+        None then 1/n_features will be used instead.
+
+    coef0 : float, optional default 0.0
+        Independent term in kernel function. It only applies to
+        'poly' and 'sigmoid'.
+
+    batch_size : int, optional, default 200
+        Size of minibatches for the 'recursive_lsqr' algoritm.
+        Minibatches do not apply to the 'standard' ELM algorithm.
+
+    verbose : bool, optional, default False
+        Whether to print training score to stdout.
 
     random_state : int or RandomState, optional, default None
         State of or seed for random number generator.
@@ -196,14 +417,34 @@ class ELMClassifier(BaseELM, ClassifierMixin):
     `n_outputs_` : int,
         Number of output neurons.
 
+    References
+    ----------
+    Zong, Weiwei, Guang-Bin Huang, and Yiqiang Chen.
+        "Weighted extreme learning machine for imbalance learning."
+        Neurocomputing 101 (2013): 229-242.
+
+    Liang, Nan-Ying, et al.
+        "A fast and accurate online sequential learning algorithm for
+        feedforward networks." Neural Networks, IEEE Transactions on
+        17.6 (2006): 1411-1423.
+        http://www.ntu.edu.sg/home/egbhuang/pdf/OS-ELM-TNN.pdf
     """
-
-    def __init__(self, n_hidden=100, activation = 'tanh', random_state = None):
-
-        super(ELMClassifier, self).__init__(n_hidden, activation, random_state)
+    def __init__(self, n_hidden=500, activation='tanh', algorithm='standard',
+                 kernel='random', C=1, degree=3, gamma=None, coef0=0.0,
+                 class_weight=None, weight_scale='auto',
+                 batch_size=200, verbose=False, random_state=None):
+        super(ELMClassifier, self).__init__(n_hidden=n_hidden,
+                                            activation=activation,
+                                            algorithm=algorithm, kernel=kernel,
+                                            C=C, degree=degree, gamma=gamma,
+                                            coef0=coef0,
+                                            class_weight=class_weight,
+                                            weight_scale=weight_scale,
+                                            batch_size=batch_size,
+                                            verbose=verbose,
+                                            random_state=random_state)
 
         self._lbin = LabelBinarizer(-1, 1)
-        self.classes_ = None
 
     def fit(self, X, y):
         """Fit the model to the data X and target y.
@@ -211,22 +452,44 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            Training data, where n_samples in the number of samples
+            Training data, where n_samples is the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
+        y : array-like, shape (n_samples,)
+            Target values.
 
         Returns
         -------
-        self
+        self : returns an instance of self.
         """
-        y = column_or_1d(y, warn=True)
+        X, y = check_X_y(X, y, accept_sparse='csr')
         self.classes_ = np.unique(y)
         y = self._lbin.fit_transform(y)
 
         super(ELMClassifier, self).fit(X, y)
-        
+
         return self
+
+    def decision_function(self, X):
+        """Decision function of the elm model
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
+
+        Returns
+        -------
+        y : array-like, shape (n_samples,) or (n_samples, n_classes)
+            The predict values.
+        """
+        scores = self._predict(X)
+
+        if self.n_outputs_ == 1:
+            return scores.ravel()
+        else:
+            return scores
 
     def predict(self, X):
         """Predict using the extreme learning machines model
@@ -234,14 +497,16 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
 
         Returns
         -------
-        array, shape (n_samples)
-            Predicted target values per element in X.
+        y : array-like, shape (n_samples,) or (n_samples, n_classes)
+            The predicted classes, or the predict values.
         """
-        X = atleast2d_or_csr(X)
-        scores = self.decision_function(X)
+        X = check_array(X, accept_sparse='csr')
+        scores = self._predict(X)
 
         return self._lbin.inverse_transform(scores)
 
@@ -251,66 +516,44 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
 
         Returns
         -------
-        array, shape (n_samples, n_outputs)
-            Returns the probability of the sample for each class in the model,
-            where classes are ordered as they are in `self.classes_`.
+        y_prob : array-like, shape (n_samples, n_classes)
+                 The predicted probability of the sample for each class in the
+                 model, where classes are ordered as they are in
+                 `self.classes_`.
         """
-        scores = self.decision_function(X)
+        scores = self._predict(X)
 
-        if len(scores.shape) == 1:
+        if len(self.classes_) == 2:
             scores = logistic_sigmoid(scores)
-            return np.vstack([1 - scores, scores]).T
+            return np.hstack([1 - scores, scores])
         else:
-            return _softmax(scores)
+            return _inplace_softmax(scores)
 
+    def predict_log_proba(self, X):
+        """Return the log of probability estimates.
 
-class ELMRegressor(BaseELM, RegressorMixin):
-    """Extreme learning machines regressor.
+        Parameters
+        ----------
+        X : array-like, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
 
-    The algorithm trains a single-hidden layer feedforward network by computing
-    the hidden layer values using randomized parameters, then solving
-    for the output weights using least-square solutions.
+        Returns
+        -------
+        y_prob : array-like, shape (n_samples, n_classes)
+                 The predicted log-probability of the sample for each class
+                 in the model, where classes are ordered as they are in
+                 `self.classes_`. Equivalent to log(predict_proba(X))
+        """
+        y_prob = self.predict_proba(X)
+        return np.log(y_prob, out=y_prob)
 
-    This implementation works with data represented as dense and sparse numpy
-    arrays of floating point values for the features.
-
-    Parameters
-    ----------
-    n_hidden : int, default 100
-       The number of neurons in the hidden layer.
-
-    activation : {'logistic', 'tanh'}, default 'tanh'
-        Activation function for the hidden layer.
-
-         - 'logistic' for 1 / (1 + exp(x)).
-
-         - 'tanh' for the hyperbolic tangent.
-
-    random_state : int or RandomState, optional, default None
-        State of or seed for random number generator.
-
-
-    Attributes
-    ----------
-    `classes_` : array or list of array of shape = [n_classes]
-        Class labels for each output.
-
-    `n_outputs_` : int,
-        Number of output neurons.
-
-    """
-    
-
-    def __init__(self, n_hidden=100, activation = 'tanh', random_state = None):
-
-        super(ELMRegressor, self).__init__(n_hidden, activation, random_state)
-
-        self.classes_ = None
-
-    def fit(self, X, y):
+    def partial_fit(self, X, y, classes=None):
         """Fit the model to the data X and target y.
 
         Parameters
@@ -319,30 +562,221 @@ class ELMRegressor(BaseELM, RegressorMixin):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
+        classes : array, shape (n_classes)
+            Classes across all calls to partial_fit.
+            Can be obtained by via `np.unique(y_all)`, where y_all is the
+            target vector of the entire dataset.
+            This argument is required for the first call to partial_fit
+            and can be omitted in the subsequent calls.
+            Note that y doesn't need to contain all labels in `classes`.
+
+        y : array-like, shape (n_samples,)
             Subset of the target values.
 
         Returns
         -------
-        self
+        self : returns an instance of self.
         """
-        y = np.atleast_1d(y)
-        super(ELMRegressor, self).fit(X, y)
+        if self.algorithm != 'recursive_lsqr':
+            raise ValueError("only 'recursive_lsqr' algorithm "
+                             " supports partial fit")
+
+        if self.classes_ is None and classes is None:
+            raise ValueError("classes must be passed on the first call "
+                             "to partial_fit.")
+        elif self.classes_ is not None and classes is not None:
+            if np.any(self.classes_ != np.unique(classes)):
+                raise ValueError("`classes` is not the same as on last call "
+                                 "to partial_fit.")
+        elif classes is not None:
+            self.classes_ = classes
+
+        if not hasattr(self, '_lbin'):
+            self._lbin = LabelBinarizer(-1, 1)
+            self._lbin._classes = classes
+
+        X, y = check_X_y(X, y, accept_sparse='csr')
+
+        y = self._lbin.fit_transform(y)
+        super(ELMClassifier, self).partial_fit(X, y)
 
         return self
 
-    def predict(self, X):
-        """Predict using the multi-layer perceptron model.
+
+class ELMRegressor(BaseELM, RegressorMixin):
+    """Extreme learning machines regressor.
+
+    The algorithm trains a single-hidden layer feedforward network by computing
+    the hidden layer values using randomized parameters, then solving
+    for the output weights using least-square solutions. For prediction,
+    ELMRegressor computes the forward pass resulting in contiuous output
+    values.
+
+    This implementation works with data represented as dense and sparse numpy
+    arrays of floating point values for the features.
+
+    Parameters
+    ----------
+    C: float, optional, default 10e5
+        A regularization term that controls the linearity of the decision
+        function. Smaller value of C makes the decision boundary more linear.
+
+    weight_scale : float or 'auto', default 'auto'
+        Scales the weights that initialize the outgoing weights of the first
+        hidden layer. The weight values will range between plus and minus an
+        interval based on the uniform distribution. That interval
+        is 1. / n_features if weight_scale='auto'; otherwise,
+        the interval is the value given to weight_scale.
+
+    n_hidden: int, default 100
+        The number of neurons in the hidden layer, it only applies to
+        kernel='random'.
+
+    activation : {'logistic', 'tanh', 'relu'}, default 'tanh'
+        Activation function for the hidden layer. It only applies to
+        kernel='random'.
+
+         - 'logistic' for 1 / (1 + exp(x)).
+
+         - 'tanh' for the hyperbolic tangent.
+
+         - 'relu' for log(1 + exp(x))
+
+    algorithm : {'standard', 'recursive_lsqr'}, default 'standard'
+        The algorithm for computing least-square solutions.
+        Defaults to 'recursive_lsqr'
+
+        - 'standard' computes the least-square solutions using the
+          whole matrix at once.
+
+        - 'recursive_lsqr' computes the least-square solutions by training
+          on the dataset in batches using a recursive least-square
+          algorithm.
+
+    kernel : {'random', 'linear', 'poly', 'rbf', 'sigmoid'},
+             optional, default 'random'
+        Specifies the kernel type to be used in the algorithm.
+
+    degree : int, optional, default 3
+        Degree of the polynomial kernel function 'poly'.
+        Ignored by all other kernels.
+
+    gamma : float, optional, default None
+        Kernel coefficient for 'rbf', 'poly' and 'sigmoid'. If gamma is
+        None then 1/n_features will be used instead.
+
+    coef0 : float, optional default 0.0
+        Independent term in kernel function. It only applies to
+        'poly' and 'sigmoid'.
+
+    batch_size : int, optional, default 200
+        Size of minibatches for the 'recursive_lsqr' algoritm.
+        Minibatches do not apply to the 'standard' ELM algorithm.
+
+    verbose : bool, optional, default False
+        Whether to print training score to stdout.
+
+    random_state : int or RandomState, optional, default None
+        State of or seed for random number generator.
+
+    Attributes
+    ----------
+    `classes_` : array or list of array of shape = [n_classes]
+        Class labels for each output.
+
+    `n_outputs_` : int
+        Number of output neurons.
+
+    References
+    ----------
+    Zong, Weiwei, Guang-Bin Huang, and Yiqiang Chen.
+        "Weighted extreme learning machine for imbalance learning."
+        Neurocomputing 101 (2013): 229-242.
+
+    Liang, Nan-Ying, et al.
+        "A fast and accurate online sequential learning algorithm for
+        feedforward networks." Neural Networks, IEEE Transactions on
+        17.6 (2006): 1411-1423.
+        http://www.ntu.edu.sg/home/egbhuang/pdf/OS-ELM-TNN.pdf
+    """
+    def __init__(self, n_hidden=100, activation='tanh', algorithm='standard',
+                 weight_scale='auto', kernel='random', batch_size=200, C=10e5,
+                 degree=3, gamma=None, coef0=0.0, verbose=False,
+                 random_state=None):
+        super(ELMRegressor, self).__init__(n_hidden=n_hidden,
+                                           activation=activation,
+                                           algorithm=algorithm, kernel=kernel,
+                                           C=C, degree=degree, gamma=gamma,
+                                           coef0=coef0, class_weight=None,
+                                           weight_scale=weight_scale,
+                                           batch_size=batch_size,
+                                           verbose=verbose,
+                                           random_state=random_state)
+
+    def fit(self, X, y):
+        """Fit the model to the data X and target y.
 
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Training data, where n_samples is the number of samples
+            and n_features is the number of features.
+
+        y : array-like, shape (n_samples, n_outputs)
+            Target values.
 
         Returns
         -------
-        array, shape (n_samples)
-            Predicted target values per element in X.
+        self : returns an instance of self.
         """
-        X = atleast2d_or_csr(X)
+        X, y = check_X_y(X, y, multi_output=True)
 
-        return self.decision_function(X)
+        if y.ndim == 1:
+            # reshape is necessary to preserve the data contiguity against vs
+            # [:, np.newaxis] that does not.
+            y = np.reshape(y, (-1, 1))
+
+        super(ELMRegressor, self).fit(X, y)
+        return self
+
+    def partial_fit(self, X, y):
+        """Fit the model to the data X and target y.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Training data, where n_samples in the number of samples
+            and n_features is the number of features.
+
+        y : array-like, shape (n_samples, n_outputs)
+            Subset of the target values.
+
+        Returns
+        -------
+        self : returns an instance of self.
+        """
+        X, y = check_X_y(X, y)
+
+        if y.ndim == 1:
+            # reshape is necessary to preserve the data contiguity against vs
+            # [:, np.newaxis] that does not.
+            y = np.reshape(y, (-1, 1))
+
+        super(ELMRegressor, self).partial_fit(X, y)
+        return self
+
+    def predict(self, X):
+        """Predict using the elm model.
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
+
+        Returns
+        -------
+        y : array-like, shape (n_samples, n_outputs)
+            The predicted classes, or the predict values.
+        """
+        return self._predict(X)
