@@ -288,19 +288,19 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         -------
         self : returns an instance of self.
         """
-        n_samples, self._n_features = X.shape
-        self.n_outputs_ = y.shape[1]
+        if self.algorithm != 'recursive_lsqr':
+            raise ValueError("only 'recursive_lsqr' algorithm "
+                             " supports partial fit")
 
         self._validate_params()
         self._init_param(X)
 
         if self.coef_output_ is None:
+            _, self._n_features = X.shape
+            self.n_outputs_ = y.shape[1]
             self._recursive_var = None
 
         self._recursive_lsqr(X, y)
-
-        if self.verbose:
-            self._print_training_error(X, y)
 
         return self
 
@@ -562,25 +562,19 @@ class ELMClassifier(BaseELM, ClassifierMixin):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        classes : array, shape (n_classes)
-            Classes across all calls to partial_fit.
-            Can be obtained by via `np.unique(y_all)`, where y_all is the
-            target vector of the entire dataset.
-            This argument is required for the first call to partial_fit
-            and can be omitted in the subsequent calls.
-            Note that y doesn't need to contain all labels in `classes`.
-
         y : array-like, shape (n_samples,)
             Subset of the target values.
+
+        classes : array-like, shape (n_classes,)
+            List of all the classes that can possibly appear in the y vector.
+
+            Must be provided at the first call to partial_fit, can be omitted
+            in subsequent calls.
 
         Returns
         -------
         self : returns an instance of self.
         """
-        if self.algorithm != 'recursive_lsqr':
-            raise ValueError("only 'recursive_lsqr' algorithm "
-                             " supports partial fit")
-
         if self.classes_ is None and classes is None:
             raise ValueError("classes must be passed on the first call "
                              "to partial_fit.")

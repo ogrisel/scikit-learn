@@ -11,28 +11,33 @@ Neural network models (supervised)
 
 Extreme Learning Machines
 =========================
-**Extreme Learning Machines (ELM)** is a supervised nonlinear learning 
+**Extreme Learning Machine (ELM)** is a supervised nonlinear learning 
 algorithm that takes the following consecutive steps for training:
 
-  *  it applies random projection on the input space to a possibly larger dimensional space;
-  *  the result passes through an element-wise non-linear activation function 
-     such as a tanh, or sigmoid function; and
-  *  last, it trains a linear one versus all classifier or a multi-output ridge regression model.
+  *  it applies a random projection on the input space to a possibly larger 
+     dimensional space;
+  *  the result passes through an element-wise non-linear activation function,
+     typically a sigmoid such as the tanh, and logistic functions; and
+  *  last, it trains a linear one versus all classifier or a multi-output ridge 
+     regression model.
 
-Therefore ELM can be considered as a single layer feed forward neural network (see figure 1) where:
+ELM can be considered as a single-hidden layer feedforward neural network 
+(see figure 1) where:
 
   *  it trains only the hidden-to-output connection weights;
-  *  assigns random values, as constants, to the input-to-hidden connection weights; and
+  *  assigns random values, as constants, to the input-to-hidden connection 
+     weights; and
   *  minimizes the loss function using least squares.
 
-ELM was found to generalize to 1 hidden layer MLPs or RBF kernel support vector
-machines on a variety of problems while being significantly faster to train.
+In most empirical studies, ELM was found to have a generalization performance 
+similar to that of 1 hidden layer MLPs or RBF kernel support vector
+machines while being significantly faster to train.
 
-The main hyper-parameters of the ELM are:
+ELM has three main hyper-parameters,
 
-  *  the variance of the random projection weights;
-  *  the number of hidden layer nodes; and
-  *  the regularization strength of the output linear model.
+  *  `weight_scale`: controls the variance of the random projection weights;
+  *  `n_hidden`: controls the number of hidden layer nodes; and
+  *  `C`: controls the regularization strength of the output linear model.
 
 .. figure:: ../images/elm_network.png
      :align: center
@@ -56,7 +61,7 @@ Classification
 multi-label classification on datasets.
 
 Like other classifiers, :class:`ELMClassifier` trains on a dataset using the
-fit method accepting two input parameters: an array X of size 
+fit method that accepts two input parameters: an array X of size 
 ``(n_samples, n_features)`` representing the training samples, and an array y 
 of integer values, size ``(n_samples)``, holding the class labels respective
 to the training samples::
@@ -79,27 +84,24 @@ After training, the model can predict the class of a new sample::
 
 .. _elm_bin_multi_class:
 
-Binary- and multi-class classification
+Binary and multi-class classification
 --------------------------------------
 
-In binary- and multi-class classification, the network has one output neuron.
-For binary-class classification - or when samples belong to one of two classes - 
-the output passes through the logistic function. If the result is higher than
-0.5 than the corresponding samples is assigned to class 1, and class 0 
-otherwise.
+The network has one output neuron for binary classification, and one output
+neuron per possible class for multi-class classification.
 
-In the other hand, multi-class classification problems involve datasets 
-with samples that belong to a class from a pool of more than two classes. 
+In binary classification, if the output for a sample is higher than 0, the 
+sample is assigned to class 1; otherwise it is assigned to class 0.
 
-The output for a sample passes through softmax which returns a set of probabilities 
-corresponding to each class. The class representing the highest probability
-becomes the class assigned to the sample.
+In multi-class classification, the output for a sample passes through softmax
+which returns a set of probabilities corresponding to each class. The class 
+representing the highest probability becomes the class assigned to the sample.
 
 
 Weighted classification
 -----------------------
 
-For datasets containing an imbalanced ratio of samples between classes, it is
+For datasets containing an imbalanced ratio of class frequencies, it is
 important to consider adding more weight to classes having less samples than
 others. 
 
@@ -107,18 +109,18 @@ others.
 its ``fit`` method that can be set either to ``None`` - where all samples
 are treated the same; ``auto`` - where weight is given to a sample based
 on its class distribution in the dataset; and a dictionary of the form
-``{class_label : value}`` - where value is a floating point number > 0
-that sets the parameter ``C`` of class ``class_label`` to ``C * value``.
+``{class_label : value}`` - which assigns each sample a weight ``value``
+corresponding to the sample's ``class_label``.
 
-Figure [2] shows the result of adding weight to the underrepresented 
-class - the orange samples, where the decision boundary sorrounding that 
-class becomes larger in radius.
+Figure [2] shows the result of adding weight to the orange samples - 
+representing a minority class, where the decision boundary sorrounding that 
+class becomes larger in radius as more weight is given.
 
 .. figure:: ../images/plot_weighted_classification_elm.png
    :align: center
    :scale: 75
 
-   Figure 2 : Effect of sample weighting.
+   Figure 2 : Effect of sample weighting on an imbalanced dataset.
 
 
 .. _elm_regression:
@@ -128,7 +130,7 @@ Regression
 
 :class:`ELMRegressor` can solve regression problems consisting of one or more
 output values assigned to each sample. It differs from :class:`ELMClassifier`, 
-in that the final output is the value returned by the method ``decision_function``.
+in that the final output is a continuous value.
 
 The fit method in :class:`ELMRegressor` accepts arguments X and y
 where y is expected to be a matrix of floating point values::
@@ -148,21 +150,25 @@ where y is expected to be a matrix of floating point values::
 Tips on Practical Use
 =====================
 
-  * **Setting C**: if the dataset contains noisy samples, decrease ``C`` 
-    to reduce overfitting. In fact, it is best to use grid-search to find
-    the best value of ``C`` from a set of values returned by for example 
-    ``np.logspace(1, 5, 5)``.
+  * **Setting `C`**: if the dataset has few samples or if the samples are noisy, 
+    decreasing ``C`` will increase regularization which in turn reduces 
+    overfitting and might improve generalization. 
 
-  * **Setting class_weight**: for classification, if the dataset 
-    contains an imbalanced ratio for classes, it is desirable to give 
-    more weight to the class having less number of samples. For example,
-    if class 1 is the minority class, you can give the more weight by
-    setting class_weight={1:100}.
+  * **Setting `class_weight`**: if the dataset contains an imbalanced ratio 
+    of class fequencies, it is desirable to assign more weight to the class 
+    having less number of samples. Assuming class 1 is the minority 
+    class, you can assign more weight to it by setting class_weight as, say,
+    {1:100}.
 
-  * **Setting the algorithm**: if the dataset is small enough to fit into 
+  * **Setting `algorithm`**: if the dataset is of size that can fit into 
     memory then setting algorithm='standard' would be desirable. Otherwise,
     in cases where memory is limited or there is a need for real-time learning,
-    it is desirable to set the algorithm='sequential'.
+    it is prudent to have algorithm='recursive_lsqr'.
+
+  * **Setting `weight_scale`**:  this controls regularization of the weights 
+    the same way as `C` does; but instead of regularizing the hidden-to-output 
+    layer weights, it regularizes the first-to-hidden layer weights.
+
 
 .. _elm_kernels:
 
@@ -170,6 +176,9 @@ Kernel functions
 ================
 
 The *kernel function* can be any of the following:
+
+  * random: :math:` W^T \cdot x + b`. where `W` and `b` are randomly 
+    generated matrices.
 
   * linear: :math:`\langle x, x'\rangle`.
 
@@ -197,20 +206,19 @@ Mathematical formulation
 A standard ELM with ``kernel='random'`` trains a single-hidden layer
 feedforward network using the following function,
 
-:math:`f(X) = \beta (W^TX + b)`.
+:math:`y = \beta (W^TX + b)`
 
-``X`` is the matrix representing the samples; ``W`` and ``b`` are matrices of 
-random values assigned based on a uniform distribution ranging from ``-a`` and ``a``,
-where ``a`` is a user-defined value; and :math:`\beta` is the matrix that 
-ELM solves using least-square.
+where matrices ``X`` and ``y`` represent the input samples and target values, 
+respectively; matrices ``W`` and ``b`` are randomly generated based on a 
+uniform distribution; and matrix :math:`\beta` contains unknown variables.
 
-This implementation uses ridge regression which solves for :math:`\beta`
-in the following formulation,
+ELM solves for :math:`\beta` using the ridge regression implementation, given
+as,
 
-:math:`inv(X^T X + (1/C)*Id) * X^T y`.
+:math:`(H^T H + (1/C)*I)^{-1} H^T y`
 
-C is a regularization term which controls the linearity of the decision
-function. Smaller value of C makes the decision boundary more linear.
+where  :math:`H = W^TX + b`, `C` is a regularization term which controls the 
+linearity of the decision function, and `I` is the identity matrix.
 
 
 .. topic:: References:
