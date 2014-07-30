@@ -21,7 +21,7 @@ from ..utils.fixes import expit as logistic_sigmoid
 
 
 def _inplace_logistic_sigmoid(X):
-    """Compute logistic function. """
+    """Compute the logistic function. """
     return logistic_sigmoid(X, out=X)
 
 
@@ -46,6 +46,10 @@ def _inplace_softmax(X):
 
 ACTIVATIONS = {'tanh': _inplace_tanh, 'logistic': _inplace_logistic_sigmoid,
                'relu': _inplace_relu}
+
+ALGORITHMS = ['standard', 'recursive_lsqr']
+
+KERNELS = ['random', 'linear', 'poly', 'rbf', 'sigmoid']
 
 
 class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
@@ -80,8 +84,6 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
 
     def _validate_params(self):
         """Validate input params."""
-        ALGORITHMS = ['standard', 'recursive_lsqr']
-        KERNELS = ['random', 'linear', 'poly', 'rbf', 'sigmoid']
 
         if self.n_hidden <= 0:
             raise ValueError("n_hidden must be greater or equal zero")
@@ -154,8 +156,8 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             if self.coef_hidden_ is None:
                 self._init_hidden_weights()
 
-            hidden_activations = (safe_sparse_dot(X, self.coef_hidden_) +
-                                  self.intercept_hidden_)
+            hidden_activations = safe_sparse_dot(X, self.coef_hidden_)
+            hidden_activations += self.intercept_hidden_
 
             self._inplace_activation(hidden_activations)
 
