@@ -34,6 +34,7 @@ from ..utils import check_array
 from ..utils import check_consistent_length
 from ..preprocessing import MultiLabelBinarizer
 from ..utils import column_or_1d
+from ..utils import check_consistent_length
 from ..utils.multiclass import unique_labels
 from ..utils.multiclass import type_of_target
 from ..utils.validation import _num_samples
@@ -1515,3 +1516,126 @@ def hinge_loss(y_true, pred_decision, labels=None, sample_weight=None):
     # The hinge_loss doesn't penalize good enough predictions.
     losses[losses <= 0] = 0
     return np.average(losses, weights=sample_weight)
+
+
+def _check_and_normalize(y_true, y_prob):
+    check_consistent_length(y_true, y_prob)
+
+    labels = np.unique(y_true)
+
+    if len(labels) != 2:
+        raise ValueError("Only binary classification is supported.")
+
+    if y_prob.max() > 1:
+        raise ValueError("y_prob contains values greater than 1.")
+
+    if y_prob.min() < 0:
+        raise ValueError("y_prob contains values less than 0.")
+
+    return label_binarize(y_true, labels)[:, 0]
+
+
+def brier_score_loss(y_true, y_prob):
+    """Compute the Brier score
+
+    The smaller the Brier score, the better, hence the naming with "loss".
+
+    Across all items in a set N predictions, the Brier score measures the
+    mean squared difference between (1) the predicted probability assigned
+    to the possible outcomes for item i, and (2) the actual outcome.
+    Therefore, the lower the Brier score is for a set of predictions, the
+    better the predictions are calibrated. Note that the Brier score always
+    takes on a value between zero and one, since this is the largest
+    possible difference between a predicted probability (which must be
+    between zero and one) and the actual outcome (which can take on values
+    of only 0 and 1).
+
+    The Brier score is appropriate for binary and categorical outcomes that
+    can be structured as true or false, but is inappropriate for ordinal
+    variables which can take on three or more values (this is because the
+    Brier score assumes that all possible outcomes are equivalently
+    "distant" from one another).
+
+    Parameters
+    ----------
+    y_true : array, shape (n_samples,)
+        True targets.
+
+    y_prob : array, shape (n_samples,)
+        Probabilities of the positive class.
+
+    Returns
+    -------
+    score : float
+        Brier score
+
+    Examples
+    --------
+    >>> import numpy as np
+    >>> from sklearn.metrics import brier_score_loss
+    >>> y_true = [0, 1, 1, 0]
+    >>> y_prob = [0.1, 0.9, 0.8, 0.3]
+    >>> brier_score_loss(y_true, y_prob)  # doctest: +ELLIPSIS
+    0.037...
+    >>> brier_score_loss(y_true, np.array(y_prob) > 0.5)
+    0.0
+
+    References
+    ----------
+    http://en.wikipedia.org/wiki/Brier_score
+    """
+    y_true = column_or_1d(y_true)
+    y_prob = column_or_1d(y_prob)
+    y_true = _check_and_normalize(y_true, y_prob)
+    return np.mean((y_true - y_prob) ** 2)
+
+
+def calibration_plot(y_true, y_prob, n_bins=5):
+    """Compute true and predicted probabilities for a calibration plot
+
+    Parameters
+    ----------
+    y_true : array, shape (n_samples,)
+        True targets.
+
+    y_prob : array, shape (n_samples,)
+        Probabilities of the positive class.
+
+    n_bins : int
+        Number of bins. A bigger number requires more data.
+
+    Returns
+    -------
+    prob_true : array, shape (n_bins,)
+        The true probability in each bin (fraction of positives).
+
+    prob_pred : array, shape (n_bins,)
+        The mean predicted probability in each bin.
+
+    References
+    ----------
+    Alexandru Niculescu-Mizil and Rich Caruana (2005) Predicting Good
+    Probabilities With Supervised Learning, in Proceedings of the 22nd
+    International Conference on Machine Learning (ICML).
+    See section 4 (Qualitative Analysis of Predictions).
+    """
+    y_true = column_or_1d(y_true)
+    y_prob = column_or_1d(y_prob)
+    y_true = _check_and_normalize(y_true, y_prob)
+
+    bins = np.linspace(0., 1. + 1e-8, n_bins + 1)
+
+    binids = np.digitize(y_prob, bins) - 1
+    ids = np.arange(len(y_true))
+
+    u_binids = np.unique(binids)  # don't consider empty bins
+
+    prob_true = np.empty(len(u_binids))
+    prob_pred = np.empty(len(u_binids))
+
+    for k, binid in enumerate(u_binids):
+        sel = ids[binids == binid]
+        prob_true[k] = np.mean(y_true[sel])
+        prob_pred[k] = np.mean(y_prob[sel])
+
+    return prob_true, prob_pred

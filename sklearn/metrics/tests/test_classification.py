@@ -1,6 +1,7 @@
 from __future__ import division, print_function
 
 import numpy as np
+from scipy import linalg
 from functools import partial
 from itertools import product
 import warnings
@@ -40,6 +41,8 @@ from sklearn.metrics import precision_recall_fscore_support
 from sklearn.metrics import precision_score
 from sklearn.metrics import recall_score
 from sklearn.metrics import zero_one_loss
+from sklearn.metrics import brier_score_loss
+from sklearn.metrics import calibration_plot
 
 
 from sklearn.metrics.classification import _check_targets
@@ -1252,3 +1255,28 @@ def test_log_loss():
     y_pred = [[0.2, 0.7], [0.6, 0.5], [0.4, 0.1], [0.7, 0.2]]
     loss = log_loss(y_true, y_pred)
     assert_almost_equal(loss, 1.0383217, decimal=6)
+
+
+def test_brier_score_loss():
+    """Check brier_score_loss function"""
+    y_true = np.array([0, 1, 1, 0, 1, 1])
+    y_pred = np.array([0.1, 0.8, 0.9, 0.3, 1., 0.95])
+    true_score = linalg.norm(y_true - y_pred) ** 2 / len(y_true)
+
+    assert_almost_equal(brier_score_loss(y_true, y_true), 0.0)
+    assert_almost_equal(brier_score_loss(y_true, y_pred), true_score)
+    assert_almost_equal(brier_score_loss(1. + y_true, y_pred), true_score)
+    assert_raises(ValueError, brier_score_loss, y_true, y_pred[1:])
+    assert_raises(ValueError, brier_score_loss, y_true, y_pred + 1.)
+    assert_raises(ValueError, brier_score_loss, y_true, y_pred - 1.)
+
+
+def test_calibration_plot():
+    """Check calibration_plot function"""
+    y_true = np.array([0, 0, 0, 1, 1, 1])
+    y_pred = np.array([0., 0.1, 0.2, 0.8, 0.9, 1.])
+    prob_true, prob_pred = calibration_plot(y_true, y_pred, n_bins=2)
+    assert_equal(len(prob_true), len(prob_pred))
+    assert_equal(len(prob_true), 2)
+    assert_almost_equal(prob_true, [0, 1])
+    assert_almost_equal(prob_pred, [0.1, 0.9])
