@@ -1,14 +1,13 @@
 """
-============================
-Probability Calibration plot
-============================
+======================================
+Probability calibration of classifiers
+======================================
 
 When performing classfication you often want to predict, not only
 the class label, but also the associated probability. This probability
 gives you some kind of confidence on the prediction. This example
-demonstrates the use of various estimators that can predict probabilities
-as well as some estimators that can be used to calibrate the
-output score into a probability. The accuracy is estimated
+demonstrates how to transform the decisition function of a generic
+classifier into a calibrated probability. The accuracy is estimated
 with Brier's score (see http://en.wikipedia.org/wiki/Brier_score).
 
 """
@@ -24,7 +23,7 @@ import matplotlib.pyplot as plt
 
 from sklearn.datasets import make_blobs
 from sklearn.naive_bayes import GaussianNB
-from sklearn.metrics import brier_score_loss, calibration_plot
+from sklearn.metrics import brier_score_loss
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.cross_validation import train_test_split
 
@@ -61,24 +60,19 @@ clf_sigmoid = CalibratedClassifierCV(clf, cv=2, method='sigmoid')
 clf_sigmoid.fit(X_train, y_train)
 prob_pos_sigmoid = clf_sigmoid.predict_proba(X_test)[:, 1]
 
-print "Brier scores: (the smaller the better)"
+print("Brier scores: (the smaller the better)")
 
 clf_score = brier_score_loss(y_test, prob_pos_clf)
-print "No calibration: %1.3f" % clf_score
-pt_clf, pp_clf = calibration_plot(y_test, prob_pos_clf, n_bins=n_bins)
+print("No calibration: %1.3f" % clf_score)
 
 clf_isotonic_score = brier_score_loss(y_test, prob_pos_isotonic)
-print "With isotonic calibration: %1.3f" % clf_isotonic_score
-pt_clf_isotonic, pp_clf_isotonic = calibration_plot(y_test, prob_pos_isotonic,
-                                                    n_bins=n_bins)
+print("With isotonic calibration: %1.3f" % clf_isotonic_score)
 
 clf_sigmoid_score = brier_score_loss(y_test, prob_pos_sigmoid)
-print "With sigmoid calibration: %1.3f" % clf_sigmoid_score
-pt_clf_sigmoid, pp_clf_sigmoid = calibration_plot(y_test, prob_pos_sigmoid,
-                                                  n_bins=n_bins)
+print("With sigmoid calibration: %1.3f" % clf_sigmoid_score)
 
 ###############################################################################
-# Plot calibration plots
+# Plot the data and the predicted probabilities
 
 plt.close('all')
 
@@ -97,18 +91,4 @@ plt.plot(prob_pos_sigmoid[order], 'b', linewidth=3,
 plt.plot(y_test[order], 'sg', linewidth=3, label='y')
 plt.ylim([-0.05, 1.05])
 plt.legend(loc="upper left")
-plt.show()
-
-plt.figure()
-plt.xlabel("Mean predicted value")
-plt.ylabel("Fraction of positives")
-plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
-plt.plot(pp_clf, pt_clf, "rs-", label="No calibration (%1.3f)" % clf_score)
-plt.plot(pp_clf_isotonic, pt_clf_isotonic, "gs-",
-         label="Isotonic calibration (%1.3f)" % clf_isotonic_score)
-plt.plot(pp_clf_sigmoid, pt_clf_sigmoid, "bs-",
-         label="Sigmoid calibration (%1.3f)" % clf_sigmoid_score)
-plt.legend(loc="upper left")
-plt.ylim([-0.05, 1.05])
-plt.title('Calibration plots')
 plt.show()
