@@ -108,9 +108,46 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
                 raise NotImplementedError("class_weight is only supported "
                                           "when algorithm='standard'.")
 
-    def _init_param(self, X):
-        """Set initial parameters."""
-        self._inplace_activation = ACTIVATIONS[self.activation]
+    def _init_param_validate_X_y(self, X, y):
+        """Initializes parameters and validates X and y."""
+        self._validate_params()
+
+        X, y = check_X_y(X, y, accept_sparse='csr', multi_output=True)
+
+        # Classification
+        if isinstance(self, ClassifierMixin):
+            if self.classes_ is None:
+                self.classes_ = np.unique(y)
+            y = self._lbin.fit_transform(y)
+        # Regression
+        else:
+            if y.ndim == 1:
+                y = np.reshape(y, (-1, 1))
+
+        self.n_outputs_ = y.shape[1]
+        self._n_features = X.shape[1]
+
+        # set initial parameters.
+        if self.algorithm == 'standard' or self.coef_hidden_ is None:
+            # scale the initial, random parameters
+            rng = check_random_state(self.random_state)
+
+            if self.weight_scale == 'auto':
+                if self.activation == 'tanh':
+                    weight_scale = np.sqrt(6. / (self._n_features +
+                                                 self.n_hidden))
+                elif self.activation == 'logistic':
+                    weight_scale = 4. * np.sqrt(6. / (self._n_features +
+                                                      self.n_hidden))
+                else:
+                    weight_scale = np.sqrt(1. / self._n_features)
+            else:
+                weight_scale = self.weight_scale
+
+            self.coef_hidden_ = rng.uniform(-weight_scale, weight_scale,
+                                           (self._n_features, self.n_hidden))
+            self.intercept_hidden_ = rng.uniform(-weight_scale, weight_scale,
+                                                (self.n_hidden))
 
         if self.kernel in ['poly', 'rbf', 'sigmoid'] and self.gamma is None:
             # if custom gamma is not provided ...
@@ -119,28 +156,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         if self.kernel != 'random':
             self._X_train = X
 
-    def _init_hidden_weights(self):
-        """Initialize coef and intercept parameters for the hidden layer."""
-        rng = check_random_state(self.random_state)
-
-        # scale the initial, random parameters
-        if self.weight_scale == 'auto':
-            if self.activation == 'tanh':
-                weight_scale = np.sqrt(6. / (self._n_features + self.n_hidden))
-
-            elif self.activation == 'logistic':
-                weight_scale = 4. * np.sqrt(6. / (self._n_features +
-                                                  self.n_hidden))
-
-            else:
-                weight_scale = np.sqrt(1. / self._n_features)
-        else:
-            weight_scale = self.weight_scale
-
-        self.coef_hidden_ = rng.uniform(-weight_scale, weight_scale,
-                                       (self._n_features, self.n_hidden))
-        self.intercept_hidden_ = rng.uniform(-weight_scale, weight_scale,
-                                            (self.n_hidden))
+        return X, y
 
     def _print_training_error(self, X, y):
         """Print training mean square error."""
@@ -150,16 +166,12 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         print("Training mean square error = %f" % error)
 
     def _get_hidden_activations(self, X):
-        """Compute the hidden activations using the set kernel.
-        """
+        """Compute the hidden activations using the set kernel."""
         if self.kernel == 'random':
-            if self.coef_hidden_ is None:
-                self._init_hidden_weights()
-
             hidden_activations = safe_sparse_dot(X, self.coef_hidden_)
             hidden_activations += self.intercept_hidden_
 
-            self._inplace_activation(hidden_activations)
+            ACTIVATIONS[self.activation](hidden_activations)
 
         else:
             args = {'degree': self.degree, 'coef0': self.coef0,
@@ -243,20 +255,20 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
 
         Returns
         -------
-        self : returns an instance of self.
+        self : returns a trained elm usable for prediction.
         """
-        n_samples, self._n_features = X.shape
-        self.n_outputs_ = y.shape[1]
-
-        self._validate_params()
-        self._init_param(X)
+        X, y = self._init_param_validate_X_y(X, y)
 
         if self.algorithm == 'standard':
             # compute the least-square solutions for the whole dataset
             self._solve_lsqr(X, y)
+            if self.verbose:
+                self._print_training_error(X, y)
 
         elif self.algorithm == 'recursive_lsqr':
             # compute the least-square solutions in batches
+            n_samples = X.shape[0]
+
             batch_size = np.clip(self.batch_size, 0, n_samples)
             n_batches = n_samples // batch_size
             batch_slices = list(gen_even_slices(n_batches * batch_size,
@@ -269,9 +281,6 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
                 if self.verbose:
                     print("Batch %d," % batch),
                     self._print_training_error(X[batch_slice], y[batch_slice])
-
-        if self.verbose:
-            self._print_training_error(X, y)
 
         return self
 
@@ -288,18 +297,15 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
 
         Returns
         -------
-        self : returns an instance of self.
+        self : returns a trained elm usable for prediction.
         """
         if self.algorithm != 'recursive_lsqr':
             raise ValueError("only 'recursive_lsqr' algorithm "
                              " supports partial fit")
 
-        self._validate_params()
-        self._init_param(X)
+        X, y = self._init_param_validate_X_y(X, y)
 
         if self.coef_output_ is None:
-            _, self._n_features = X.shape
-            self.n_outputs_ = y.shape[1]
             self._recursive_var = None
 
         self._recursive_lsqr(X, y)
@@ -448,27 +454,39 @@ class ELMClassifier(BaseELM, ClassifierMixin):
 
         self._lbin = LabelBinarizer(-1, 1)
 
-    def fit(self, X, y):
+    def partial_fit(self, X, y, classes=None):
         """Fit the model to the data X and target y.
 
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            Training data, where n_samples is the number of samples
+            Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
         y : array-like, shape (n_samples,)
-            Target values.
+            Subset of the target values.
+
+        classes : array-like, shape (n_classes,)
+            List of all the classes that can possibly appear in the y vector.
+
+            Must be provided at the first call to partial_fit, can be omitted
+            in subsequent calls.
 
         Returns
         -------
-        self : returns an instance of self.
+        self : returns a trained elm usable for prediction.
         """
-        X, y = check_X_y(X, y, accept_sparse='csr')
-        self.classes_ = np.unique(y)
-        y = self._lbin.fit_transform(y)
+        if self.classes_ is None and classes is None:
+            raise ValueError("classes must be passed on the first call "
+                             "to partial_fit.")
+        elif self.classes_ is not None and classes is not None:
+            if np.any(self.classes_ != np.unique(classes)):
+                raise ValueError("`classes` is not the same as on last call "
+                                 "to partial_fit.")
+        elif classes is not None:
+            self.classes_ = classes
 
-        super(ELMClassifier, self).fit(X, y)
+        super(ELMClassifier, self).partial_fit(X, y)
 
         return self
 
@@ -507,7 +525,6 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         y : array-like, shape (n_samples,) or (n_samples, n_classes)
             The predicted classes, or the predict values.
         """
-        X = check_array(X, accept_sparse='csr')
         scores = self._predict(X)
 
         return self._lbin.inverse_transform(scores)
@@ -554,49 +571,6 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         """
         y_prob = self.predict_proba(X)
         return np.log(y_prob, out=y_prob)
-
-    def partial_fit(self, X, y, classes=None):
-        """Fit the model to the data X and target y.
-
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            Training data, where n_samples in the number of samples
-            and n_features is the number of features.
-
-        y : array-like, shape (n_samples,)
-            Subset of the target values.
-
-        classes : array-like, shape (n_classes,)
-            List of all the classes that can possibly appear in the y vector.
-
-            Must be provided at the first call to partial_fit, can be omitted
-            in subsequent calls.
-
-        Returns
-        -------
-        self : returns an instance of self.
-        """
-        if self.classes_ is None and classes is None:
-            raise ValueError("classes must be passed on the first call "
-                             "to partial_fit.")
-        elif self.classes_ is not None and classes is not None:
-            if np.any(self.classes_ != np.unique(classes)):
-                raise ValueError("`classes` is not the same as on last call "
-                                 "to partial_fit.")
-        elif classes is not None:
-            self.classes_ = classes
-
-        if not hasattr(self, '_lbin'):
-            self._lbin = LabelBinarizer(-1, 1)
-            self._lbin._classes = classes
-
-        X, y = check_X_y(X, y, accept_sparse='csr')
-
-        y = self._lbin.fit_transform(y)
-        super(ELMClassifier, self).partial_fit(X, y)
-
-        return self
 
 
 class ELMRegressor(BaseELM, RegressorMixin):
@@ -708,58 +682,6 @@ class ELMRegressor(BaseELM, RegressorMixin):
                                            batch_size=batch_size,
                                            verbose=verbose,
                                            random_state=random_state)
-
-    def fit(self, X, y):
-        """Fit the model to the data X and target y.
-
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            Training data, where n_samples is the number of samples
-            and n_features is the number of features.
-
-        y : array-like, shape (n_samples, n_outputs)
-            Target values.
-
-        Returns
-        -------
-        self : returns an instance of self.
-        """
-        X, y = check_X_y(X, y, multi_output=True)
-
-        if y.ndim == 1:
-            # reshape is necessary to preserve the data contiguity against vs
-            # [:, np.newaxis] that does not.
-            y = np.reshape(y, (-1, 1))
-
-        super(ELMRegressor, self).fit(X, y)
-        return self
-
-    def partial_fit(self, X, y):
-        """Fit the model to the data X and target y.
-
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            Training data, where n_samples in the number of samples
-            and n_features is the number of features.
-
-        y : array-like, shape (n_samples, n_outputs)
-            Subset of the target values.
-
-        Returns
-        -------
-        self : returns an instance of self.
-        """
-        X, y = check_X_y(X, y)
-
-        if y.ndim == 1:
-            # reshape is necessary to preserve the data contiguity against vs
-            # [:, np.newaxis] that does not.
-            y = np.reshape(y, (-1, 1))
-
-        super(ELMRegressor, self).partial_fit(X, y)
-        return self
 
     def predict(self, X):
         """Predict using the elm model.

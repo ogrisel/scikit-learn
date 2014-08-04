@@ -14,7 +14,7 @@ from scipy.sparse import csr_matrix
 
 from sklearn import cross_validation
 from sklearn.datasets import load_digits, load_boston
-from sklearn.datasets import make_regression
+from sklearn.datasets import make_regression, make_multilabel_classification
 from sklearn.externals.six.moves import cStringIO as StringIO
 from sklearn.metrics import roc_auc_score
 from sklearn.neural_network import ELMClassifier
@@ -56,9 +56,10 @@ yboston = boston.target[:200]
 
 
 def test_classification():
-    """
-    Test whether ELMClassifier scores higher than 0.95 for binary-
-    and multi-classification digits datasets.
+    """Test ELMClassifier.
+
+    It should score higher than 0.95 for binary and multi-class
+    classification digits datasets.
     """
     for X, y in classification_datasets:
         X_train = X[:150]
@@ -79,9 +80,7 @@ def test_classification():
 
 
 def test_kernel_classification():
-    """
-    Test whether kernels work as intended for classification.
-    """
+    """Test whether kernels work as intended for classification."""
     for X, y in classification_datasets:
         for kernel in KERNELS:
             elm = ELMClassifier(kernel=kernel)
@@ -90,9 +89,7 @@ def test_kernel_classification():
 
 
 def test_kernel_regression():
-    """
-    Test whether kernels work as intended for regression.
-    """
+    """Test whether kernels work as intended for regression."""
     X = Xboston
     y = yboston
     # linear kernel doesn't work nicely for regression.
@@ -103,9 +100,9 @@ def test_kernel_regression():
 
 
 def test_regression():
-    """
-    Test whether ELMRegressor achieves score higher than 0.95 for the
-    boston dataset.
+    """Test ELMRegressor.
+
+    It should achieve score higher than 0.95 for the boston dataset.
     """
     X = Xboston
     y = yboston
@@ -115,10 +112,18 @@ def test_regression():
         assert_greater(elm.score(X, y), 0.95)
 
 
+def test_multilabel_classification():
+    """Test that multi-label classification works as expected."""
+    # test fit method
+    X, y = make_multilabel_classification(n_samples=50, random_state=0,
+                                          return_indicator=True)
+    elm = ELMClassifier()
+    elm.fit(X, y)
+    assert_equal(elm.score(X, y), 1)
+
+
 def test_multioutput_regression():
-    """
-    Test whether multi-output regression works as expected.
-    """
+    """Test whether multi-output regression works as expected."""
     X, y = make_regression(n_samples=200, n_targets=5,
                            random_state=random_state)
     for activation in ACTIVATION_TYPES:
@@ -129,9 +134,7 @@ def test_multioutput_regression():
 
 
 def test_overfitting():
-    """
-    Larger number of hidden neurons should increase training score.
-    """
+    """Larger number of hidden neurons should increase training score."""
     X, y = Xdigits_multi, ydigits_multi
 
     for activation in ACTIVATION_TYPES:
@@ -179,9 +182,10 @@ def test_partial_fit_classes_error():
 
 
 def test_partial_fit_classification():
-    """
-    Test that partial_fit yields same results as 'fit'
-    for binary- and multi-class classification.
+    """Test that partial_fit for classification.
+
+    It should output the same results as 'fit' for binary and
+    multi-class classification.
     """
     for X, y in classification_datasets:
         batch_size = 200
@@ -208,9 +212,10 @@ def test_partial_fit_classification():
 
 
 def test_partial_fit_regression():
-    """
-    Test that partial_fit yields same results as 'fit'
-    for regression with different activations functions.
+    """Test partial_fit for regression.
+
+    It should output the same results as 'fit' for regression on
+    different activations functions.
     """
     X = Xboston
     y = yboston
@@ -242,9 +247,7 @@ def test_partial_fit_regression():
 
 
 def test_predict_proba_binary():
-    """
-    Test whether predict_proba works as expected for binary class.
-    """
+    """Test whether predict_proba works as expected for binary class."""
     X = Xdigits_binary[:50]
     y = ydigits_binary[:50]
 
@@ -266,9 +269,7 @@ def test_predict_proba_binary():
 
 
 def test_predict_proba_multi():
-    """
-    Test whether predict_proba works as expected for multi class.
-    """
+    """Test whether predict_proba works as expected for multi class."""
     X = Xdigits_multi[:10]
     y = ydigits_multi[:10]
 
@@ -288,10 +289,7 @@ def test_predict_proba_multi():
 
 
 def test_sparse_matrices():
-    """
-    Test that sparse and dense input matrices
-    yield equal output.
-    """
+    """Test that sparse and dense input matrices yield equal output."""
     X = Xdigits_binary[:50]
     y = ydigits_binary[:50]
     X_sparse = csr_matrix(X)
@@ -307,9 +305,7 @@ def test_sparse_matrices():
 
 
 def test_verbose():
-    """
-    Test whether verbose works as intended.
-    """
+    """Test whether verbose works as intended."""
     X = Xboston
     y = yboston[:, np.newaxis]
     for algorithm in ALGORITHM_TYPES:
@@ -324,9 +320,10 @@ def test_verbose():
 
 
 def test_weighted_elm():
-    """
-    Test whether increasing weight for the minority class improves AUC
-    for the below imbalanced dataset.
+    """Check class weight impact on AUC
+
+    Re-weighting classes is expected to improve model performance
+    for imbalanced classification problems.
     """
     rng = np.random.RandomState(random_state)
     n_samples_1 = 500
