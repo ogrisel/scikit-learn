@@ -1,5 +1,6 @@
 # Authors: Andreas Mueller
 #          Manoj Kumar
+#          Issam H. Laradji
 # License: BSD 3 clause
 
 import numpy as np
@@ -59,3 +60,37 @@ def compute_class_weight(class_weight, classes, y):
                 weight[i] = class_weight[c]
 
     return weight
+
+
+def get_sample_weight(class_weight, classes, y):
+    """Return sample weights for unbalanced datasets.
+
+    Parameters
+    ----------
+    class_weight : dict, 'auto' or None
+        If 'auto', class weights will be given inverse proportional
+        to the frequency of the class in the data.
+        If a dictionary is given, keys are classes and values
+        are corresponding class weights.
+        If None is given, the class weights will be uniform.
+
+    classes : ndarray
+        Array of the classes occurring in the data, as given by
+        ``np.unique(y_org)`` with ``y_org`` the original class labels.
+
+    y : array-like, shape (n_samples,)
+        Array of original class labels per sample;
+
+    Returns
+    -------
+    sample_weight : ndarray, shape (n_samples,)
+        Array where sample_weight[i] denotes the weight for the i-th sample
+    """
+    weight = compute_class_weight(class_weight, classes, y)
+    sample_weight = np.zeros(y.shape[0])
+
+    for class_ in classes:
+        indices = np.where(y == class_)[0]
+        sample_weight[indices] = weight[class_]
+
+    return sample_weight

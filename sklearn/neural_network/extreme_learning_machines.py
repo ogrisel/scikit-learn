@@ -18,6 +18,7 @@ from ..utils import gen_even_slices
 from ..utils import check_array, check_X_y, check_random_state
 from ..utils.extmath import safe_sparse_dot
 from ..utils.fixes import expit as logistic_sigmoid
+from ..utils.class_weight import get_sample_weight
 
 
 def _inplace_logistic_sigmoid(X):
@@ -38,7 +39,8 @@ def _inplace_relu(X):
 
 def _inplace_softmax(X):
     """Compute the K-way softmax function. """
-    X = np.exp(X - X.max(axis=1)[:, np.newaxis])
+    tmp = X - X.max(axis=1)[:, np.newaxis]
+    np.exp(tmp, out=X)
     X /= X.sum(axis=1)[:, np.newaxis]
 
     return X
@@ -47,7 +49,7 @@ def _inplace_softmax(X):
 ACTIVATIONS = {'tanh': _inplace_tanh, 'logistic': _inplace_logistic_sigmoid,
                'relu': _inplace_relu}
 
-ALGORITHMS = ['standard', 'recursive_lsqr']
+ALGORITHMS = ['standard', 'recursion_lsqr']
 
 KERNELS = ['random', 'linear', 'poly', 'rbf', 'sigmoid']
 
@@ -82,164 +84,163 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.coef_hidden_ = None
         self.coef_output_ = None
 
-    def _validate_params(self):
-        """Validate input params."""
+    def _init_param_validate_X_y(self, X, y):
+        """Initialize parameters and validate X and y."""
 
+        # Validate input params
         if self.n_hidden <= 0:
-            raise ValueError("n_hidden must be greater or equal zero")
-
+            raise ValueError("n_hidden must be >= 0. You entered %s." %
+                             self.n_hidden)
         if self.C <= 0.0:
-            raise ValueError("C must be > 0")
-
+            raise ValueError("C must be > 0. You entered %s." % self.C)
         if self.activation not in ACTIVATIONS:
             raise ValueError("The activation %s"
                              " is not supported. " % self.activation)
-
         if self.algorithm not in ALGORITHMS:
             raise ValueError("The algorithm %s is not supported. Supported "
-                             "algorithms are %s" % (self.algorithm,
-                                                    ALGORITHMS))
-
+                             "algorithms are %s." % (self.algorithm,
+                                                     ALGORITHMS))
         if self.kernel not in KERNELS:
             raise ValueError("The kernel %s is not supported. Supported "
-                             "kernels are %s" % (self.kernel, KERNELS))
-
+                             "kernels are %s." % (self.kernel, KERNELS))
         if self.algorithm != 'standard' and self.class_weight is not None:
                 raise NotImplementedError("class_weight is only supported "
                                           "when algorithm='standard'.")
 
-    def _init_param_validate_X_y(self, X, y):
-        """Initializes parameters and validates X and y."""
-        self._validate_params()
-
         X, y = check_X_y(X, y, accept_sparse='csr', multi_output=True)
+        n_samples, n_features = X.shape
+
+        sample_weight = None
 
         # Classification
         if isinstance(self, ClassifierMixin):
             if self.classes_ is None:
                 self.classes_ = np.unique(y)
-            y = self._lbin.fit_transform(y)
-        # Regression
-        else:
-            if y.ndim == 1:
-                y = np.reshape(y, (-1, 1))
+
+            # Get sample weights
+            if self.class_weight is not None and self.algorithm == 'standard':
+                sample_weight = get_sample_weight(self.class_weight,
+                                                  self.classes_, y)
+
+            y = self.label_binarizer_.fit_transform(y)
+
+        # Ensure y is 2D
+        if y.ndim == 1:
+            y = np.reshape(y, (-1, 1))
 
         self.n_outputs_ = y.shape[1]
-        self._n_features = X.shape[1]
 
-        # set initial parameters.
+        # Randomize and scale the input-to-hidden weight parameters
         if self.algorithm == 'standard' or self.coef_hidden_ is None:
-            # scale the initial, random parameters
             rng = check_random_state(self.random_state)
 
             if self.weight_scale == 'auto':
                 if self.activation == 'tanh':
-                    weight_scale = np.sqrt(6. / (self._n_features +
+                    weight_scale = np.sqrt(6. / (n_features +
                                                  self.n_hidden))
                 elif self.activation == 'logistic':
-                    weight_scale = 4. * np.sqrt(6. / (self._n_features +
+                    weight_scale = 4. * np.sqrt(6. / (n_features +
                                                       self.n_hidden))
                 else:
-                    weight_scale = np.sqrt(1. / self._n_features)
+                    weight_scale = np.sqrt(1. / n_features)
             else:
                 weight_scale = self.weight_scale
 
             self.coef_hidden_ = rng.uniform(-weight_scale, weight_scale,
-                                           (self._n_features, self.n_hidden))
+                                           (n_features, self.n_hidden))
             self.intercept_hidden_ = rng.uniform(-weight_scale, weight_scale,
                                                 (self.n_hidden))
 
         if self.kernel in ['poly', 'rbf', 'sigmoid'] and self.gamma is None:
-            # if custom gamma is not provided ...
-            self.gamma = 1.0 / self._n_features
+            # If custom gamma is not provided ...
+            self.gamma = 1.0 / n_features
 
         if self.kernel != 'random':
             self._X_train = X
 
-        return X, y
+        return X, y, sample_weight
 
-    def _print_training_error(self, X, y):
-        """Print training mean square error."""
-        y_pred = self._predict(X)
-        error = mean_squared_error(y, y_pred)
-
-        print("Training mean square error = %f" % error)
-
-    def _get_hidden_activations(self, X):
+    def _compute_hidden_activations(self, X):
         """Compute the hidden activations using the set kernel."""
         if self.kernel == 'random':
             hidden_activations = safe_sparse_dot(X, self.coef_hidden_)
             hidden_activations += self.intercept_hidden_
 
+            # Apply the activation method in an inline manner
             ACTIVATIONS[self.activation](hidden_activations)
 
         else:
-            args = {'degree': self.degree, 'coef0': self.coef0,
-                    'gamma': self.gamma}
-
+            # Compute activation using a kernel
             hidden_activations = pairwise_kernels(X, self._X_train,
                                                   metric=self.kernel,
-                                                  filter_params=True, **args)
-
+                                                  filter_params=True,
+                                                  gamma=self.gamma,
+                                                  degree=self.degree,
+                                                  coef0=self.coef0)
         return hidden_activations
 
-    def _solve_lsqr(self, X, y):
-        """Compute the least-square solutions for the whole dataset."""
-        hidden_activations = self._get_hidden_activations(X)
+    def _fit(self, X, y, warm_start=False):
+        """Fit the model to the data X and target y."""
+        X, y, sample_weight = self._init_param_validate_X_y(X, y)
 
-        if self.class_weight is not None:
-            # assign weight to each sample based on its class
-            n_samples = y.shape[0]
-            diagonals = np.zeros(n_samples)
+        if self.algorithm == 'standard':
+            hidden_activations = self._compute_hidden_activations(X)
 
-            y_original = self._lbin.inverse_transform(y)
+            # Compute hidden-to-output coefficients
+            self.coef_output_ = ridge_regression(hidden_activations, y,
+                                                 1.0 / self.C,
+                                                 sample_weight=sample_weight).T
+            if self.verbose:
+                print("Training mean square error = %f" %
+                      mean_squared_error(y, self._predict(X)))
 
-            if self.class_weight == 'auto':
-                # assign weights as, w[i] = 0.618 / (n_samples of class i)
-                class_weight = {}
+        elif self.algorithm == 'recursion_lsqr':
+            # Compute the least-square solutions in batches
+            n_samples = X.shape[0]
 
-                for class_ in np.unique(y_original):
-                    class_size = len(np.where(y_original == class_)[0])
-                    class_weight[class_] = 0.618 / class_size
-            else:
-                class_weight = dict(self.class_weight)
+            batch_size = np.clip(self.batch_size, 0, n_samples)
+            n_batches = n_samples // batch_size
+            batch_slices = list(gen_even_slices(n_batches * batch_size,
+                                                n_batches))
 
-            for class_ in self.classes_:
-                indices = np.where(y_original == class_)[0]
-                if class_ in class_weight.keys():
-                    diagonals[indices] = class_weight[class_]
-                else:
-                    diagonals[indices] = 1
-            sample_weight = diagonals
-        else:
-            sample_weight = None
+            for batch, batch_slice in enumerate(batch_slices):
 
-        self.coef_output_ = ridge_regression(hidden_activations, y,
-                                             1.0 / self.C,
-                                             sample_weight=sample_weight).T
+                hidden_activations = \
+                    self._compute_hidden_activations(X[batch_slice])
 
-    def _recursive_lsqr(self, X_batch, y_batch):
-        """Compute the least-square solutions for one batch."""
-        hidden_activations = self._get_hidden_activations(X_batch)
-
-        if self._recursive_var is None:
-            # initialize K and coef_output_
-            self.coef_output_ = np.zeros((self.n_hidden, self.n_outputs_))
-            self._recursive_var = safe_sparse_dot(hidden_activations.T,
+                if batch == 0 and (warm_start is False or
+                                   not hasattr(self, "_H_sub")):
+                    # Initialize recursive least-square algorithm
+                    self.coef_output_ = np.zeros((self.n_hidden,
+                                                  self.n_outputs_))
+                    # Compute hidden activation subset _H_sub
+                    self._H_sub = safe_sparse_dot(hidden_activations.T,
                                                   hidden_activations)
-            y_ = safe_sparse_dot(hidden_activations.T, y_batch)
+                    # Compute y subset
+                    y_sub = safe_sparse_dot(hidden_activations.T,
+                                            y[batch_slice])
 
-        else:
-            self._recursive_var += safe_sparse_dot(hidden_activations.T,
+                else:
+                    # Run recursive least-square algorithm
+                    # Compute hidden activation subset _H_sub
+                    self._H_sub += safe_sparse_dot(hidden_activations.T,
                                                    hidden_activations)
+                    # Compute output y
+                    y_pred = safe_sparse_dot(hidden_activations,
+                                             self.coef_output_)
+                    # Compute y subset
+                    y_sub = safe_sparse_dot(hidden_activations.T,
+                                           (y[batch_slice] - y_pred))
 
-            hidden_activations_updated = safe_sparse_dot(hidden_activations,
-                                                         self.coef_output_)
-            y_ = safe_sparse_dot(hidden_activations.T,
-                                (y_batch - hidden_activations_updated))
-
-        self.coef_output_ += ridge_regression(self._recursive_var, y_,
-                                              1.0 / self.C).T
+                # Update hidden-to-output coefficients
+                self.coef_output_ += ridge_regression(self._H_sub, y_sub,
+                                                      1.0 / self.C).T
+                if self.verbose:
+                    print("Batch %d," % batch),
+                    print("Training mean square error = %f" %
+                          mean_squared_error(y[batch_slice],
+                                             self._predict(X[batch_slice])))
+        return self
 
     def fit(self, X, y):
         """Fit the model to the data X and target y.
@@ -257,32 +258,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         -------
         self : returns a trained elm usable for prediction.
         """
-        X, y = self._init_param_validate_X_y(X, y)
-
-        if self.algorithm == 'standard':
-            # compute the least-square solutions for the whole dataset
-            self._solve_lsqr(X, y)
-            if self.verbose:
-                self._print_training_error(X, y)
-
-        elif self.algorithm == 'recursive_lsqr':
-            # compute the least-square solutions in batches
-            n_samples = X.shape[0]
-
-            batch_size = np.clip(self.batch_size, 0, n_samples)
-            n_batches = n_samples // batch_size
-            batch_slices = list(gen_even_slices(n_batches * batch_size,
-                                                n_batches))
-            self._recursive_var = None
-
-            for batch, batch_slice in enumerate(batch_slices):
-                self._recursive_lsqr(X[batch_slice], y[batch_slice])
-
-                if self.verbose:
-                    print("Batch %d," % batch),
-                    self._print_training_error(X[batch_slice], y[batch_slice])
-
-        return self
+        self._fit(X, y, warm_start=False)
 
     def partial_fit(self, X, y):
         """Fit the model to the data X and target y.
@@ -299,16 +275,10 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         -------
         self : returns a trained elm usable for prediction.
         """
-        if self.algorithm != 'recursive_lsqr':
-            raise ValueError("only 'recursive_lsqr' algorithm "
+        if self.algorithm != 'recursion_lsqr':
+            raise ValueError("only 'recursion_lsqr' algorithm "
                              " supports partial fit")
-
-        X, y = self._init_param_validate_X_y(X, y)
-
-        if self.coef_output_ is None:
-            self._recursive_var = None
-
-        self._recursive_lsqr(X, y)
+        self._fit(X, y, warm_start=True)
 
         return self
 
@@ -328,7 +298,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         """
         X = check_array(X, accept_sparse='csr')
 
-        self.hidden_activations_ = self._get_hidden_activations(X)
+        self.hidden_activations_ = self._compute_hidden_activations(X)
         y_pred = safe_sparse_dot(self.hidden_activations_, self.coef_output_)
 
         return y_pred
@@ -373,20 +343,20 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         Activation function for the hidden layer. It only applies to
         kernel='random'.
 
-         - 'logistic' for 1 / (1 + exp(x)).
+         - 'logistic' returns f(x) = 1 / (1 + exp(x)).
 
-         - 'tanh' for the hyperbolic tangent.
+         - 'tanh' returns f(x) = tanh(x).
 
-         - 'relu' for log(1 + exp(x))
+         - 'relu' returns f(x) = max(0, x)
 
-    algorithm : {'standard', 'recursive_lsqr'}, default 'standard'
+    algorithm : {'standard', 'recursion_lsqr'}, default 'standard'
         The algorithm for computing least-square solutions.
-        Defaults to 'recursive_lsqr'
+        Defaults to 'recursion_lsqr'
 
         - 'standard' computes the least-square solutions using the
           whole matrix at once.
 
-        - 'recursive_lsqr' computes the least-square solutions by training
+        - 'recursion_lsqr' computes the least-square solutions by training
           on the dataset in batches using a recursive least-square
           algorithm.
 
@@ -407,7 +377,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         'poly' and 'sigmoid'.
 
     batch_size : int, optional, default 200
-        Size of minibatches for the 'recursive_lsqr' algoritm.
+        Size of minibatches for the 'recursion_lsqr' algoritm.
         Minibatches do not apply to the 'standard' ELM algorithm.
 
     verbose : bool, optional, default False
@@ -452,7 +422,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
                                             verbose=verbose,
                                             random_state=random_state)
 
-        self._lbin = LabelBinarizer(-1, 1)
+        self.label_binarizer_ = LabelBinarizer(-1, 1)
 
     def partial_fit(self, X, y, classes=None):
         """Fit the model to the data X and target y.
@@ -527,7 +497,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         """
         scores = self._predict(X)
 
-        return self._lbin.inverse_transform(scores)
+        return self.label_binarizer_.inverse_transform(scores)
 
     def predict_proba(self, X):
         """Probability estimates.
@@ -606,20 +576,20 @@ class ELMRegressor(BaseELM, RegressorMixin):
         Activation function for the hidden layer. It only applies to
         kernel='random'.
 
-         - 'logistic' for 1 / (1 + exp(x)).
+         - 'logistic' returns f(x) = 1 / (1 + exp(x)).
 
-         - 'tanh' for the hyperbolic tangent.
+         - 'tanh' returns f(x) = tanh(x).
 
-         - 'relu' for log(1 + exp(x))
+         - 'relu' returns f(x) = max(0, x)
 
-    algorithm : {'standard', 'recursive_lsqr'}, default 'standard'
+    algorithm : {'standard', 'recursion_lsqr'}, default 'standard'
         The algorithm for computing least-square solutions.
-        Defaults to 'recursive_lsqr'
+        Defaults to 'recursion_lsqr'
 
         - 'standard' computes the least-square solutions using the
           whole matrix at once.
 
-        - 'recursive_lsqr' computes the least-square solutions by training
+        - 'recursion_lsqr' computes the least-square solutions by training
           on the dataset in batches using a recursive least-square
           algorithm.
 
@@ -640,7 +610,7 @@ class ELMRegressor(BaseELM, RegressorMixin):
         'poly' and 'sigmoid'.
 
     batch_size : int, optional, default 200
-        Size of minibatches for the 'recursive_lsqr' algoritm.
+        Size of minibatches for the 'recursion_lsqr' algoritm.
         Minibatches do not apply to the 'standard' ELM algorithm.
 
     verbose : bool, optional, default False

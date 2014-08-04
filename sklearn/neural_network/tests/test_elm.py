@@ -29,7 +29,7 @@ np.seterr(all='warn')
 random_state = 1
 
 ACTIVATION_TYPES = ["logistic", "tanh", "relu"]
-ALGORITHM_TYPES = ["standard", "recursive_lsqr"]
+ALGORITHM_TYPES = ["standard", "recursion_lsqr"]
 KERNELS = ["linear", "poly", "rbf", "sigmoid"]
 
 digits_dataset_multi = load_digits(n_class=3)
@@ -160,7 +160,7 @@ def test_params_errors():
     assert_raises(ValueError, clf(n_hidden=-1).fit, X, y)
     assert_raises(ValueError, clf(activation='ghost').fit, X, y)
     assert_raises(ValueError, clf(algorithm='lol').fit, X, y)
-    assert_raises(NotImplementedError, clf(algorithm='recursive_lsqr',
+    assert_raises(NotImplementedError, clf(algorithm='recursion_lsqr',
                                            class_weight={1: 10}).fit, X, y)
 
 
@@ -170,12 +170,12 @@ def test_partial_fit_classes_error():
     y = [0]
     clf = ELMClassifier
     # no classes passed
-    assert_raises(ValueError, clf(algorithm='recursive_lsqr').partial_fit,
+    assert_raises(ValueError, clf(algorithm='recursion_lsqr').partial_fit,
                   X, y)
     # only recursive_lsqr algorithm supports partial-fit
     assert_raises(ValueError, clf(algorithm='standard').partial_fit, X, y)
 
-    elm = clf(algorithm='recursive_lsqr')
+    elm = clf(algorithm='recursion_lsqr')
     elm.partial_fit(X, y, classes=[0, 1])
     # different classes passed
     assert_raises(ValueError, elm.partial_fit, X, y, classes=[0, 1, 2])
@@ -191,12 +191,12 @@ def test_partial_fit_classification():
         batch_size = 200
         n_samples = X.shape[0]
 
-        elm = ELMClassifier(algorithm='recursive_lsqr',
+        elm = ELMClassifier(algorithm='recursion_lsqr',
                             random_state=random_state, batch_size=batch_size)
         elm.fit(X, y)
         pred1 = elm.predict(X)
 
-        elm = ELMClassifier(algorithm='recursive_lsqr',
+        elm = ELMClassifier(algorithm='recursion_lsqr',
                             random_state=random_state)
 
         n_batches = n_samples // batch_size
@@ -223,14 +223,14 @@ def test_partial_fit_regression():
     n_samples = X.shape[0]
 
     for activation in ACTIVATION_TYPES:
-        elm = ELMRegressor(algorithm='recursive_lsqr',
+        elm = ELMRegressor(algorithm='recursion_lsqr',
                            random_state=random_state,
                            activation=activation, batch_size=batch_size)
         elm.fit(X, y)
         pred1 = elm.predict(X)
 
-        elm = ELMRegressor(algorithm='recursive_lsqr', activation=activation,
-                           random_state=random_state)
+        elm = ELMRegressor(algorithm='recursion_lsqr', activation=activation,
+                           random_state=random_state, batch_size=batch_size)
 
         n_batches = n_samples // batch_size
         batch_slices = list(gen_even_slices(n_batches * batch_size, n_batches))
