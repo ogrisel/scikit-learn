@@ -254,7 +254,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         -------
         self : returns a trained elm usable for prediction.
         """
-        self._fit(X, y, warm_start=False)
+        return self._fit(X, y, warm_start=False)
 
     def partial_fit(self, X, y):
         """Fit the model to the data X and target y.
