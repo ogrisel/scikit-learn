@@ -243,7 +243,7 @@ def test_partial_fit_regression():
         assert_almost_equal(pred1, pred2, decimal=2)
         score = elm.score(X, y)
 
-        assert_greater(score, 0.95)
+        assert_greater(score, 0.85)
 
 
 def test_predict_proba_binary():
