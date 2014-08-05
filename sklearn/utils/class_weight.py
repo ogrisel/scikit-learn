@@ -62,8 +62,8 @@ def compute_class_weight(class_weight, classes, y):
     return weight
 
 
-def get_sample_weight(class_weight, classes, y):
-    """Return sample weights for unbalanced datasets.
+def compute_sample_weight(class_weight, classes, y):
+    """Compute sample weights for unbalanced datasets.
 
     Parameters
     ----------

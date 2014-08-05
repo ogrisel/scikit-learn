@@ -14,11 +14,11 @@ from ..preprocessing import LabelBinarizer
 from ..metrics import mean_squared_error
 from ..metrics.pairwise import pairwise_kernels
 from ..linear_model.ridge import ridge_regression
-from ..utils import gen_even_slices
-from ..utils import check_array, check_X_y, check_random_state
+from ..utils import gen_batches
+from ..utils import check_array, check_X_y, check_random_state, column_or_1d
 from ..utils.extmath import safe_sparse_dot
 from ..utils.fixes import expit as logistic_sigmoid
-from ..utils.class_weight import get_sample_weight
+from ..utils.class_weight import compute_sample_weight
 
 
 def _inplace_logistic_sigmoid(X):
@@ -80,19 +80,47 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.verbose = verbose
         self.random_state = random_state
 
+        # public attributes
         self.classes_ = None
         self.coef_hidden_ = None
         self.coef_output_ = None
 
-    def _init_param_validate_X_y(self, X, y):
-        """Initialize parameters and validate X and y."""
+        # private attributes
+        self._H_sub = None
 
+    def _compute_hidden_activations(self, X):
+        """Compute the hidden activations using the set kernel."""
+        if self.kernel == 'random':
+            hidden_activations = safe_sparse_dot(X, self.coef_hidden_)
+            hidden_activations += self.intercept_hidden_
+
+            # Apply the activation method in an inplace manner
+            ACTIVATIONS[self.activation](hidden_activations)
+
+        else:
+            # If custom gamma is not provided ...
+            if (self.kernel in ['poly', 'rbf', 'sigmoid'] and
+                    self.gamma is None):
+                gamma = 1.0 / X.shape[1]
+            else:
+                gamma = self.gamma
+
+            # Compute activation using a kernel
+            hidden_activations = pairwise_kernels(X, self._X_train,
+                                                  metric=self.kernel,
+                                                  filter_params=True,
+                                                  gamma=gamma,
+                                                  degree=self.degree,
+                                                  coef0=self.coef0)
+        return hidden_activations
+
+    def _fit(self, X, y, warm_start=False):
+        """Fit the model to the data X and target y."""
         # Validate input params
         if self.n_hidden <= 0:
-            raise ValueError("n_hidden must be >= 0. You entered %s." %
-                             self.n_hidden)
+            raise ValueError("n_hidden must be >= 0v got %s." % self.n_hidden)
         if self.C <= 0.0:
-            raise ValueError("C must be > 0. You entered %s." % self.C)
+            raise ValueError("C must be > 0, got %s." % self.C)
         if self.activation not in ACTIVATIONS:
             raise ValueError("The activation %s"
                              " is not supported. " % self.activation)
@@ -107,30 +135,34 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
                 raise NotImplementedError("class_weight is only supported "
                                           "when algorithm='standard'.")
 
-        X, y = check_X_y(X, y, accept_sparse='csr', multi_output=True)
-        n_samples, n_features = X.shape
+        X, y = check_X_y(X, y, accept_sparse=['csr', 'csc', 'coo'],
+                         dtype=np.float64, order="C", multi_output=True)
 
         sample_weight = None
-
         # Classification
         if isinstance(self, ClassifierMixin):
+            # This outputs the warning needed for passing Travis
+            if len(y.shape) == 2 and y.shape[1] == 1:
+                y = column_or_1d(y, warn=True)
             if self.classes_ is None:
                 self.classes_ = np.unique(y)
-
-            # Get sample weights
+            # Compute sample weights
             if self.class_weight is not None and self.algorithm == 'standard':
-                sample_weight = get_sample_weight(self.class_weight,
-                                                  self.classes_, y)
-
+                sample_weight = compute_sample_weight(self.class_weight,
+                                                      self.classes_, y)
             y = self.label_binarizer_.fit_transform(y)
 
         # Ensure y is 2D
         if y.ndim == 1:
             y = np.reshape(y, (-1, 1))
 
+        n_samples, n_features = X.shape
         self.n_outputs_ = y.shape[1]
 
-        # Randomize and scale the input-to-hidden weight parameters
+        if self.kernel != 'random':
+            self._X_train = X
+
+        # Step (1/2): Randomize and scale the input-to-hidden coefficients
         if self.algorithm == 'standard' or self.coef_hidden_ is None:
             rng = check_random_state(self.random_state)
 
@@ -151,95 +183,59 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             self.intercept_hidden_ = rng.uniform(-weight_scale, weight_scale,
                                                 (self.n_hidden))
 
-        if self.kernel in ['poly', 'rbf', 'sigmoid'] and self.gamma is None:
-            # If custom gamma is not provided ...
-            self.gamma = 1.0 / n_features
-
-        if self.kernel != 'random':
-            self._X_train = X
-
-        return X, y, sample_weight
-
-    def _compute_hidden_activations(self, X):
-        """Compute the hidden activations using the set kernel."""
-        if self.kernel == 'random':
-            hidden_activations = safe_sparse_dot(X, self.coef_hidden_)
-            hidden_activations += self.intercept_hidden_
-
-            # Apply the activation method in an inline manner
-            ACTIVATIONS[self.activation](hidden_activations)
-
-        else:
-            # Compute activation using a kernel
-            hidden_activations = pairwise_kernels(X, self._X_train,
-                                                  metric=self.kernel,
-                                                  filter_params=True,
-                                                  gamma=self.gamma,
-                                                  degree=self.degree,
-                                                  coef0=self.coef0)
-        return hidden_activations
-
-    def _fit(self, X, y, warm_start=False):
-        """Fit the model to the data X and target y."""
-        X, y, sample_weight = self._init_param_validate_X_y(X, y)
-
+        # Step (2/2): Run the least-square algorithm on the whole dataset
         if self.algorithm == 'standard':
             hidden_activations = self._compute_hidden_activations(X)
 
-            # Compute hidden-to-output coefficients
+            # Compute hidden-to-output coefficients using
+            # inv(H^T H + (1./C)*Id) * H.T y
             self.coef_output_ = ridge_regression(hidden_activations, y,
                                                  1.0 / self.C,
                                                  sample_weight=sample_weight).T
             if self.verbose:
                 print("Training mean square error = %f" %
-                      mean_squared_error(y, self._predict(X)))
+                      mean_squared_error(y, self._decision_scores(X)))
 
         elif self.algorithm == 'recursion_lsqr':
-            # Compute the least-square solutions in batches
-            n_samples = X.shape[0]
+            # Run the recursive least-square algorithm on mini-batches
+            batch_size = np.clip(self.batch_size, 1, n_samples)
 
-            batch_size = np.clip(self.batch_size, 0, n_samples)
-            n_batches = n_samples // batch_size
-            batch_slices = list(gen_even_slices(n_batches * batch_size,
-                                                n_batches))
+            for batch, batch_slice in enumerate(list(gen_batches(n_samples,
+                                                batch_size))):
+                # Compute hidden activations H_{i} for batch i
+                H_batch = self._compute_hidden_activations(X[batch_slice])
 
-            for batch, batch_slice in enumerate(batch_slices):
-
-                hidden_activations = \
-                    self._compute_hidden_activations(X[batch_slice])
-
-                if batch == 0 and (warm_start is False or
-                                   not hasattr(self, "_H_sub")):
-                    # Initialize recursive least-square algorithm
-                    self.coef_output_ = np.zeros((self.n_hidden,
-                                                  self.n_outputs_))
-                    # Compute hidden activation subset _H_sub
-                    self._H_sub = safe_sparse_dot(hidden_activations.T,
-                                                  hidden_activations)
-                    # Compute y subset
-                    y_sub = safe_sparse_dot(hidden_activations.T,
-                                            y[batch_slice])
-
+                if batch == 0 and (not warm_start or self._H_sub is None):
+                    # Recursive step for batch 0
+                    # beta_{0} = inv(H_{0}^T H_{0} + (1./C)*Id) * H_{0}.T y_{0}
+                    self.coef_output_ = ridge_regression(H_batch,
+                                                         y[batch_slice],
+                                                         1.0 / self.C).T
+                    # K_{i+1} = H_{0}^T H_{0}
+                    self._H_sub = safe_sparse_dot(H_batch.T, H_batch)
                 else:
-                    # Run recursive least-square algorithm
-                    # Compute hidden activation subset _H_sub
-                    self._H_sub += safe_sparse_dot(hidden_activations.T,
-                                                   hidden_activations)
-                    # Compute output y
-                    y_pred = safe_sparse_dot(hidden_activations,
-                                             self.coef_output_)
-                    # Compute y subset
-                    y_sub = safe_sparse_dot(hidden_activations.T,
-                                           (y[batch_slice] - y_pred))
+                    # Recursive step for batch 1, 2, ..., n
+                    # Update K_{i+1} by H_{i}^T * H_{i}
+                    self._H_sub += safe_sparse_dot(H_batch.T, H_batch)
 
-                # Update hidden-to-output coefficients
-                self.coef_output_ += ridge_regression(self._H_sub, y_sub,
-                                                      1.0 / self.C).T
+                    # Update beta_{i+1} by
+                    # K_{i+1}^{-1}H{i+1}^T(y{i+1} - H_{i+1} * beta_{i})
+
+                    # Step 1: Compute (y{i+1} - H_{i+1} * beta_{i}) as y_sub
+                    y_sub = y[batch_slice] - safe_sparse_dot(H_batch,
+                                                             self.coef_output_)
+                    # Step 2: Compute H{i+1}^T * y_sub
+                    y_sub = safe_sparse_dot(H_batch.T, y_sub)
+
+                    # Update hidden-to-output coefficients by
+                    # inv(K_i^T K_i + (1./C)*Id) * K_i.T y
+                    self.coef_output_ += ridge_regression(self._H_sub, y_sub,
+                                                          1.0 / self.C).T
+
                 if self.verbose:
-                    print("Batch %d," % batch),
-                    print("Training mean square error = %f" %
-                          mean_squared_error(y[batch_slice],
-                                             self._predict(X[batch_slice])))
+                    scores = self._decision_scores(X[batch_slice])
+                    print("Batch %d, Training mean square error = %f" %
+                         (batch, mean_squared_error(y[batch_slice], scores)))
         return self
 
     def fit(self, X, y):
@@ -282,7 +278,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
 
         return self
 
-    def _predict(self, X):
+    def _decision_scores(self, X):
         """Predict using the trained model
 
         Parameters
@@ -296,7 +292,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         y_pred : array-like, shape (n_samples,) or (n_samples, n_outputs)
                  The predicted values.
         """
-        X = check_array(X, accept_sparse='csr')
+        X = check_array(X, accept_sparse=['csr', 'csc', 'coo'])
 
         self.hidden_activations_ = self._compute_hidden_activations(X)
         y_pred = safe_sparse_dot(self.hidden_activations_, self.coef_output_)
@@ -474,7 +470,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         y : array-like, shape (n_samples,) or (n_samples, n_classes)
             The predict values.
         """
-        scores = self._predict(X)
+        scores = self._decision_scores(X)
 
         if self.n_outputs_ == 1:
             return scores.ravel()
@@ -495,7 +491,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         y : array-like, shape (n_samples,) or (n_samples, n_classes)
             The predicted classes, or the predict values.
         """
-        scores = self._predict(X)
+        scores = self._decision_scores(X)
 
         return self.label_binarizer_.inverse_transform(scores)
 
@@ -515,7 +511,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
                  model, where classes are ordered as they are in
                  `self.classes_`.
         """
-        scores = self._predict(X)
+        scores = self._decision_scores(X)
 
         if len(self.classes_) == 2:
             scores = logistic_sigmoid(scores)
@@ -667,4 +663,4 @@ class ELMRegressor(BaseELM, RegressorMixin):
         y : array-like, shape (n_samples, n_outputs)
             The predicted classes, or the predict values.
         """
-        return self._predict(X)
+        return self._decision_scores(X)

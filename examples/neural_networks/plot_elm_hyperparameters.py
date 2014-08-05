@@ -1,15 +1,17 @@
 """
-==========================================
-Extreme Learning Machines: Hyperparameters
-==========================================
+===========================================================
+Extreme Learning Machines: Effect of tuning hyperparameters
+===========================================================
 
-Plots showing the effect of adjusting parameters on the cross-validation
-scores against the digits dataset. This involves three parameters: n_hidden, C,
-and weight_scale. Each color map shows the relationship between two
-of these parameters while the third parameter is optimized using grid search.
+This example first demonstrates how scikit-learn GridsearchCV can
+tune 3 of the most impacting hyperparameters of ELM classifiers: n_hidden, C,
+and weight_scale.
+
+Then, using color maps, it illustrates the hyperparameter space of the ELM
+model varying each 2 parameters while keeping the third parameter as the
+optimal value.
 
 """
-
 print(__doc__)
 
 # Author: Issam H. Laradji <issam.laradji@gmail.com>
@@ -17,16 +19,71 @@ print(__doc__)
 
 import numpy as np
 import matplotlib.pyplot as plt
+
 from mpl_toolkits.axes_grid1 import make_axes_locatable
+
 from sklearn.cross_validation import cross_val_score
 from sklearn.datasets import load_digits
 from sklearn.neural_network import ELMClassifier
 from sklearn.preprocessing import StandardScaler
 from sklearn import grid_search
 
+random_state = 0
 
-def plot_color_map(fig, ax, title, scores):
-    mat = ax.matshow(scores, origin="lower", cmap=plt.cm.Blues)
+# Generate sample data
+digits = load_digits()
+X, y = digits.data, digits.target
+X = StandardScaler().fit_transform(X)
+
+parameters = {'C': np.logspace(-2, 2, 5),
+              'weight_scale': np.logspace(-2, 2, 5),
+              'n_hidden': np.array([32, 128, 512, 1024, 2048])}
+
+# List combinations
+comb = [('C', 'weight_scale', 'n_hidden'),
+        ('weight_scale', 'n_hidden', 'C'),
+        ('n_hidden', 'C', 'weight_scale')]
+
+# Compute optimal parameters
+optimum_params = {}
+for param in parameters:
+    elm = ELMClassifier(random_state=random_state)
+
+    clf = grid_search.GridSearchCV(elm, {param: parameters[param]})
+    clf.fit(X, y)
+
+    optimum_params[param] = clf.best_params_[param]
+
+scores = np.zeros((3, 5, 5))
+for i in range(len(parameters)):
+    # Get parameters
+    p1, p1_values = comb[i][0], parameters[comb[i][0]]
+    p2, p2_values = comb[i][1], parameters[comb[i][1]]
+    p3, p3_optimal_value = comb[i][2], optimum_params[comb[i][2]]
+
+    # Loop over the values of the two parameters
+    for j, p1_value in enumerate(p1_values):
+        for k, p2_value in enumerate(p2_values):
+            elm = ELMClassifier(**{p1: p1_value, p2: p2_value,
+                                   p3: p3_optimal_value})
+            scores[i, k, j] = np.mean(cross_val_score(elm, X, y, cv=2))
+
+# plot a relationship between each two parameters while fixing the third one
+min_value, max_value = np.min(scores), np.max(scores)
+
+for i in range(len(parameters)):
+    fig = plt.figure(i)
+    ax = fig.add_subplot(111)
+
+    # Get parameters
+    p1, p1_values = comb[i][0], parameters[comb[i][0]]
+    p2, p2_values = comb[i][1], parameters[comb[i][1]]
+    p3, p3_optimal_value = comb[i][2], optimum_params[comb[i][2]]
+
+    # Plot results functions
+    mat = ax.matshow(scores[i], origin="lower",
+                     cmap=plt.cm.Blues, vmin=min_value, vmax=max_value)
+
     divider = make_axes_locatable(ax)
     cax = divider.append_axes("right", size="5%", pad=0.05)
     fig.colorbar(mat, ax=ax, cax=cax)
@@ -34,63 +91,13 @@ def plot_color_map(fig, ax, title, scores):
     ax.set_xticks(np.arange(5))
     ax.set_yticks(np.arange(5))
 
-    ax.set_xlabel(keys[0] + ' parameter')
-    ax.set_ylabel(keys[1] + ' parameter')
+    ax.set_xlabel(p1 + ' parameter')
+    ax.set_ylabel(p2 + ' parameter')
 
-    ax.set_xticklabels(values[0])
+    ax.set_xticklabels(p1_values)
     ax.xaxis.set_ticks_position('bottom')
-    ax.set_yticklabels(values[1])
-    ax.set_title(title, {'fontsize': 12})
+    ax.set_yticklabels(p2_values)
+    ax.set_title('Validation scores when ' + p3 + '=' +
+                 str(p3_optimal_value), {'fontsize': 12})
 
-np.random.seed(0)
-
-# Generate sample data
-digits = load_digits()
-X, y = digits.data, digits.target
-X = StandardScaler().fit_transform(X)
-
-parameters = {}
-parameters['C'] = np.around(np.logspace(0, 3, 5), 1)
-parameters['weight_scale'] = np.logspace(-2, 2, 5)
-parameters['n_hidden'] = np.arange(50, 300, 50)
-
-# get optimal parameters
-optimum_params = {}
-for param in parameters:
-    elm = ELMClassifier()
-
-    clf = grid_search.GridSearchCV(elm, {param: parameters[param]})
-    clf.fit(X, y)
-
-    optimum_params[param] = clf.best_params_[param]
-
-# plot a relationship between each two parameters while fixing the third one
-fig, plot_axes = plt.subplots(1, 3, figsize=(13, 4))
-plot = 0
-for param in parameters:
-    axes = dict(parameters)
-    del axes[param]
-
-    keys = list(axes.keys())
-    values = list(axes.values())
-
-    scores = []
-    for a in values[0]:
-        score_row = []
-        for b in values[1]:
-            elm = ELMClassifier(**{keys[0]: a, keys[1]: b,
-                                   param: optimum_params[param]})
-            score = np.mean(cross_val_score(elm, X, y))
-            score_row.append(score)
-        scores.append(score_row)
-
-    scores = np.array(scores).T
-
-    # Plot results functions
-    plot_color_map(fig, plot_axes[plot], 'Validation scores when ' +
-                   param + '=' + str(optimum_params[param]), scores)
-    plot += 1
-
-fig.suptitle('ELM scores on the digits dataset', fontsize=14)
-fig.tight_layout()
 plt.show()
