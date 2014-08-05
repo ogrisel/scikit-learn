@@ -7,6 +7,7 @@
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
+from scipy.sparse import identity
 
 from ..base import BaseEstimator, ClassifierMixin, RegressorMixin
 from ..externals import six
@@ -141,9 +142,11 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         sample_weight = None
         # Classification
         if isinstance(self, ClassifierMixin):
+
             # This outputs the warning needed for passing Travis
             if len(y.shape) == 2 and y.shape[1] == 1:
                 y = column_or_1d(y, warn=True)
+
             if self.classes_ is None:
                 self.classes_ = np.unique(y)
             # Compute sample weights
@@ -210,7 +213,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
                     # beta_{0} = inv(H_{0}^T H_{0} + (1./C)*Id) * H_{0}.T y_{0}
                     self.coef_output_ = ridge_regression(H_batch,
                                                          y[batch_slice],
-                                                         1.0 / self.C).T
+                                                         1. / self.C).T
                     # K_{i+1} = H_{0}^T H_{0}
                     self._H_sub = safe_sparse_dot(H_batch.T, H_batch)
                 else:
@@ -225,12 +228,15 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
                     y_sub = y[batch_slice] - safe_sparse_dot(H_batch,
                                                              self.coef_output_)
                     # Step 2: Compute H{i+1}^T * y_sub
-                    y_sub = safe_sparse_dot(H_batch.T, y_sub)
+                    Hy_sub = safe_sparse_dot(H_batch.T, y_sub)
 
                     # Update hidden-to-output coefficients by
-                    # inv(K_i^T K_i + (1./C)*Id) * K_i.T y
-                    self.coef_output_ += ridge_regression(self._H_sub, y_sub,
-                                                          1.0 / self.C).T
+                    # Compute K_{i+1}^{-1} * Hy_sub
+                    self.coef_output_ += \
+                        np.linalg.solve(self._H_sub +
+                                        identity(self.n_hidden) *
+                                        (1. / self.C),
+                                        Hy_sub)
 
                 if self.verbose:
                     scores = self._decision_scores(X[batch_slice])
