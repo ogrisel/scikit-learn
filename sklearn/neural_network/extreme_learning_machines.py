@@ -20,6 +20,7 @@ from ..utils import check_array, check_X_y, check_random_state, column_or_1d
 from ..utils.extmath import safe_sparse_dot
 from ..utils.fixes import expit as logistic_sigmoid
 from ..utils.class_weight import compute_sample_weight
+from ..utils.multiclass import unique_labels
 
 
 def _inplace_logistic_sigmoid(X):
@@ -50,8 +51,6 @@ def _inplace_softmax(X):
 ACTIVATIONS = {'tanh': _inplace_tanh, 'logistic': _inplace_logistic_sigmoid,
                'relu': _inplace_relu}
 
-ALGORITHMS = ['standard', 'recursion_lsqr']
-
 KERNELS = ['random', 'linear', 'poly', 'rbf', 'sigmoid']
 
 
@@ -64,12 +63,11 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
     """
 
     @abstractmethod
-    def __init__(self, n_hidden, activation, algorithm, kernel, C, degree,
-                 gamma, coef0, class_weight, weight_scale, batch_size, verbose,
+    def __init__(self, n_hidden, activation, kernel, C, degree, gamma, coef0,
+                 class_weight, weight_scale, batch_size, verbose,
                  random_state):
         self.C = C
         self.activation = activation
-        self.algorithm = algorithm
         self.kernel = kernel
         self.degree = degree
         self.gamma = gamma
@@ -123,37 +121,39 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         if self.C <= 0.0:
             raise ValueError("C must be > 0, got %s." % self.C)
         if self.activation not in ACTIVATIONS:
-            raise ValueError("The activation %s"
-                             " is not supported. " % self.activation)
-        if self.algorithm not in ALGORITHMS:
-            raise ValueError("The algorithm %s is not supported. Supported "
-                             "algorithms are %s." % (self.algorithm,
-                                                     ALGORITHMS))
+            raise ValueError("The activation %s is not supported. " %
+                             self.activation)
         if self.kernel not in KERNELS:
             raise ValueError("The kernel %s is not supported. Supported "
                              "kernels are %s." % (self.kernel, KERNELS))
-        if self.algorithm != 'standard' and self.class_weight is not None:
-                raise NotImplementedError("class_weight is only supported "
-                                          "when algorithm='standard'.")
+        if self.batch_size is not None and self.class_weight is not None:
+            raise NotImplementedError("class_weight is currently only "
+                                      " supported when batch_size=None.")
 
         X, y = check_X_y(X, y, accept_sparse=['csr', 'csc', 'coo'],
                          dtype=np.float64, order="C", multi_output=True)
 
+        # This outputs a warning when a 1d array is expected
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = column_or_1d(y, warn=True)
+
         sample_weight = None
         # Classification
         if isinstance(self, ClassifierMixin):
+            if self.classes_ is None or not warm_start:
+                self.classes_ = unique_labels(y)
+                if self.class_weight is not None:
+                    sample_weight = compute_sample_weight(self.class_weight,
+                                                          self.classes_, y)
+                y = self.label_binarizer_.fit_transform(y)
+            else:
+                classes = unique_labels(y)
+                if not np.all(np.in1d(classes, self.classes_)):
+                    raise ValueError("`y` has classes not in `self.classes_`."
+                                     " `self.classes_` has %s. 'y' has %s." %
+                                     (self.classes_, classes))
 
-            # This outputs the warning needed for passing Travis
-            if len(y.shape) == 2 and y.shape[1] == 1:
-                y = column_or_1d(y, warn=True)
-
-            if self.classes_ is None:
-                self.classes_ = np.unique(y)
-            # Compute sample weights
-            if self.class_weight is not None and self.algorithm == 'standard':
-                sample_weight = compute_sample_weight(self.class_weight,
-                                                      self.classes_, y)
-            y = self.label_binarizer_.fit_transform(y)
+                y = self.label_binarizer_.fit_transform(y)
 
         # Ensure y is 2D
         if y.ndim == 1:
@@ -166,7 +166,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             self._X_train = X
 
         # Step (1/2): Randomize and scale the input-to-hidden coefficients
-        if self.algorithm == 'standard' or self.coef_hidden_ is None:
+        if not warm_start or self.coef_hidden_ is None:
             rng = check_random_state(self.random_state)
 
             if self.weight_scale == 'auto':
@@ -186,62 +186,59 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             self.intercept_hidden_ = rng.uniform(-weight_scale, weight_scale,
                                                 (self.n_hidden))
 
-        # Step (2/2): Run the least-square algorithm on the whole dataset
-        if self.algorithm == 'standard':
-            hidden_activations = self._compute_hidden_activations(X)
+        # Step (2/2): Compute hidden-to-output coefficients
+        if self.batch_size is None:
+            batch_size = n_samples
+        else:
+            batch_size = self.batch_size
 
-            # Compute hidden-to-output coefficients using
-            # inv(H^T H + (1./C)*Id) * H.T y
-            self.coef_output_ = ridge_regression(hidden_activations, y,
-                                                 1.0 / self.C,
+        first_call = (self.batch_size is None or
+                      self.batch_size is not None and
+                      (not warm_start or self._H_sub is None))
+
+        batches = list(gen_batches(n_samples, batch_size))
+
+        # Run the least-square algorithm on batch 0
+        if first_call:
+            H_batch = self._compute_hidden_activations(X[batches[0]])
+            # beta_{0} = inv(H_{0}^T H_{0} + (1./C)*Id) * H_{0}.T y_{0}
+            self.coef_output_ = ridge_regression(H_batch, y[batches[0]],
+                                                 1. / self.C,
                                                  sample_weight=sample_weight).T
+            if self.batch_size is not None:
+                # K_{0} = H_{0}^T H_{0}
+                self._H_sub = safe_sparse_dot(H_batch.T, H_batch)
+
             if self.verbose:
-                print("Training mean square error = %f" %
-                      mean_squared_error(y, self._decision_scores(X)))
+                scores = self._decision_scores(X[batches[0]])
+                print("Batch 0, Training mean square error= % f" %
+                     (mean_squared_error(y[batches[0]], scores)))
 
-        elif self.algorithm == 'recursion_lsqr':
-            # Run the recursive least-square algorithm on mini-batches
-            batch_size = np.clip(self.batch_size, 1, n_samples)
+            batches = batches[1:]
 
-            for batch, batch_slice in enumerate(list(gen_batches(n_samples,
-                                                batch_size))):
-                # Compute hidden activations H_{i} for batch i
-                H_batch = self._compute_hidden_activations(X[batch_slice])
+        # Run the least-square algorithm on batch 1, 2, ..., n
+        for batch, batch_slice in enumerate(batches):
+            # Compute hidden activations H_{i} for batch i
+            H_batch = self._compute_hidden_activations(X[batch_slice])
 
-                if batch == 0 and (not warm_start or self._H_sub is None):
-                    # Recursive step for batch 0
-                    # beta_{0} = inv(H_{0}^T H_{0} + (1./C)*Id) * H_{0}.T y_{0}
-                    self.coef_output_ = ridge_regression(H_batch,
-                                                         y[batch_slice],
-                                                         1. / self.C).T
-                    # K_{i+1} = H_{0}^T H_{0}
-                    self._H_sub = safe_sparse_dot(H_batch.T, H_batch)
-                else:
-                    # Recursive step for batch 1, 2, ..., n
-                    # Update K_{i+1} by H_{i}^T * H_{i}
-                    self._H_sub += safe_sparse_dot(H_batch.T, H_batch)
+            # Update K_{i+1} by H_{i}^T * H_{i}
+            self._H_sub += safe_sparse_dot(H_batch.T, H_batch)
 
-                    # Update beta_{i+1} by
-                    # K_{i+1}^{-1}H{i+1}^T(y{i+1} - H_{i+1} * beta_{i})
+            # Update beta_{i+1} by
+            # K_{i+1}^{-1}H{i+1}^T(y{i+1} - H_{i+1} * beta_{i})
+            y_sub = y[batch_slice] - safe_sparse_dot(H_batch,
+                                                     self.coef_output_)
+            Hy_sub = safe_sparse_dot(H_batch.T, y_sub)
 
-                    # Step 1: Compute (y{i+1} - H_{i+1} * beta_{i}) as y_sub
-                    y_sub = y[batch_slice] - safe_sparse_dot(H_batch,
-                                                             self.coef_output_)
-                    # Step 2: Compute H{i+1}^T * y_sub
-                    Hy_sub = safe_sparse_dot(H_batch.T, y_sub)
-
-                    # Update hidden-to-output coefficients by
-                    # Compute K_{i+1}^{-1} * Hy_sub
-                    self.coef_output_ += \
-                        np.linalg.solve(self._H_sub +
-                                        identity(self.n_hidden) *
-                                        (1. / self.C),
-                                        Hy_sub)
-
-                if self.verbose:
-                    scores = self._decision_scores(X[batch_slice])
-                    print("Batch %d, Training mean square error = %f" %
-                         (batch, mean_squared_error(y[batch_slice], scores)))
+            # Update hidden-to-output coefficients
+            self.coef_output_ += np.linalg.solve(self._H_sub +
+                                                 identity(self.n_hidden) *
+                                                 1. / self.C,
+                                                 Hy_sub)
+            if self.verbose:
+                scores = self._decision_scores(X[batch_slice])
+                print("Batch %d, Training mean square error = %f" %
+                     (batch, mean_squared_error(y[batch_slice], scores)))
         return self
 
     def fit(self, X, y):
@@ -277,9 +274,6 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         -------
         self : returns a trained elm usable for prediction.
         """
-        if self.algorithm != 'recursion_lsqr':
-            raise ValueError("only 'recursion_lsqr' algorithm "
-                             " supports partial fit")
         self._fit(X, y, warm_start=True)
 
         return self
@@ -300,8 +294,8 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         """
         X = check_array(X, accept_sparse=['csr', 'csc', 'coo'])
 
-        self.hidden_activations_ = self._compute_hidden_activations(X)
-        y_pred = safe_sparse_dot(self.hidden_activations_, self.coef_output_)
+        hidden_activations = self._compute_hidden_activations(X)
+        y_pred = safe_sparse_dot(hidden_activations, self.coef_output_)
 
         return y_pred
 
@@ -324,11 +318,12 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         A regularization term that controls the linearity of the decision
         function. Smaller value of C makes the decision boundary more linear.
 
-    class_weight : {dict, 'auto'}, optional
-        Set the parameter C of class i to class_weight[i]*C for ELMClassifier.
-        If not given, all classes are supposed to have weight one. The 'auto'
-        mode uses the values of y to automatically adjust weights inversely
-        proportional to class frequencies.
+    class_weight : dict, 'auto' or None
+        If 'auto', class weights will be given inverse proportional
+        to the frequency of the class in the data.
+        If a dictionary is given, keys are classes and values
+        are corresponding class weights.
+        If None is given, the class weights will be uniform.
 
     weight_scale : float or 'auto', default 'auto'
         Scales the weights that initialize the outgoing weights of the first
@@ -351,17 +346,6 @@ class ELMClassifier(BaseELM, ClassifierMixin):
 
          - 'relu' returns f(x) = max(0, x)
 
-    algorithm : {'standard', 'recursion_lsqr'}, default 'standard'
-        The algorithm for computing least-square solutions.
-        Defaults to 'recursion_lsqr'
-
-        - 'standard' computes the least-square solutions using the
-          whole matrix at once.
-
-        - 'recursion_lsqr' computes the least-square solutions by training
-          on the dataset in batches using a recursive least-square
-          algorithm.
-
     kernel : {'random', 'linear', 'poly', 'rbf', 'sigmoid'},
              optional, default 'random'
         Specifies the kernel type to be used in the algorithm.
@@ -378,9 +362,9 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         Independent term in kernel function. It only applies to
         'poly' and 'sigmoid'.
 
-    batch_size : int, optional, default 200
-        Size of minibatches for the 'recursion_lsqr' algoritm.
-        Minibatches do not apply to the 'standard' ELM algorithm.
+    batch_size : int, optional, default None
+        If None, the batch_size is set as the number of samples.
+        Otherwise, it will be set as the integer give.
 
     verbose : bool, optional, default False
         Whether to print training score to stdout.
@@ -409,15 +393,14 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         17.6 (2006): 1411-1423.
         http://www.ntu.edu.sg/home/egbhuang/pdf/OS-ELM-TNN.pdf
     """
-    def __init__(self, n_hidden=500, activation='tanh', algorithm='standard',
-                 kernel='random', C=1, degree=3, gamma=None, coef0=0.0,
-                 class_weight=None, weight_scale='auto',
-                 batch_size=200, verbose=False, random_state=None):
+    def __init__(self, n_hidden=500, activation='tanh', kernel='random', C=1,
+                 degree=3, gamma=None, coef0=0.0, class_weight=None,
+                 weight_scale='auto', batch_size=None, verbose=False,
+                 random_state=None):
         super(ELMClassifier, self).__init__(n_hidden=n_hidden,
                                             activation=activation,
-                                            algorithm=algorithm, kernel=kernel,
-                                            C=C, degree=degree, gamma=gamma,
-                                            coef0=coef0,
+                                            kernel=kernel, C=C, degree=degree,
+                                            gamma=gamma, coef0=coef0,
                                             class_weight=class_weight,
                                             weight_scale=weight_scale,
                                             batch_size=batch_size,
@@ -448,15 +431,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         -------
         self : returns a trained elm usable for prediction.
         """
-        if self.classes_ is None and classes is None:
-            raise ValueError("classes must be passed on the first call "
-                             "to partial_fit.")
-        elif self.classes_ is not None and classes is not None:
-            if np.any(self.classes_ != np.unique(classes)):
-                raise ValueError("`classes` is not the same as on last call "
-                                 "to partial_fit.")
-        elif classes is not None:
-            self.classes_ = classes
+        self.classes_ = classes
 
         super(ELMClassifier, self).partial_fit(X, y)
 
@@ -584,17 +559,6 @@ class ELMRegressor(BaseELM, RegressorMixin):
 
          - 'relu' returns f(x) = max(0, x)
 
-    algorithm : {'standard', 'recursion_lsqr'}, default 'standard'
-        The algorithm for computing least-square solutions.
-        Defaults to 'recursion_lsqr'
-
-        - 'standard' computes the least-square solutions using the
-          whole matrix at once.
-
-        - 'recursion_lsqr' computes the least-square solutions by training
-          on the dataset in batches using a recursive least-square
-          algorithm.
-
     kernel : {'random', 'linear', 'poly', 'rbf', 'sigmoid'},
              optional, default 'random'
         Specifies the kernel type to be used in the algorithm.
@@ -611,9 +575,9 @@ class ELMRegressor(BaseELM, RegressorMixin):
         Independent term in kernel function. It only applies to
         'poly' and 'sigmoid'.
 
-    batch_size : int, optional, default 200
-        Size of minibatches for the 'recursion_lsqr' algoritm.
-        Minibatches do not apply to the 'standard' ELM algorithm.
+    batch_size : int, optional, default None
+        If None, the batch_size is set as the number of samples.
+        Otherwise, it will be set as the integer give.
 
     verbose : bool, optional, default False
         Whether to print training score to stdout.
@@ -641,15 +605,15 @@ class ELMRegressor(BaseELM, RegressorMixin):
         17.6 (2006): 1411-1423.
         http://www.ntu.edu.sg/home/egbhuang/pdf/OS-ELM-TNN.pdf
     """
-    def __init__(self, n_hidden=100, activation='tanh', algorithm='standard',
-                 weight_scale='auto', kernel='random', batch_size=200, C=10e5,
+    def __init__(self, n_hidden=100, activation='tanh', weight_scale='auto',
+                 kernel='random', batch_size=200, C=10e5,
                  degree=3, gamma=None, coef0=0.0, verbose=False,
                  random_state=None):
         super(ELMRegressor, self).__init__(n_hidden=n_hidden,
                                            activation=activation,
-                                           algorithm=algorithm, kernel=kernel,
-                                           C=C, degree=degree, gamma=gamma,
-                                           coef0=coef0, class_weight=None,
+                                           kernel=kernel, C=C, degree=degree,
+                                           gamma=gamma, coef0=coef0,
+                                           class_weight=None,
                                            weight_scale=weight_scale,
                                            batch_size=batch_size,
                                            verbose=verbose,

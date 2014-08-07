@@ -11,6 +11,7 @@ import numpy as np
 
 from numpy.testing import assert_almost_equal, assert_array_equal
 from scipy.sparse import csr_matrix
+from itertools import product
 
 from sklearn import cross_validation
 from sklearn.datasets import load_digits, load_boston
@@ -19,8 +20,8 @@ from sklearn.externals.six.moves import cStringIO as StringIO
 from sklearn.metrics import roc_auc_score
 from sklearn.neural_network import ELMClassifier
 from sklearn.neural_network import ELMRegressor
-from sklearn.preprocessing import StandardScaler
-from sklearn.utils import gen_even_slices
+from sklearn.preprocessing import StandardScaler, MinMaxScaler
+from sklearn.utils import gen_batches
 from sklearn.utils.testing import assert_raises, assert_greater, assert_equal
 
 
@@ -29,29 +30,27 @@ np.seterr(all='warn')
 random_state = 1
 
 ACTIVATION_TYPES = ["logistic", "tanh", "relu"]
-ALGORITHM_TYPES = ["standard", "recursion_lsqr"]
+CLASSIFICATION_TYPES = ["binary", "multi-class"]
 KERNELS = ["linear", "poly", "rbf", "sigmoid"]
+NONLINEAR_KERNELS = ["poly", "rbf", "sigmoid"]
 
 digits_dataset_multi = load_digits(n_class=3)
 
-Xdigits_multi = digits_dataset_multi.data[:200]
+Xdigits_multi = MinMaxScaler().fit_transform(digits_dataset_multi.data[:200])
 ydigits_multi = digits_dataset_multi.target[:200]
-Xdigits_multi -= Xdigits_multi.min()
-Xdigits_multi /= Xdigits_multi.max()
 
 digits_dataset_binary = load_digits(n_class=2)
 
-Xdigits_binary = digits_dataset_binary.data[:200]
+Xdigits_binary = MinMaxScaler().fit_transform(digits_dataset_binary.data[:200])
 ydigits_binary = digits_dataset_binary.target[:200]
-Xdigits_binary -= Xdigits_binary.min()
-Xdigits_binary /= Xdigits_binary.max()
 
-classification_datasets = [(Xdigits_multi, ydigits_multi),
-                           (Xdigits_binary, ydigits_binary)]
+
+classification_datasets = {'binary': (Xdigits_binary, ydigits_binary),
+                           'multi-class': (Xdigits_multi, ydigits_multi)}
 
 boston = load_boston()
 
-Xboston = StandardScaler().fit_transform(boston.data)[: 200]
+Xboston = StandardScaler().fit_transform(boston.data)[:200]
 yboston = boston.target[:200]
 
 
@@ -61,12 +60,13 @@ def test_classification():
     It should score higher than 0.95 for binary and multi-class
     classification digits datasets.
     """
-    for X, y in classification_datasets:
+    for X, y in classification_datasets.values():
         X_train = X[:150]
         y_train = y[:150]
         X_test = X[150:]
 
-        expected_shape_dtype = (X_test.shape[0], y_train.dtype.kind)
+        expected_shape = X_test.shape[0]
+        expected_dtype = y_train.dtype.kind
 
         for activation in ACTIVATION_TYPES:
             elm = ELMClassifier(n_hidden=50, activation=activation,
@@ -75,14 +75,14 @@ def test_classification():
 
             y_predict = elm.predict(X_test)
             assert_greater(elm.score(X_train, y_train), 0.95)
-            assert_equal((y_predict.shape[0], y_predict.dtype.kind),
-                         expected_shape_dtype)
+
+            assert_equal(y_predict.shape[0], expected_shape)
+            assert_equal(y_predict.dtype.kind, expected_dtype)
 
 
 def test_kernel_classification():
     """Test whether kernels work as intended for classification."""
-    for X, y in classification_datasets:
-        for kernel in KERNELS:
+    for (X, y), kernel in product(classification_datasets.values(), KERNELS):
             elm = ELMClassifier(kernel=kernel)
             elm.fit(X, y)
             assert_greater(elm.score(X, y), 0.9)
@@ -90,13 +90,10 @@ def test_kernel_classification():
 
 def test_kernel_regression():
     """Test whether kernels work as intended for regression."""
-    X = Xboston
-    y = yboston
-    # linear kernel doesn't work nicely for regression.
-    for kernel in KERNELS[1:]:
+    for kernel in NONLINEAR_KERNELS:
         elm = ELMRegressor(kernel=kernel)
-        elm.fit(X, y)
-        assert_greater(elm.score(X, y), 0.9)
+        elm.fit(Xboston, yboston)
+        assert_greater(elm.score(Xboston, yboston), 0.9)
 
 
 def test_regression():
@@ -104,12 +101,10 @@ def test_regression():
 
     It should achieve score higher than 0.95 for the boston dataset.
     """
-    X = Xboston
-    y = yboston
     for activation in ACTIVATION_TYPES:
-        elm = ELMRegressor(n_hidden=150, activation=activation)
-        elm.fit(X, y)
-        assert_greater(elm.score(X, y), 0.95)
+        elm = ELMRegressor(activation=activation)
+        elm.fit(Xboston, yboston)
+        assert_greater(elm.score(Xboston, yboston), 0.95)
 
 
 def test_multilabel_classification():
@@ -135,7 +130,7 @@ def test_multioutput_regression():
 
 def test_overfitting():
     """Larger number of hidden neurons should increase training score."""
-    X, y = Xdigits_multi, ydigits_multi
+    X, y = classification_datasets['multi-class']
 
     for activation in ACTIVATION_TYPES:
         elm = ELMClassifier(n_hidden=5, activation=activation,
@@ -159,8 +154,7 @@ def test_params_errors():
 
     assert_raises(ValueError, clf(n_hidden=-1).fit, X, y)
     assert_raises(ValueError, clf(activation='ghost').fit, X, y)
-    assert_raises(ValueError, clf(algorithm='lol').fit, X, y)
-    assert_raises(NotImplementedError, clf(algorithm='recursion_lsqr',
+    assert_raises(NotImplementedError, clf(batch_size=400,
                                            class_weight={1: 10}).fit, X, y)
 
 
@@ -169,46 +163,35 @@ def test_partial_fit_classes_error():
     X = [3, 2]
     y = [0]
     clf = ELMClassifier
-    # no classes passed
-    assert_raises(ValueError, clf(algorithm='recursion_lsqr').partial_fit,
-                  X, y)
-    # only recursive_lsqr algorithm supports partial-fit
-    assert_raises(ValueError, clf(algorithm='standard').partial_fit, X, y)
-
-    elm = clf(algorithm='recursion_lsqr')
-    elm.partial_fit(X, y, classes=[0, 1])
+    elm = clf()
     # different classes passed
-    assert_raises(ValueError, elm.partial_fit, X, y, classes=[0, 1, 2])
+    assert_raises(ValueError, elm.partial_fit, X, y, classes=[1, 2])
 
 
 def test_partial_fit_classification():
-    """Test that partial_fit for classification.
+    """Test partial_fit for classification.
 
     It should output the same results as 'fit' for binary and
     multi-class classification.
     """
-    for X, y in classification_datasets:
+    for X, y in classification_datasets.values():
         batch_size = 200
         n_samples = X.shape[0]
 
-        elm = ELMClassifier(algorithm='recursion_lsqr',
-                            random_state=random_state, batch_size=batch_size)
-        elm.fit(X, y)
-        pred1 = elm.predict(X)
+        elm_fit = ELMClassifier(random_state=random_state,
+                                batch_size=batch_size)
+        elm_partial_fit = ELMClassifier(random_state=random_state)
 
-        elm = ELMClassifier(algorithm='recursion_lsqr',
-                            random_state=random_state)
+        elm_fit.fit(X, y)
+        for batch_slice in gen_batches(n_samples, batch_size):
+            elm_partial_fit.partial_fit(X[batch_slice], y[batch_slice],
+                                        classes=np.unique(y))
 
-        n_batches = n_samples // batch_size
-        batch_slices = list(gen_even_slices(n_batches * batch_size, n_batches))
-
-        for batch_slice in batch_slices:
-            elm.partial_fit(X[batch_slice], y[batch_slice],
-                            classes=np.unique(y))
-        pred2 = elm.predict(X)
+        pred1 = elm_fit.predict(X)
+        pred2 = elm_partial_fit.predict(X)
 
         assert_array_equal(pred1, pred2)
-        assert_greater(elm.score(X, y), 0.95)
+        assert_greater(elm_fit.score(X, y), 0.95)
 
 
 def test_partial_fit_regression():
@@ -223,27 +206,22 @@ def test_partial_fit_regression():
     n_samples = X.shape[0]
 
     for activation in ACTIVATION_TYPES:
-        elm = ELMRegressor(algorithm='recursion_lsqr',
-                           random_state=random_state,
-                           activation=activation, batch_size=batch_size)
-        elm.fit(X, y)
-        pred1 = elm.predict(X)
+        elm_fit = ELMRegressor(random_state=random_state,
+                               activation=activation, batch_size=batch_size)
 
-        elm = ELMRegressor(algorithm='recursion_lsqr', activation=activation,
-                           random_state=random_state, batch_size=batch_size)
+        elm_partial_fit = ELMRegressor(activation=activation,
+                                       random_state=random_state,
+                                       batch_size=batch_size)
 
-        n_batches = n_samples // batch_size
-        batch_slices = list(gen_even_slices(n_batches * batch_size, n_batches))
+        elm_fit.fit(X, y)
+        for batch_slice in gen_batches(n_samples, batch_size):
+            elm_partial_fit.partial_fit(X[batch_slice], y[batch_slice])
 
-        for batch_slice in batch_slices:
-            elm.partial_fit(X[batch_slice], y[batch_slice])
-
-        pred2 = elm.predict(X)
+        pred1 = elm_fit.predict(X)
+        pred2 = elm_partial_fit.predict(X)
 
         assert_almost_equal(pred1, pred2, decimal=2)
-        score = elm.score(X, y)
-
-        assert_greater(score, 0.95)
+        assert_greater(elm_fit.score(X, y), 0.95)
 
 
 def test_predict_proba_binary():
@@ -288,6 +266,23 @@ def test_predict_proba_multi():
     assert_array_equal(y_log_proba, np.log(y_proba))
 
 
+def test_recursive_and_standard():
+    """Test that recursive lsqr return the same result as standard lsqr."""
+    batch_size = 50
+    for X, y in classification_datasets.values():
+        elm_standard = ELMClassifier(random_state=random_state)
+        elm_recursive = ELMClassifier(random_state=random_state,
+                                      batch_size=batch_size)
+        elm_standard.fit(X, y)
+        elm_recursive.fit(X, y)
+
+        pred1 = elm_standard.predict(X)
+        pred2 = elm_recursive.predict(X)
+
+        assert_array_equal(pred1, pred2)
+        assert_greater(elm_standard.score(X, y), 0.95)
+
+
 def test_sparse_matrices():
     """Test that sparse and dense input matrices yield equal output."""
     X = Xdigits_binary[:50]
@@ -307,16 +302,16 @@ def test_sparse_matrices():
 def test_verbose():
     """Test whether verbose works as intended."""
     X = Xboston
-    y = yboston[:, np.newaxis]
-    for algorithm in ALGORITHM_TYPES:
-        elm = ELMRegressor(algorithm=algorithm, verbose=True)
-        old_stdout = sys.stdout
-        sys.stdout = output = StringIO()
+    y = yboston
 
-        elm.fit(X, y)
-        sys.stdout = old_stdout
+    elm = ELMRegressor(verbose=True)
+    old_stdout = sys.stdout
+    sys.stdout = output = StringIO()
 
-        assert output.getvalue() != ''
+    elm.fit(X, y)
+    sys.stdout = old_stdout
+
+    assert output.getvalue() != ''
 
 
 def test_weighted_elm():
