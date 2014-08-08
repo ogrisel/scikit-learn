@@ -31,8 +31,8 @@ random_state = 1
 
 ACTIVATION_TYPES = ["logistic", "tanh", "relu"]
 CLASSIFICATION_TYPES = ["binary", "multi-class"]
-KERNELS = ["linear", "poly", "rbf", "sigmoid"]
-NONLINEAR_KERNELS = ["poly", "rbf", "sigmoid"]
+KERNELS = ["random", "linear", "poly", "rbf", "sigmoid"]
+NONLINEAR_KERNELS = ["random", "poly", "rbf", "sigmoid"]
 
 digits_dataset_multi = load_digits(n_class=3)
 
@@ -154,8 +154,6 @@ def test_params_errors():
 
     assert_raises(ValueError, clf(n_hidden=-1).fit, X, y)
     assert_raises(ValueError, clf(activation='ghost').fit, X, y)
-    assert_raises(NotImplementedError, clf(batch_size=400,
-                                           class_weight={1: 10}).fit, X, y)
 
 
 def test_partial_fit_classes_error():
@@ -269,9 +267,13 @@ def test_predict_proba_multi():
 def test_recursive_and_standard():
     """Test that recursive lsqr return the same result as standard lsqr."""
     batch_size = 50
-    for X, y in classification_datasets.values():
-        elm_standard = ELMClassifier(random_state=random_state)
-        elm_recursive = ELMClassifier(random_state=random_state,
+    for dataset, class_weight in product(classification_datasets.values(),
+                                         [None, 'auto']):
+        X, y = dataset
+        elm_standard = ELMClassifier(class_weight=class_weight,
+                                     random_state=random_state)
+        elm_recursive = ELMClassifier(class_weight=class_weight,
+                                      random_state=random_state,
                                       batch_size=batch_size)
         elm_standard.fit(X, y)
         elm_recursive.fit(X, y)
@@ -288,9 +290,10 @@ def test_sparse_matrices():
     X = Xdigits_binary[:50]
     y = ydigits_binary[:50]
     X_sparse = csr_matrix(X)
-    elm = ELMClassifier(random_state=1, n_hidden=15)
+    elm = ELMClassifier(random_state=1, n_hidden=15, batch_size=50)
     elm.fit(X, y)
     pred1 = elm.decision_function(X)
+    elm = ELMClassifier(random_state=1, n_hidden=15)
     elm.fit(X_sparse, y)
     pred2 = elm.decision_function(X_sparse)
     assert_almost_equal(pred1, pred2)

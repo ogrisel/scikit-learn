@@ -7,7 +7,7 @@
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
-from scipy.sparse import identity
+from scipy.sparse import identity, dia_matrix
 
 from ..base import BaseEstimator, ClassifierMixin, RegressorMixin
 from ..externals import six
@@ -48,6 +48,25 @@ def _inplace_softmax(X):
     return X
 
 
+def _multiply_weights(X, sample_weight):
+    """Return W*X if sample_weight is not None."""
+    if sample_weight is None:
+        return X
+    else:
+        n_samples = X.shape[0]
+        sample_weight = sample_weight * np.ones(n_samples)
+        sample_weight_matrix = dia_matrix((sample_weight, 0),
+                                          shape=(n_samples, n_samples))
+        return safe_sparse_dot(sample_weight_matrix, X)
+
+
+def _get_sample_weights(batch_slice, sample_weight):
+    if sample_weight is None:
+        return None
+    else:
+        return sample_weight[batch_slice]
+
+
 ACTIVATIONS = {'tanh': _inplace_tanh, 'logistic': _inplace_logistic_sigmoid,
                'relu': _inplace_relu}
 
@@ -85,7 +104,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.coef_output_ = None
 
         # private attributes
-        self._H_sub = None
+        self._H_accumulated = None
 
     def _compute_hidden_activations(self, X):
         """Compute the hidden activations using the set kernel."""
@@ -94,7 +113,8 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             hidden_activations += self.intercept_hidden_
 
             # Apply the activation method in an inplace manner
-            ACTIVATIONS[self.activation](hidden_activations)
+            activation = ACTIVATIONS[self.activation]
+            hidden_activations = activation(hidden_activations)
 
         else:
             # If custom gamma is not provided ...
@@ -126,9 +146,6 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         if self.kernel not in KERNELS:
             raise ValueError("The kernel %s is not supported. Supported "
                              "kernels are %s." % (self.kernel, KERNELS))
-        if self.batch_size is not None and self.class_weight is not None:
-            raise NotImplementedError("class_weight is currently only "
-                                      " supported when batch_size=None.")
 
         X, y = check_X_y(X, y, accept_sparse=['csr', 'csc', 'coo'],
                          dtype=np.float64, order="C", multi_output=True)
@@ -142,9 +159,9 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         if isinstance(self, ClassifierMixin):
             if self.classes_ is None or not warm_start:
                 self.classes_ = unique_labels(y)
-                if self.class_weight is not None:
-                    sample_weight = compute_sample_weight(self.class_weight,
-                                                          self.classes_, y)
+
+                sample_weight = compute_sample_weight(self.class_weight,
+                                                      self.classes_, y)
                 y = self.label_binarizer_.fit_transform(y)
             else:
                 classes = unique_labels(y)
@@ -184,61 +201,81 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             self.coef_hidden_ = rng.uniform(-weight_scale, weight_scale,
                                            (n_features, self.n_hidden))
             self.intercept_hidden_ = rng.uniform(-weight_scale, weight_scale,
-                                                (self.n_hidden))
+                                                 self.n_hidden)
 
         # Step (2/2): Compute hidden-to-output coefficients
+        # Run the least-square algorithm on the whole dataset
         if self.batch_size is None:
             batch_size = n_samples
+
+        # Run the recursive least-square algorithm on mini-batches
         else:
             batch_size = self.batch_size
 
-        first_call = (self.batch_size is None or
-                      self.batch_size is not None and
-                      (not warm_start or self._H_sub is None))
-
-        batches = list(gen_batches(n_samples, batch_size))
+        batches = gen_batches(n_samples, batch_size)
 
         # Run the least-square algorithm on batch 0
-        if first_call:
-            H_batch = self._compute_hidden_activations(X[batches[0]])
+        if (self.batch_size is None or self.batch_size is not None and
+            (not warm_start or
+                self._H_accumulated is None)):
+
+            batch_slice = batches.__next__()
+            H_batch = self._compute_hidden_activations(X[batch_slice])
+
+            # Get sample weights for the batch
+            sw = _get_sample_weights(batch_slice, sample_weight)
+
             # beta_{0} = inv(H_{0}^T H_{0} + (1./C)*Id) * H_{0}.T y_{0}
-            self.coef_output_ = ridge_regression(H_batch, y[batches[0]],
+            self.coef_output_ = ridge_regression(H_batch, y[batch_slice],
                                                  1. / self.C,
-                                                 sample_weight=sample_weight).T
+                                                 sample_weight=sw).T
             if self.batch_size is not None:
-                # K_{0} = H_{0}^T H_{0}
-                self._H_sub = safe_sparse_dot(H_batch.T, H_batch)
+                # K_{0} = H_{0}^T * W * H_{0}
+                Weighted_H_batch = _multiply_weights(H_batch, sw)
+                self._H_accumulated = safe_sparse_dot(H_batch.T,
+                                                      Weighted_H_batch)
 
             if self.verbose:
-                scores = self._decision_scores(X[batches[0]])
-                print("Batch 0, Training mean square error= % f" %
-                     (mean_squared_error(y[batches[0]], scores)))
+                scores = self._decision_scores(X[batch_slice])
 
-            batches = batches[1:]
+                if self.batch_size is None:
+                    verbose_string = "Training mean square error ="
+                else:
+                    verbose_string = "Batch 0, Training mean square error ="
+
+                print("%s %f" % (verbose_string,
+                                 mean_squared_error(y[batch_slice], scores)))
 
         # Run the least-square algorithm on batch 1, 2, ..., n
         for batch, batch_slice in enumerate(batches):
             # Compute hidden activations H_{i} for batch i
             H_batch = self._compute_hidden_activations(X[batch_slice])
 
-            # Update K_{i+1} by H_{i}^T * H_{i}
-            self._H_sub += safe_sparse_dot(H_batch.T, H_batch)
+            # Get sample weights (sw) for the batch
+            sw = _get_sample_weights(batch_slice, sample_weight)
+
+            Weighted_H_batch = _multiply_weights(H_batch, sw)
+
+            # Update K_{i+1} by H_{i}^T * W * H_{i}
+            self._H_accumulated += safe_sparse_dot(H_batch.T, Weighted_H_batch)
 
             # Update beta_{i+1} by
-            # K_{i+1}^{-1}H{i+1}^T(y{i+1} - H_{i+1} * beta_{i})
-            y_sub = y[batch_slice] - safe_sparse_dot(H_batch,
-                                                     self.coef_output_)
-            Hy_sub = safe_sparse_dot(H_batch.T, y_sub)
+            # K_{i+1}^{-1}H{i+1}^T * W * (y{i+1} - H_{i+1} * beta_{i})
+            y_batch = y[batch_slice] - safe_sparse_dot(H_batch,
+                                                       self.coef_output_)
+
+            Weighted_y_batch = _multiply_weights(y_batch, sw)
+            Hy_batch = safe_sparse_dot(H_batch.T, Weighted_y_batch)
 
             # Update hidden-to-output coefficients
-            self.coef_output_ += np.linalg.solve(self._H_sub +
+            self.coef_output_ += np.linalg.solve(self._H_accumulated +
                                                  identity(self.n_hidden) *
                                                  1. / self.C,
-                                                 Hy_sub)
+                                                 Hy_batch)
             if self.verbose:
                 scores = self._decision_scores(X[batch_slice])
                 print("Batch %d, Training mean square error = %f" %
-                     (batch, mean_squared_error(y[batch_slice], scores)))
+                     (batch + 1, mean_squared_error(y[batch_slice], scores)))
         return self
 
     def fit(self, X, y):
