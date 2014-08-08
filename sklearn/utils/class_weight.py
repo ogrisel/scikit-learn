@@ -86,6 +86,9 @@ def compute_sample_weight(class_weight, classes, y):
     sample_weight : ndarray, shape (n_samples,)
         Array where sample_weight[i] denotes the weight for the i-th sample
     """
+    if class_weight is None:
+        return None
+
     weight = compute_class_weight(class_weight, classes, y)
     sample_weight = np.zeros(y.shape[0])
 
