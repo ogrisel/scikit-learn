@@ -61,6 +61,7 @@ def _multiply_weights(X, sample_weight):
 
 
 def _get_sample_weights(batch_slice, sample_weight):
+    """Return the required slice of sample weights if it exists."""
     if sample_weight is None:
         return None
     else:
@@ -74,7 +75,6 @@ KERNELS = ['random', 'linear', 'poly', 'rbf', 'sigmoid']
 
 
 class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
-
     """Base class for ELM classification and regression.
 
     Warning: This class should not be used directly.
@@ -112,7 +112,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             hidden_activations = safe_sparse_dot(X, self.coef_hidden_)
             hidden_activations += self.intercept_hidden_
 
-            # Apply the activation method in an inplace manner
+            # Apply the activation method
             activation = ACTIVATIONS[self.activation]
             hidden_activations = activation(hidden_activations)
 
@@ -219,7 +219,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             (not warm_start or
                 self._H_accumulated is None)):
 
-            batch_slice = batches.__next__()
+            batch_slice = batches.next()
             H_batch = self._compute_hidden_activations(X[batch_slice])
 
             # Get sample weights for the batch
