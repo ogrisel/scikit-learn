@@ -219,7 +219,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             (not warm_start or
                 self._H_accumulated is None)):
 
-            batch_slice = batches.next()
+            batch_slice = next(batches)
             H_batch = self._compute_hidden_activations(X[batch_slice])
 
             # Get sample weights for the batch
