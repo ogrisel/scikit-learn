@@ -37,23 +37,17 @@ random_state = 1
 
 parameters = {}
 
-parameters['C'] = np.logspace(0, 3, 7)
-parameters['weight_scale'] = np.arange(0.1, 1, 0.2)
+parameters['C'] = np.logspace(-1, 3, 5)
+parameters['weight_scale'] = np.logspace(-2, 2, 5)
 
-for param in parameters:
+for param_name, param_values in sorted(parameters.items()):
 
     names = []
-    for i in parameters[param]:
-        names.append(param + '=' + str(i))
-
     classifiers = []
-    for i in parameters[param]:
-        if param == 'C':
-            clf = ELMClassifier(C=i, n_hidden=200, random_state=random_state)
-        elif param == 'weight_scale':
-            clf = ELMClassifier(weight_scale=i, n_hidden=200,
-                                random_state=random_state)
-
+    for param_value in param_values:
+        names.append("%s=%s" % (param_name, param_value))
+        clf = ELMClassifier(n_hidden=300, random_state=random_state)
+        clf.set_params(**{param_name: param_value})
         classifiers.append(clf)
 
     X, y = make_classification(n_features=2, n_redundant=0, n_informative=2,
@@ -131,4 +125,5 @@ for param in parameters:
             i += 1
 
     figure.subplots_adjust(left=.02, right=.98)
-    plt.show()
+
+plt.show()
