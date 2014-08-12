@@ -86,14 +86,24 @@ def compute_sample_weight(class_weight, classes, y):
     sample_weight : ndarray, shape (n_samples,)
         Array where sample_weight[i] denotes the weight for the i-th sample
     """
+    # Import error caused by circular imports.
+    from ..preprocessing import LabelEncoder
+
     if class_weight is None:
         return None
 
     weight = compute_class_weight(class_weight, classes, y)
     sample_weight = np.zeros(y.shape[0])
 
-    for class_ in classes:
-        indices = np.where(y == class_)[0]
+    # Check if every y sample belongs to a class in classes
+    if not all(np.in1d(np.unique(y), classes)):
+        raise ValueError("'y' has classes not in 'classes'.")
+
+    le = LabelEncoder()
+    y_ind = le.fit_transform(y)
+
+    for class_ in np.unique(y_ind):
+        indices = np.where(y_ind == class_)[0]
         sample_weight[indices] = weight[class_]
 
     return sample_weight
