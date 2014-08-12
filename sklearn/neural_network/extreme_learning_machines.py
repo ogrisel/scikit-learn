@@ -13,7 +13,7 @@ from ..base import BaseEstimator, ClassifierMixin, RegressorMixin
 from ..externals import six
 from ..preprocessing import LabelBinarizer
 from ..metrics import mean_squared_error
-from ..metrics.pairwise import pairwise_kernels
+from ..metrics.pairwise import pairwise_kernels, kernel_metrics
 from ..linear_model.ridge import ridge_regression
 from ..utils import gen_batches
 from ..utils import check_array, check_X_y, check_random_state, column_or_1d
@@ -71,7 +71,7 @@ def _get_sample_weights(batch_slice, sample_weight):
 ACTIVATIONS = {'tanh': _inplace_tanh, 'logistic': _inplace_logistic_sigmoid,
                'relu': _inplace_relu}
 
-KERNELS = ['random', 'linear', 'poly', 'rbf', 'sigmoid']
+KERNELS = ['random'] + list(kernel_metrics().keys())
 
 
 class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
@@ -83,7 +83,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
 
     @abstractmethod
     def __init__(self, n_hidden, activation, kernel, C, degree, gamma, coef0,
-                 class_weight, weight_scale, batch_size, verbose,
+                 class_weight, weight_scale, batch_size, verbose, warm_start,
                  random_state):
         self.C = C
         self.activation = activation
@@ -96,6 +96,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.batch_size = batch_size
         self.n_hidden = n_hidden
         self.verbose = verbose
+        self.warm_start = warm_start
         self.random_state = random_state
 
         # public attributes
@@ -104,7 +105,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         self.coef_output_ = None
 
         # private attributes
-        self._H_accumulated = None
+        self._HT_H_accumulated = None
 
     def _compute_hidden_activations(self, X):
         """Compute the hidden activations using the set kernel."""
@@ -146,6 +147,9 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         if self.kernel not in KERNELS:
             raise ValueError("The kernel %s is not supported. Supported "
                              "kernels are %s." % (self.kernel, KERNELS))
+        if self.kernel != 'random' and self.batch_size is not None:
+            raise ValueError("Only 'kernel=random' supports batch-based "
+                             "learning")
 
         X, y = check_X_y(X, y, accept_sparse=['csr', 'csc', 'coo'],
                          dtype=np.float64, order="C", multi_output=True)
@@ -159,10 +163,9 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         if isinstance(self, ClassifierMixin):
             if self.classes_ is None or not warm_start:
                 self.classes_ = unique_labels(y)
-
                 sample_weight = compute_sample_weight(self.class_weight,
                                                       self.classes_, y)
-                y = self.label_binarizer_.fit_transform(y)
+
             else:
                 classes = unique_labels(y)
                 if not np.all(np.in1d(classes, self.classes_)):
@@ -170,7 +173,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
                                      " `self.classes_` has %s. 'y' has %s." %
                                      (self.classes_, classes))
 
-                y = self.label_binarizer_.fit_transform(y)
+            y = self.label_binarizer_.fit_transform(y)
 
         # Ensure y is 2D
         if y.ndim == 1:
@@ -179,11 +182,11 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         n_samples, n_features = X.shape
         self.n_outputs_ = y.shape[1]
 
+        # Step (1/2): Compute the hidden layer coefficients
         if self.kernel != 'random':
             self._X_train = X
-
-        # Step (1/2): Randomize and scale the input-to-hidden coefficients
-        if not warm_start or self.coef_hidden_ is None:
+        elif not warm_start or self.coef_hidden_ is None:
+            # Randomize and scale the input-to-hidden coefficients
             rng = check_random_state(self.random_state)
 
             if self.weight_scale == 'auto':
@@ -214,11 +217,9 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
 
         batches = gen_batches(n_samples, batch_size)
 
-        # Run the least-square algorithm on batch 0
-        if (self.batch_size is None or self.batch_size is not None and
-            (not warm_start or
-                self._H_accumulated is None)):
-
+        # (First time call) Run the least-square algorithm on batch 0
+        if (not self.warm_start and not warm_start or
+           self._HT_H_accumulated is None):
             batch_slice = next(batches)
             H_batch = self._compute_hidden_activations(X[batch_slice])
 
@@ -229,11 +230,13 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             self.coef_output_ = ridge_regression(H_batch, y[batch_slice],
                                                  1. / self.C,
                                                  sample_weight=sw).T
-            if self.batch_size is not None:
+
+            # Initialize K if this is batch based or partial_fit
+            if self.batch_size is not None or warm_start or self.warm_start:
                 # K_{0} = H_{0}^T * W * H_{0}
                 Weighted_H_batch = _multiply_weights(H_batch, sw)
-                self._H_accumulated = safe_sparse_dot(H_batch.T,
-                                                      Weighted_H_batch)
+                self._HT_H_accumulated = safe_sparse_dot(H_batch.T,
+                                                         Weighted_H_batch)
 
             if self.verbose:
                 scores = self._decision_scores(X[batch_slice])
@@ -257,7 +260,8 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             Weighted_H_batch = _multiply_weights(H_batch, sw)
 
             # Update K_{i+1} by H_{i}^T * W * H_{i}
-            self._H_accumulated += safe_sparse_dot(H_batch.T, Weighted_H_batch)
+            self._HT_H_accumulated += safe_sparse_dot(
+                H_batch.T, Weighted_H_batch)
 
             # Update beta_{i+1} by
             # K_{i+1}^{-1}H{i+1}^T * W * (y{i+1} - H_{i+1} * beta_{i})
@@ -268,7 +272,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             Hy_batch = safe_sparse_dot(H_batch.T, Weighted_y_batch)
 
             # Update hidden-to-output coefficients
-            self.coef_output_ += np.linalg.solve(self._H_accumulated +
+            self.coef_output_ += np.linalg.solve(self._HT_H_accumulated +
                                                  identity(self.n_hidden) *
                                                  1. / self.C,
                                                  Hy_batch)
@@ -406,6 +410,11 @@ class ELMClassifier(BaseELM, ClassifierMixin):
     verbose : bool, optional, default False
         Whether to print training score to stdout.
 
+    warm_start : bool, optional, default False
+        When set to True, reuse the solution of the previous
+        call to fit as initialization, otherwise, just erase the
+        previous solution.
+
     random_state : int or RandomState, optional, default None
         State of or seed for random number generator.
 
@@ -433,7 +442,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
     def __init__(self, n_hidden=500, activation='tanh', kernel='random', C=1,
                  degree=3, gamma=None, coef0=0.0, class_weight=None,
                  weight_scale='auto', batch_size=None, verbose=False,
-                 random_state=None):
+                 warm_start=False, random_state=None):
         super(ELMClassifier, self).__init__(n_hidden=n_hidden,
                                             activation=activation,
                                             kernel=kernel, C=C, degree=degree,
@@ -442,6 +451,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
                                             weight_scale=weight_scale,
                                             batch_size=batch_size,
                                             verbose=verbose,
+                                            warm_start=warm_start,
                                             random_state=random_state)
 
         self.label_binarizer_ = LabelBinarizer(-1, 1)
@@ -619,6 +629,11 @@ class ELMRegressor(BaseELM, RegressorMixin):
     verbose : bool, optional, default False
         Whether to print training score to stdout.
 
+    warm_start : bool, optional, default False
+        When set to True, reuse the solution of the previous
+        call to fit as initialization, otherwise, just erase the
+        previous solution.
+
     random_state : int or RandomState, optional, default None
         State of or seed for random number generator.
 
@@ -643,9 +658,9 @@ class ELMRegressor(BaseELM, RegressorMixin):
         http://www.ntu.edu.sg/home/egbhuang/pdf/OS-ELM-TNN.pdf
     """
     def __init__(self, n_hidden=100, activation='tanh', weight_scale='auto',
-                 kernel='random', batch_size=200, C=10e5,
+                 kernel='random', batch_size=None, C=10e5,
                  degree=3, gamma=None, coef0=0.0, verbose=False,
-                 random_state=None):
+                 warm_start=False, random_state=None):
         super(ELMRegressor, self).__init__(n_hidden=n_hidden,
                                            activation=activation,
                                            kernel=kernel, C=C, degree=degree,
@@ -654,6 +669,7 @@ class ELMRegressor(BaseELM, RegressorMixin):
                                            weight_scale=weight_scale,
                                            batch_size=batch_size,
                                            verbose=verbose,
+                                           warm_start=warm_start,
                                            random_state=random_state)
 
     def predict(self, X):

@@ -54,46 +54,52 @@ Xboston = StandardScaler().fit_transform(boston.data)[:200]
 yboston = boston.target[:200]
 
 
+def check_elm(elm, type_, dataset, n_samples, score):
+    if type_ == 'classification':
+        X, y = classification_datasets[dataset]
+    elif type_ == 'regression':
+        X, y = Xboston, yboston
+
+    X_train, y_train = X[:n_samples], y[:n_samples]
+    X_test = X[n_samples:]
+
+    expected_shape = X_test.shape[0]
+    expected_dtype = y_train.dtype.kind
+
+    for activation in ACTIVATION_TYPES:
+        elm.fit(X_train, y_train)
+
+        y_predict = elm.predict(X_test)
+        assert_greater(elm.score(X_train, y_train), score)
+
+        assert_equal(y_predict.shape[0], expected_shape)
+        assert_equal(y_predict.dtype.kind, expected_dtype)
+
+
 def test_classification():
     """Test ELMClassifier.
 
     It should score higher than 0.95 for binary and multi-class
     classification digits datasets.
     """
-    for X, y in classification_datasets.values():
-        X_train = X[:150]
-        y_train = y[:150]
-        X_test = X[150:]
-
-        expected_shape = X_test.shape[0]
-        expected_dtype = y_train.dtype.kind
-
-        for activation in ACTIVATION_TYPES:
-            elm = ELMClassifier(n_hidden=50, activation=activation,
-                                random_state=random_state)
-            elm.fit(X_train, y_train)
-
-            y_predict = elm.predict(X_test)
-            assert_greater(elm.score(X_train, y_train), 0.95)
-
-            assert_equal(y_predict.shape[0], expected_shape)
-            assert_equal(y_predict.dtype.kind, expected_dtype)
+    for name, activation in product(classification_datasets, ACTIVATION_TYPES):
+        elm = ELMClassifier(n_hidden=50, activation=activation,
+                            random_state=random_state)
+        yield check_elm, elm, 'classification', name, 150, 0.95
 
 
 def test_kernel_classification():
     """Test whether kernels work as intended for classification."""
-    for (X, y), kernel in product(classification_datasets.values(), KERNELS):
-            elm = ELMClassifier(kernel=kernel)
-            elm.fit(X, y)
-            assert_greater(elm.score(X, y), 0.9)
+    for name, kernel in product(classification_datasets, KERNELS):
+        elm = ELMClassifier(kernel=kernel)
+        yield check_elm, elm, 'classification', name, 150, 0.9
 
 
 def test_kernel_regression():
     """Test whether kernels work as intended for regression."""
     for kernel in NONLINEAR_KERNELS:
         elm = ELMRegressor(kernel=kernel)
-        elm.fit(Xboston, yboston)
-        assert_greater(elm.score(Xboston, yboston), 0.9)
+        yield check_elm, elm, 'regression', None, 50, 0.9
 
 
 def test_regression():
@@ -103,8 +109,7 @@ def test_regression():
     """
     for activation in ACTIVATION_TYPES:
         elm = ELMRegressor(activation=activation)
-        elm.fit(Xboston, yboston)
-        assert_greater(elm.score(Xboston, yboston), 0.95)
+        yield check_elm, elm, 'regression', None, 50, 0.95
 
 
 def test_multilabel_classification():
@@ -173,7 +178,7 @@ def test_partial_fit_classification():
     multi-class classification.
     """
     for X, y in classification_datasets.values():
-        batch_size = 200
+        batch_size = 100
         n_samples = X.shape[0]
 
         elm_fit = ELMClassifier(random_state=random_state,
@@ -315,6 +320,37 @@ def test_verbose():
     sys.stdout = old_stdout
 
     assert output.getvalue() != ''
+
+
+def test_warmstart():
+    """Tests that warm_start reuses past solution only if set to true."""
+    X = Xboston
+    y = yboston
+    batch_size = 50
+    n_samples = X.shape[0]
+
+    elm_fit = ELMRegressor(random_state=random_state)
+    elm_fit_warm_start_false = ELMRegressor(random_state=random_state,
+                                            batch_size=batch_size)
+    elm_fit_warm_start_true = ELMRegressor(random_state=random_state,
+                                           batch_size=batch_size,
+                                           warm_start=True)
+    elm_fit.fit(X, y)
+    for batch_slice in gen_batches(n_samples, batch_size):
+        elm_fit_warm_start_true.fit(X[batch_slice], y[batch_slice])
+
+    for batch_slice in gen_batches(n_samples, batch_size):
+        elm_fit_warm_start_false.fit(X[batch_slice], y[batch_slice])
+
+    pred1 = elm_fit.predict(X)
+    pred2 = elm_fit_warm_start_true.predict(X)
+
+    pred3 = elm_fit_warm_start_false.predict(X)
+
+    assert_almost_equal(pred1, pred2, decimal=5)
+    assert_raises(AssertionError, assert_almost_equal, pred2, pred3, decimal=5)
+
+    assert_greater(elm_fit.score(X, y), 0.95)
 
 
 def test_weighted_elm():
