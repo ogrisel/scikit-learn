@@ -21,8 +21,8 @@ import matplotlib.pyplot as plt
 from sklearn import datasets
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import brier_score_loss, calibration_plot
-from sklearn.calibration import CalibratedClassifierCV
+from sklearn.metrics import brier_score_loss
+from sklearn.calibration import CalibratedClassifierCV, calibration_plot
 from sklearn.cross_validation import train_test_split
 
 data = datasets.fetch_covtype()

@@ -4,7 +4,8 @@
 import numpy as np
 from scipy import sparse
 
-from sklearn.utils.testing import assert_array_almost_equal
+from sklearn.utils.testing import assert_array_almost_equal, assert_equal
+from sklearn.utils.testing import assert_almost_equal
 from nose.tools import assert_true
 
 from sklearn.datasets import make_classification, make_blobs
@@ -13,6 +14,7 @@ from sklearn.svm import LinearSVC
 from sklearn.metrics import brier_score_loss
 from sklearn.calibration import CalibratedClassifierCV, CalibratedClassifier
 from sklearn.calibration import sigmoid_calibration, _SigmoidCalibration
+from sklearn.calibration import calibration_plot
 
 
 def test_calibration():
@@ -69,3 +71,14 @@ def test_sigmoid_calibration():
     lin_prob = 1. / (1. + np.exp(AB_lin_libsvm[0] * exF + AB_lin_libsvm[1]))
     sk_prob = _SigmoidCalibration().fit(exF, exY).predict(exF)
     assert_array_almost_equal(lin_prob, sk_prob, 6)
+
+
+def test_calibration_plot():
+    """Check calibration_plot function"""
+    y_true = np.array([0, 0, 0, 1, 1, 1])
+    y_pred = np.array([0., 0.1, 0.2, 0.8, 0.9, 1.])
+    prob_true, prob_pred = calibration_plot(y_true, y_pred, n_bins=2)
+    assert_equal(len(prob_true), len(prob_pred))
+    assert_equal(len(prob_true), 2)
+    assert_almost_equal(prob_true, [0, 1])
+    assert_almost_equal(prob_pred, [0.1, 0.9])

@@ -16,6 +16,7 @@ from .utils import check_array, indexable, column_or_1d
 from .isotonic import IsotonicRegression
 from .naive_bayes import GaussianNB
 from .cross_validation import _check_cv
+from .metrics.classification import _check_and_normalize
 
 
 class CalibratedClassifier(BaseEstimator, ClassifierMixin):
@@ -171,7 +172,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
 
     With this class, the base_estimator is fit on the train set of the
     cross-validation generator and the test set is used for calibration.
-    The log probabilities for each of the folds are then averaged
+    The probabilities for each of the folds are then averaged
     for prediction.
 
     Parameters
@@ -400,3 +401,54 @@ class _SigmoidCalibration(BaseEstimator, RegressorMixin):
         """
         T = column_or_1d(T)
         return 1. / (1. + np.exp(self.a_ * T + self.b_))
+
+
+def calibration_plot(y_true, y_prob, n_bins=5):
+    """Compute true and predicted probabilities for a calibration plot
+
+    Parameters
+    ----------
+    y_true : array, shape (n_samples,)
+        True targets.
+
+    y_prob : array, shape (n_samples,)
+        Probabilities of the positive class.
+
+    n_bins : int
+        Number of bins. A bigger number requires more data.
+
+    Returns
+    -------
+    prob_true : array, shape (n_bins,)
+        The true probability in each bin (fraction of positives).
+
+    prob_pred : array, shape (n_bins,)
+        The mean predicted probability in each bin.
+
+    References
+    ----------
+    Alexandru Niculescu-Mizil and Rich Caruana (2005) Predicting Good
+    Probabilities With Supervised Learning, in Proceedings of the 22nd
+    International Conference on Machine Learning (ICML).
+    See section 4 (Qualitative Analysis of Predictions).
+    """
+    y_true = column_or_1d(y_true)
+    y_prob = column_or_1d(y_prob)
+    y_true = _check_and_normalize(y_true, y_prob)
+
+    bins = np.linspace(0., 1. + 1e-8, n_bins + 1)
+
+    binids = np.digitize(y_prob, bins) - 1
+    ids = np.arange(len(y_true))
+
+    u_binids = np.unique(binids)  # don't consider empty bins
+
+    prob_true = np.empty(len(u_binids))
+    prob_pred = np.empty(len(u_binids))
+
+    for k, binid in enumerate(u_binids):
+        sel = ids[binids == binid]
+        prob_true[k] = np.mean(y_true[sel])
+        prob_pred[k] = np.mean(y_prob[sel])
+
+    return prob_true, prob_pred
