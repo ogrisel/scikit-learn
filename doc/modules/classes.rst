@@ -973,6 +973,8 @@ Pairwise metrics
    :template: class.rst
 
    neural_network.BernoulliRBM
+   neural_network.ELMClassifier
+   neural_network.ELMRegressor
 
 
 .. _cross_decomposition_ref:

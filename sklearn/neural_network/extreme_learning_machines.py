@@ -1,118 +1,218 @@
 """Extreme Learning Machines
 """
 
+# Author: Issam H. Laradji <issam.laradji@gmail.com>
 # Licence: BSD 3 clause
 
 from abc import ABCMeta, abstractmethod
 
 import numpy as np
-
-from scipy.linalg import pinv2
+from scipy.sparse import identity, dia_matrix
 
 from ..base import BaseEstimator, ClassifierMixin, RegressorMixin
 from ..externals import six
 from ..preprocessing import LabelBinarizer
-from ..utils import atleast2d_or_csr, check_random_state, column_or_1d
-from ..utils import check_random_state, atleast2d_or_csr
+from ..metrics import mean_squared_error
+from ..linear_model.ridge import ridge_regression
+from ..utils import gen_batches
+from ..utils import check_array, check_X_y, column_or_1d
 from ..utils.extmath import safe_sparse_dot
-from ..utils.fixes import expit as logistic_sigmoid
+from ..utils.class_weight import compute_sample_weight
+from .neural_network_base import logistic, tanh, relu, softmax
+from .neural_network_base import init_weights, activation_functions
 
 
-def _identity(X):
-    """Return the same input array."""
-    return X
+def _multiply_weights(X, sample_weight):
+    """Return W*X if sample_weight is not None."""
+    if sample_weight is None:
+        return X
+    else:
+        n_samples = X.shape[0]
+        sample_weight = sample_weight * np.ones(n_samples)
+        sample_weight_matrix = dia_matrix((sample_weight, 0),
+                                          shape=(n_samples, n_samples))
+        return safe_sparse_dot(sample_weight_matrix, X)
 
 
-def _tanh(X):
-    """Compute the hyperbolic tan function
-
-    Parameters
-    ----------
-    X : {array-like, sparse matrix}, shape (n_samples, n_features)
-
-    Returns
-    -------
-    X_new : {array-like, sparse matrix}, shape (n_samples, n_features)
-    """
-    return np.tanh(X, X)
+def _get_sample_weights(batch_slice, sample_weight):
+    """Return the required slice of sample weights if it exists."""
+    if sample_weight is None:
+        return None
+    else:
+        return sample_weight[batch_slice]
 
 
-def _softmax(Z):
-    """Compute the K-way softmax, (exp(Z).T / exp(Z).sum(axis=1)).T
-
-    Parameters
-    ----------
-    X : {array-like, sparse matrix}, shape (n_samples, n_features)
-
-    Returns
-    -------
-    X_new : {array-like, sparse matrix}, shape (n_samples, n_features)
-    """
-    exp_Z = np.exp(Z.T - Z.max(axis=1)).T
-    return (exp_Z.T / exp_Z.sum(axis=1)).T
+ACTIVATIONS = {'tanh': tanh, 'logistic': logistic, 'relu': relu}
 
 
 class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
-
     """Base class for ELM classification and regression.
 
     Warning: This class should not be used directly.
     Use derived classes instead.
     """
-    _activation_functions = {
-        'tanh': _tanh,
-        'logistic': logistic_sigmoid
-    }
 
     @abstractmethod
-    def __init__(self, n_hidden, activation, random_state):
-        self.n_hidden = n_hidden
+    def __init__(self, n_hidden, activation, C, class_weight,
+                 weight_scale, batch_size, verbose, warm_start,
+                 random_state):
+        self.C = C
         self.activation = activation
+        self.class_weight = class_weight
+        self.weight_scale = weight_scale
+        self.batch_size = batch_size
+        self.n_hidden = n_hidden
+        self.verbose = verbose
+        self.warm_start = warm_start
         self.random_state = random_state
 
-    def _validate_params(self):
-        """Validate input params. """
+        # public attributes
+        self.classes_ = None
+        self.coef_hidden_ = None
+        self.coef_output_ = None
+
+        # private attributes
+        self._HT_H_accumulated = None
+
+    def _compute_hidden_activations(self, X):
+        """Compute the hidden activations."""
+
+        hidden_activations = safe_sparse_dot(X, self.coef_hidden_)
+        hidden_activations += self.intercept_hidden_
+
+        # Apply the activation method
+        activation = ACTIVATIONS[self.activation]
+        hidden_activations = activation(hidden_activations)
+
+        return hidden_activations
+
+    def _fit(self, X, y, incremental=False):
+        """Fit the model to the data X and target y."""
+        # Validate input params
         if self.n_hidden <= 0:
-            raise ValueError("n_hidden must be greater or equal zero")
+            raise ValueError("n_hidden must be > 0, got %s." % self.n_hidden)
+        if self.C <= 0.0:
+            raise ValueError("C must be > 0, got %s." % self.C)
+        if self.activation not in activation_functions():
+            raise ValueError("The activation %s is not supported. Supported "
+                             "activation are %s." % (self.activation,
+                                                     ACTIVATIONS))
 
-        if self.activation not in self._activation_functions:
-            raise ValueError("The activation %s"
-                             " is not supported. " % self.activation)
+        X, y = check_X_y(X, y, accept_sparse=['csr', 'csc', 'coo'],
+                         dtype=np.float64, order="C", multi_output=True)
 
-    def _init_param(self):
-        """Set the activation functions."""
-        self._activation_func = self._activation_functions[self.activation]
+        # This outputs a warning when a 1d array is expected
+        if y.ndim == 2 and y.shape[1] == 1:
+            y = column_or_1d(y, warn=True)
 
-    def _scaled_weight_init(self, fan_in, fan_out):
-        """Scale the initial, random parameters for a specific layer."""
-        if self.activation == 'tanh':
-                interval = np.sqrt(6. / (fan_in + fan_out))
+        sample_weight = None
+        # Classification
+        if isinstance(self, ClassifierMixin):
+            self.label_binarizer_.fit(y)
 
-        elif self.activation == 'logistic':
-                interval = 4. * np.sqrt(6. / (fan_in + fan_out))
+            if self.classes_ is None or not incremental:
+                self.classes_ = self.label_binarizer_.classes_
+                sample_weight = compute_sample_weight(self.class_weight,
+                                                      self.classes_, y)
+            else:
+                classes = self.label_binarizer_.classes_
+                if not np.all(np.in1d(classes, self.classes_)):
+                    raise ValueError("`y` has classes not in `self.classes_`."
+                                     " `self.classes_` has %s. 'y' has %s." %
+                                     (self.classes_, classes))
 
-        return interval
+            y = self.label_binarizer_.transform(y)
 
-    def _init_random_weights(self):
-        """Initialize weight and bias parameters."""
-        rng = check_random_state(self.random_state)
+        # Ensure y is 2D
+        if y.ndim == 1:
+            y = np.reshape(y, (-1, 1))
 
-        fan_in, fan_out = self._n_features, self.n_hidden
-        interval = self._scaled_weight_init(fan_in, fan_out)
+        n_samples, n_features = X.shape
+        self.n_outputs_ = y.shape[1]
 
-        self.coef_hidden_ = rng.uniform(
-            -interval, interval, (fan_in, fan_out))
-        self.intercept_hidden_ = rng.uniform(
-            -interval, interval, (fan_out))
+        # Step (1/2): Compute the hidden layer coefficients
+        if (self.coef_hidden_ is None or (not incremental and
+                                          not self.warm_start)):
+            # Randomize and scale the input-to-hidden coefficients
+            self.coef_hidden_, self.intercept_hidden_ = init_weights(
+                self.weight_scale, n_features, self.n_hidden,
+                self.random_state)
 
-    def _get_hidden_activations(self, X):
-        """Compute the values of the neurons in the hidden layer."""
-        A = safe_sparse_dot(X, self.coef_hidden_)
-        A += self.intercept_hidden_
+        # Step (2/2): Compute hidden-to-output coefficients
+        # Run the least-square algorithm on the whole dataset
+        if self.batch_size is None:
+            batch_size = n_samples
+        # Run the recursive least-square algorithm on mini-batches
+        else:
+            batch_size = self.batch_size
 
-        Z = self._activation_func(A)
+        batches = gen_batches(n_samples, batch_size)
 
-        return Z
+        # (First time call) Run the least-square algorithm on batch 0
+        if not incremental or self._HT_H_accumulated is None:
+            batch_slice = next(batches)
+            H_batch = self._compute_hidden_activations(X[batch_slice])
+
+            # Get sample weights for the batch
+            sw = _get_sample_weights(batch_slice, sample_weight)
+
+            # beta_{0} = inv(H_{0}^T H_{0} + (1./C)*Id) * H_{0}.T y_{0}
+            self.coef_output_ = ridge_regression(H_batch, y[batch_slice],
+                                                 1. / self.C,
+                                                 sample_weight=sw).T
+
+            # Initialize K if this is batch based or partial_fit
+            if self.batch_size is not None or incremental:
+                # K_{0} = H_{0}^T * W * H_{0}
+                Weighted_H_batch = _multiply_weights(H_batch, sw)
+                self._HT_H_accumulated = safe_sparse_dot(H_batch.T,
+                                                         Weighted_H_batch)
+
+            if self.verbose:
+                y_scores = self._decision_scores(X[batch_slice])
+
+                if self.batch_size is None:
+                    verbose_string = "Training mean square error ="
+                else:
+                    verbose_string = "Batch 0, Training mean square error ="
+
+                print("%s %f" % (verbose_string,
+                                 mean_squared_error(y[batch_slice], y_scores,
+                                                    sample_weight=sw)))
+
+        # Run the least-square algorithm on batch 1, 2, ..., n
+        for batch, batch_slice in enumerate(batches):
+            # Compute hidden activations H_{i} for batch i
+            H_batch = self._compute_hidden_activations(X[batch_slice])
+
+            # Get sample weights (sw) for the batch
+            sw = _get_sample_weights(batch_slice, sample_weight)
+
+            Weighted_H_batch = _multiply_weights(H_batch, sw)
+
+            # Update K_{i+1} by H_{i}^T * W * H_{i}
+            self._HT_H_accumulated += safe_sparse_dot(H_batch.T,
+                                                      Weighted_H_batch)
+
+            # Update beta_{i+1} by
+            # K_{i+1}^{-1}H{i+1}^T * W * (y{i+1} - H_{i+1} * beta_{i})
+            y_batch = y[batch_slice] - safe_sparse_dot(H_batch,
+                                                       self.coef_output_)
+
+            Weighted_y_batch = _multiply_weights(y_batch, sw)
+            Hy_batch = safe_sparse_dot(H_batch.T, Weighted_y_batch)
+
+            # Update hidden-to-output coefficients
+            self.coef_output_ += np.linalg.solve(self._HT_H_accumulated +
+                                                 identity(self.n_hidden) *
+                                                 1. / self.C,
+                                                 Hy_batch)
+            if self.verbose:
+                y_scores = self._decision_scores(X[batch_slice])
+                print("Batch %d, Training mean square error = %f" %
+                     (batch + 1, mean_squared_error(y[batch_slice], y_scores,
+                                                    sample_weight=sw)))
+        return self
 
     def fit(self, X, y):
         """Fit the model to the data X and target y.
@@ -120,73 +220,112 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            Training data, where n_samples in the number of samples
+            Training data, where n_samples is the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
-             Subset of the target values.
+        y : array-like, shape (n_samples,)
+            Target values.
 
         Returns
         -------
-        self
+        self : returns a trained elm usable for prediction.
         """
-        X = atleast2d_or_csr(X)
+        return self._fit(X, y, incremental=False)
 
-        self._validate_params()
-
-        n_samples, self._n_features = X.shape
-        self.n_outputs_ = y.shape[1]
-        self._init_param()
-
-        self._init_random_weights()
-
-        H = self._get_hidden_activations(X)
-        self.coef_output_ = safe_sparse_dot(pinv2(H), y)
-
-        return self
-
-    def decision_function(self, X):
+    def partial_fit(self, X, y):
         """Fit the model to the data X and target y.
 
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Subset of training data.
+
+        y : array-like, shape (n_samples,)
+            Subset of target values.
 
         Returns
         -------
-        array, shape (n_samples)
-        Predicted target values per element in X.
+        self : returns a trained elm usable for prediction.
         """
-        X = atleast2d_or_csr(X)
+        self._fit(X, y, incremental=True)
 
-        self.hidden_activations_ = self._get_hidden_activations(X)
-        output = safe_sparse_dot(self.hidden_activations_, self.coef_output_)
+        return self
 
-        return output
+    def _decision_scores(self, X):
+        """Predict using the trained model
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
+
+        Returns
+        -------
+        y_pred : array-like, shape (n_samples,) or (n_samples, n_outputs)
+                 The predicted values.
+        """
+        X = check_array(X, accept_sparse=['csr', 'csc', 'coo'])
+
+        hidden_activations = self._compute_hidden_activations(X)
+        y_pred = safe_sparse_dot(hidden_activations, self.coef_output_)
+
+        return y_pred
 
 
 class ELMClassifier(BaseELM, ClassifierMixin):
-
     """Extreme learning machines classifier.
 
     The algorithm trains a single-hidden layer feedforward network by computing
     the hidden layer values using randomized parameters, then solving
-    for the output weights using least-square solutions.
+    for the output weights using least-square solutions. For prediction,
+    after computing the forward pass, the continuous output values pass
+    through a gate function converting them to integers that represent classes.
 
     This implementation works with data represented as dense and sparse numpy
     arrays of floating point values for the features.
 
     Parameters
     ----------
-    n_hidden : int, default 100
-       The number of neurons in the hidden layer.
+    C : float, optional, default 1
+        A regularization term that controls the linearity of the decision
+        function. Smaller value of C makes the decision boundary more linear.
 
-    activation : {'logistic', 'tanh'}, default 'tanh'
+    class_weight : dict, 'auto' or None
+        If 'auto', class weights will be given inverse proportional
+        to the frequency of the class in the data.
+        If a dictionary is given, keys are classes and values
+        are corresponding class weights.
+        If None is given, the class weights will be uniform.
+
+    weight_scale : float, default 0.1
+        Initializes and scales the input-to-hidden weights.
+        The weight values will range between plus and minus
+        'weight_scale' based on the uniform distribution.
+
+    n_hidden : int, default 100
+        The number of neurons in the hidden layer.
+
+    activation : {'logistic', 'tanh', 'relu'}, default 'tanh'
         Activation function for the hidden layer.
 
-         - 'logistic' for 1 / (1 + exp(x)).
+         - 'logistic' returns f(x) = 1 / (1 + exp(x)).
 
-         - 'tanh' for the hyperbolic tangent.
+         - 'tanh' returns f(x) = tanh(x).
+
+         - 'relu' returns f(x) = max(0, x)
+
+    batch_size : int, optional, default None
+        If None, the batch_size is set as the number of samples.
+        Otherwise, it will be set as the integer give.
+
+    verbose : bool, optional, default False
+        Whether to print training score to stdout.
+
+    warm_start : bool, optional, default False
+        When set to True, reuse the solution of the previous
+        call to fit as initialization, otherwise, just erase the
+        previous solution.
 
     random_state : int or RandomState, optional, default None
         State of or seed for random number generator.
@@ -194,22 +333,51 @@ class ELMClassifier(BaseELM, ClassifierMixin):
 
     Attributes
     ----------
-    `classes_` : array or list of array of shape = [n_classes]
+    `classes_` : array-list, shape (n_classes,)
         Class labels for each output.
 
     `n_outputs_` : int,
         Number of output neurons.
 
+    `coef_hidden_` : array-like, shape (n_features, n_hidden)
+        The input-to-hidden weights.
+
+    `intercept_hidden_` : array-like, shape (n_hidden,)
+        The bias added to the hidden layer neurons.
+
+    `coef_output_` : array-like, shape (n_hidden, n_outputs_)
+        The hidden-to-output weights.
+
+    `label_binarizer_` : array-like, shape (n_hidden, n_outputs_)
+        A LabelBinarizer object trained on the training set.
+
+    References
+    ----------
+    Liang, Nan-Ying, et al.
+        "A fast and accurate online sequential learning algorithm for
+        feedforward networks." Neural Networks, IEEE Transactions on
+        17.6 (2006): 1411-1423.
+        http://www.ntu.edu.sg/home/egbhuang/pdf/OS-ELM-TNN.pdf
+
+    Zong, Weiwei, Guang-Bin Huang, and Yiqiang Chen.
+        "Weighted extreme learning machine for imbalance learning."
+        Neurocomputing 101 (2013): 229-242.
     """
+    def __init__(self, n_hidden=500, activation='tanh', C=1,
+                 class_weight=None, weight_scale=0.1, batch_size=None,
+                 verbose=False, warm_start=False, random_state=None):
+        super(ELMClassifier, self).__init__(n_hidden=n_hidden,
+                                            activation=activation,
+                                            C=C, class_weight=class_weight,
+                                            weight_scale=weight_scale,
+                                            batch_size=batch_size,
+                                            verbose=verbose,
+                                            warm_start=warm_start,
+                                            random_state=random_state)
 
-    def __init__(self, n_hidden=100, activation='tanh', random_state=None):
+        self.label_binarizer_ = LabelBinarizer(-1, 1)
 
-        super(ELMClassifier, self).__init__(n_hidden, activation, random_state)
-
-        self._lbin = LabelBinarizer(-1, 1)
-        self.classes_ = None
-
-    def fit(self, X, y):
+    def partial_fit(self, X, y, classes=None):
         """Fit the model to the data X and target y.
 
         Parameters
@@ -218,19 +386,45 @@ class ELMClassifier(BaseELM, ClassifierMixin):
             Training data, where n_samples in the number of samples
             and n_features is the number of features.
 
-        y : numpy array of shape (n_samples)
+        y : array-like, shape (n_samples,)
+            Subset of the target values.
+
+        classes : array-like, shape (n_classes,)
+            List of all the classes that can possibly appear in the y vector.
+
+            Must be provided at the first call to partial_fit, can be omitted
+            in subsequent calls.
 
         Returns
         -------
-        self
+        self : returns a trained elm usable for prediction.
         """
-        y = column_or_1d(y, warn=True)
-        self.classes_ = np.unique(y)
-        y = self._lbin.fit_transform(y)
+        self.classes_ = classes
 
-        super(ELMClassifier, self).fit(X, y)
+        super(ELMClassifier, self).partial_fit(X, y)
 
         return self
+
+    def decision_function(self, X):
+        """Decision function of the elm model
+
+        Parameters
+        ----------
+        X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
+
+        Returns
+        -------
+        y : array-like, shape (n_samples,) or (n_samples, n_classes)
+            The predict values.
+        """
+        y_scores = self._decision_scores(X)
+
+        if self.n_outputs_ == 1:
+            return y_scores.ravel()
+        else:
+            return y_scores
 
     def predict(self, X):
         """Predict using the extreme learning machines model
@@ -238,16 +432,17 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
 
         Returns
         -------
-        array, shape (n_samples)
-            Predicted target values per element in X.
+        y : array-like, shape (n_samples,) or (n_samples, n_classes)
+            The predicted classes, or the predict values.
         """
-        X = atleast2d_or_csr(X)
-        scores = self.decision_function(X)
+        y_scores = self._decision_scores(X)
 
-        return self._lbin.inverse_transform(scores)
+        return self.label_binarizer_.inverse_transform(y_scores)
 
     def predict_proba(self, X):
         """Probability estimates.
@@ -255,20 +450,23 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
 
         Returns
         -------
-        array, shape (n_samples, n_outputs)
-            Returns the probability of the sample for each class in the model,
-            where classes are ordered as they are in `self.classes_`.
+        y_prob : array-like, shape (n_samples, n_classes)
+                 The predicted probability of the sample for each class in the
+                 model, where classes are ordered as they are in
+                 `self.classes_`.
         """
-        scores = self.decision_function(X)
+        y_scores = self._decision_scores(X)
 
         if len(self.classes_) == 2:
-            scores = logistic_sigmoid(scores)
-            return np.hstack([1 - scores, scores])
+            y_scores = logistic(y_scores)
+            return np.hstack([1 - y_scores, y_scores])
         else:
-            return _softmax(scores)
+            return softmax(y_scores)
 
     def predict_log_proba(self, X):
         """Return the log of probability estimates.
@@ -276,96 +474,128 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         Parameters
         ----------
         X : array-like, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
 
         Returns
         -------
-        T : array-like, shape (n_samples, n_outputs)
-            Returns the log-probability of the sample for each class in the
-            model, where classes are ordered as they are in
-            `self.classes_`. Equivalent to log(predict_proba(X))
+        y_prob : array-like, shape (n_samples, n_classes)
+                 The predicted log-probability of the sample for each class
+                 in the model, where classes are ordered as they are in
+                 `self.classes_`. Equivalent to log(predict_proba(X))
         """
-        return np.log(self.predict_proba(X))
+        y_prob = self.predict_proba(X)
+        return np.log(y_prob, out=y_prob)
 
 
 class ELMRegressor(BaseELM, RegressorMixin):
-
     """Extreme learning machines regressor.
 
     The algorithm trains a single-hidden layer feedforward network by computing
     the hidden layer values using randomized parameters, then solving
-    for the output weights using least-square solutions.
+    for the output weights using least-square solutions. For prediction,
+    ELMRegressor computes the forward pass resulting in contiuous output
+    values.
 
     This implementation works with data represented as dense and sparse numpy
     arrays of floating point values for the features.
 
     Parameters
     ----------
-    n_hidden : int, default 100
-       The number of neurons in the hidden layer.
+    C : float, optional, default 10e5
+        A regularization term that controls the linearity of the decision
+        function. Smaller value of C makes the decision boundary more linear.
 
-    activation : {'logistic', 'tanh'}, default 'tanh'
+    weight_scale : float, default 0.1
+        Initializes and scales the input-to-hidden weights.
+        The weight values will range between plus and minus
+        'weight_scale' based on the uniform distribution.
+
+    n_hidden : int, default 100
+        The number of neurons in the hidden layer.
+
+    activation : {'logistic', 'tanh', 'relu'}, default 'tanh'
         Activation function for the hidden layer.
 
-         - 'logistic' for 1 / (1 + exp(x)).
+         - 'logistic' returns f(x) = 1 / (1 + exp(x)).
 
-         - 'tanh' for the hyperbolic tangent.
+         - 'tanh' returns f(x) = tanh(x).
+
+         - 'relu' returns f(x) = max(0, x)
+
+    batch_size : int, optional, default None
+        If None, the batch_size is set as the number of samples.
+        Otherwise, it will be set as the integer give.
+
+    verbose : bool, optional, default False
+        Whether to print training score to stdout.
+
+    warm_start : bool, optional, default False
+        When set to True, reuse the solution of the previous
+        call to fit as initialization, otherwise, just erase the
+        previous solution.
 
     random_state : int or RandomState, optional, default None
         State of or seed for random number generator.
 
-
     Attributes
     ----------
-    `classes_` : array or list of array of shape = [n_classes]
+    `classes_` : array-list, shape (n_classes,)
         Class labels for each output.
 
-    `n_outputs_` : int,
+    `n_outputs_` : int
         Number of output neurons.
 
+    `coef_hidden_` : array-like, shape (n_features, n_hidden)
+        The input-to-hidden weights.
+
+    `intercept_hidden_` : array-like, shape (n_hidden,)
+        The bias added to the hidden layer neurons.
+
+    `coef_output_` : array-like, shape (n_hidden, n_outputs_)
+        The hidden-to-output weights.
+
+    References
+    ----------
+    Liang, Nan-Ying, et al.
+        "A fast and accurate online sequential learning algorithm for
+        feedforward networks." Neural Networks, IEEE Transactions on
+        17.6 (2006): 1411-1423.
+        http://www.ntu.edu.sg/home/egbhuang/pdf/OS-ELM-TNN.pdf
+
+    Zong, Weiwei, Guang-Bin Huang, and Yiqiang Chen.
+        "Weighted extreme learning machine for imbalance learning."
+        Neurocomputing 101 (2013): 229-242.
     """
-
-    def __init__(self, n_hidden=100, activation='tanh', random_state=None):
-
-        super(ELMRegressor, self).__init__(n_hidden, activation, random_state)
-
-        self.classes_ = None
-
-    def fit(self, X, y):
-        """Fit the model to the data X and target y.
-
-        Parameters
-        ----------
-        X : {array-like, sparse matrix}, shape (n_samples, n_features)
-            Training data, where n_samples in the number of samples
-            and n_features is the number of features.
-
-        y : numpy array of shape (n_samples)
-            Subset of the target values.
-
-        Returns
-        -------
-        self
-        """
-        y = np.atleast_1d(y)
-
-        if y.ndim == 1:
-            y = np.reshape(y, (-1, 1))
-
-        super(ELMRegressor, self).fit(X, y)
-        return self
+    def __init__(self, n_hidden=100, activation='tanh', weight_scale=0.1,
+                 batch_size=None, C=10e5, verbose=False, warm_start=False,
+                 random_state=None):
+        super(ELMRegressor, self).__init__(n_hidden=n_hidden,
+                                           activation=activation,
+                                           C=C, class_weight=None,
+                                           weight_scale=weight_scale,
+                                           batch_size=batch_size,
+                                           verbose=verbose,
+                                           warm_start=warm_start,
+                                           random_state=random_state)
 
     def predict(self, X):
-        """Predict using the multi-layer perceptron model.
+        """Predict using the elm model.
 
         Parameters
         ----------
         X : {array-like, sparse matrix}, shape (n_samples, n_features)
+            Data, where n_samples is the number of samples
+            and n_features is the number of features.
 
         Returns
         -------
-        array, shape (n_samples)
-            Predicted target values per element in X.
+        y : array-like, shape (n_samples,) or (n_samples, n_outputs)
+            The predicted values.
         """
-        X = atleast2d_or_csr(X)
+        y_pred = self._decision_scores(X)
 
-        return self.decision_function(X)
+        if self.n_outputs_ == 1:
+            return y_pred.ravel()
+        else:
+            return y_pred
