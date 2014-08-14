@@ -14,6 +14,7 @@ from ..externals import six
 from ..preprocessing import LabelBinarizer
 from ..metrics import mean_squared_error
 from ..linear_model.ridge import ridge_regression
+from ..linear_model import LogisticRegression, SGDClassifier, SGDRegressor
 from ..utils import gen_batches
 from ..utils import check_array, check_X_y, column_or_1d
 from ..utils.extmath import safe_sparse_dot
@@ -40,6 +41,11 @@ def _get_sample_weights(batch_slice, sample_weight):
     else:
         return sample_weight[batch_slice]
 
+ESTIMATOR_CLASSIFIERS = {'logistic_regression': LogisticRegression,
+                         'SGD': SGDClassifier}
+
+ESTIMATOR_REGRESSORS = {'SGD': SGDRegressor}
+
 
 class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
     """Base class for ELM classification and regression.
@@ -49,11 +55,12 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
     """
 
     @abstractmethod
-    def __init__(self, n_hidden, activation, C, class_weight,
+    def __init__(self, n_hidden, activation, estimator, C, class_weight,
                  weight_scale, batch_size, verbose, warm_start,
                  random_state):
         self.C = C
         self.activation = activation
+        self.estimator = estimator
         self.class_weight = class_weight
         self.weight_scale = weight_scale
         self.batch_size = batch_size
@@ -144,70 +151,92 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
 
         batches = gen_batches(n_samples, batch_size)
 
-        # (First time call) Run the least-square algorithm on batch 0
-        if not incremental or self._HT_H_accumulated is None:
-            batch_slice = next(batches)
-            H_batch = self._compute_hidden_activations(X[batch_slice])
+        if self.estimator != 'ridge':
+            # Classification
+            if isinstance(self, ClassifierMixin):
+                estimator = ESTIMATOR_CLASSIFIERS[self.estimator]()
+            # Regression
+            else:
+                estimator = ESTIMATOR_REGRESSORS[self.estimator]()
 
-            # Get sample weights for the batch
-            sw = _get_sample_weights(batch_slice, sample_weight)
+            # Filter out parameters
+            kwds = self.get_params()
+            kwds = dict((k, kwds[k]) for k in kwds
+                        if k in estimator.get_params())
 
-            # beta_{0} = inv(H_{0}^T H_{0} + (1./C)*Id) * H_{0}.T y_{0}
-            self.coef_output_ = ridge_regression(H_batch, y[batch_slice],
-                                                 1. / self.C,
-                                                 sample_weight=sw).T
+            estimator.set_params(**kwds)
+            estimator.fit(self._compute_hidden_activations(X), y)
 
-            # Initialize K if this is batch based or partial_fit
-            if self.batch_size is not None or incremental:
-                # K_{0} = H_{0}^T * W * H_{0}
+            self.coef_output_ = estimator.coef_.T
+            self.intercept_output_ = estimator.intercept_.T
+
+        else:
+            # (First time call) Run the least-square algorithm on batch 0
+            if not incremental or self._HT_H_accumulated is None:
+                batch_slice = next(batches)
+                H_batch = self._compute_hidden_activations(X[batch_slice])
+
+                # Get sample weights for the batch
+                sw = _get_sample_weights(batch_slice, sample_weight)
+
+                # beta_{0} = inv(H_{0}^T H_{0} + (1./C)*Id) * H_{0}.T y_{0}
+                self.coef_output_ = ridge_regression(H_batch, y[batch_slice],
+                                                     1. / self.C,
+                                                     sample_weight=sw).T
+
+                # Initialize K if this is batch based or partial_fit
+                if self.batch_size is not None or incremental:
+                    # K_{0} = H_{0}^T * W * H_{0}
+                    Weighted_H_batch = _multiply_weights(H_batch, sw)
+                    self._HT_H_accumulated = safe_sparse_dot(H_batch.T,
+                                                             Weighted_H_batch)
+
+                if self.verbose:
+                    y_scores = self._decision_scores(X[batch_slice])
+
+                    if self.batch_size is None:
+                        verbose = "Training mean square error ="
+                    else:
+                        verbose = "Batch 0, Training mean square error ="
+
+                    print("%s %f" % (verbose,
+                                     mean_squared_error(y[batch_slice],
+                                                        y_scores,
+                                                        sample_weight=sw)))
+
+            # Run the least-square algorithm on batch 1, 2, ..., n
+            for batch, batch_slice in enumerate(batches):
+                # Compute hidden activations H_{i} for batch i
+                H_batch = self._compute_hidden_activations(X[batch_slice])
+
+                # Get sample weights (sw) for the batch
+                sw = _get_sample_weights(batch_slice, sample_weight)
+
                 Weighted_H_batch = _multiply_weights(H_batch, sw)
-                self._HT_H_accumulated = safe_sparse_dot(H_batch.T,
-                                                         Weighted_H_batch)
 
-            if self.verbose:
-                y_scores = self._decision_scores(X[batch_slice])
+                # Update K_{i+1} by H_{i}^T * W * H_{i}
+                self._HT_H_accumulated += safe_sparse_dot(H_batch.T,
+                                                          Weighted_H_batch)
 
-                if self.batch_size is None:
-                    verbose_string = "Training mean square error ="
-                else:
-                    verbose_string = "Batch 0, Training mean square error ="
+                # Update beta_{i+1} by
+                # K_{i+1}^{-1}H{i+1}^T * W * (y{i+1} - H_{i+1} * beta_{i})
+                y_batch = y[batch_slice] - safe_sparse_dot(H_batch,
+                                                           self.coef_output_)
 
-                print("%s %f" % (verbose_string,
-                                 mean_squared_error(y[batch_slice], y_scores,
-                                                    sample_weight=sw)))
+                Weighted_y_batch = _multiply_weights(y_batch, sw)
+                Hy_batch = safe_sparse_dot(H_batch.T, Weighted_y_batch)
 
-        # Run the least-square algorithm on batch 1, 2, ..., n
-        for batch, batch_slice in enumerate(batches):
-            # Compute hidden activations H_{i} for batch i
-            H_batch = self._compute_hidden_activations(X[batch_slice])
-
-            # Get sample weights (sw) for the batch
-            sw = _get_sample_weights(batch_slice, sample_weight)
-
-            Weighted_H_batch = _multiply_weights(H_batch, sw)
-
-            # Update K_{i+1} by H_{i}^T * W * H_{i}
-            self._HT_H_accumulated += safe_sparse_dot(H_batch.T,
-                                                      Weighted_H_batch)
-
-            # Update beta_{i+1} by
-            # K_{i+1}^{-1}H{i+1}^T * W * (y{i+1} - H_{i+1} * beta_{i})
-            y_batch = y[batch_slice] - safe_sparse_dot(H_batch,
-                                                       self.coef_output_)
-
-            Weighted_y_batch = _multiply_weights(y_batch, sw)
-            Hy_batch = safe_sparse_dot(H_batch.T, Weighted_y_batch)
-
-            # Update hidden-to-output coefficients
-            self.coef_output_ += np.linalg.solve(self._HT_H_accumulated +
-                                                 identity(self.n_hidden) *
-                                                 1. / self.C,
-                                                 Hy_batch)
-            if self.verbose:
-                y_scores = self._decision_scores(X[batch_slice])
-                print("Batch %d, Training mean square error = %f" %
-                     (batch + 1, mean_squared_error(y[batch_slice], y_scores,
-                                                    sample_weight=sw)))
+                # Update hidden-to-output coefficients
+                self.coef_output_ += np.linalg.solve(self._HT_H_accumulated +
+                                                     identity(self.n_hidden) *
+                                                     1. / self.C,
+                                                     Hy_batch)
+                if self.verbose:
+                    y_scores = self._decision_scores(X[batch_slice])
+                    print("Batch %d, Training mean square error = %f" %
+                         (batch + 1, mean_squared_error(y[batch_slice],
+                                                        y_scores,
+                                                        sample_weight=sw)))
         return self
 
     def fit(self, X, y):
@@ -287,6 +316,9 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         A regularization term that controls the linearity of the decision
         function. Smaller value of C makes the decision boundary more linear.
 
+    estimator : {'ridge', 'logistic_regression', 'SGD'}, default 'ridge'
+        The linear model used to optimize the hidden-to-output weights.
+
     class_weight : dict, 'auto' or None
         If 'auto', class weights will be given inverse proportional
         to the frequency of the class in the data.
@@ -332,7 +364,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
     `classes_` : array-list, shape (n_classes,)
         Class labels for each output.
 
-    `n_outputs_` : int,
+    `n_outputs_` : int
         Number of output neurons.
 
     `coef_hidden_` : array-like, shape (n_features, n_hidden)
@@ -344,7 +376,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
     `coef_output_` : array-like, shape (n_hidden, n_outputs_)
         The hidden-to-output weights.
 
-    `label_binarizer_` : array-like, shape (n_hidden, n_outputs_)
+    `label_binarizer_` : LabelBinarizer
         A LabelBinarizer object trained on the training set.
 
     References
@@ -359,11 +391,12 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         "Weighted extreme learning machine for imbalance learning."
         Neurocomputing 101 (2013): 229-242.
     """
-    def __init__(self, n_hidden=500, activation='tanh', C=1,
-                 class_weight=None, weight_scale=0.1, batch_size=None,
+    def __init__(self, n_hidden=500, activation='tanh', estimator='ridge',
+                 C=1, class_weight=None, weight_scale=0.1, batch_size=None,
                  verbose=False, warm_start=False, random_state=None):
         super(ELMClassifier, self).__init__(n_hidden=n_hidden,
                                             activation=activation,
+                                            estimator=estimator,
                                             C=C, class_weight=class_weight,
                                             weight_scale=weight_scale,
                                             batch_size=batch_size,
@@ -502,6 +535,9 @@ class ELMRegressor(BaseELM, RegressorMixin):
         A regularization term that controls the linearity of the decision
         function. Smaller value of C makes the decision boundary more linear.
 
+    estimator : {'ridge', 'logistic_regression', 'SGD'}, default 'ridge'
+        The linear model used to optimize the hidden-to-output weights.
+
     weight_scale : float, default 0.1
         Initializes and scales the input-to-hidden weights.
         The weight values will range between plus and minus
@@ -563,11 +599,12 @@ class ELMRegressor(BaseELM, RegressorMixin):
         "Weighted extreme learning machine for imbalance learning."
         Neurocomputing 101 (2013): 229-242.
     """
-    def __init__(self, n_hidden=100, activation='tanh', weight_scale=0.1,
-                 batch_size=None, C=10e5, verbose=False, warm_start=False,
-                 random_state=None):
+    def __init__(self, n_hidden=100, activation='tanh', estimator='ridge',
+                 weight_scale=0.1, batch_size=None, C=10e5, verbose=False,
+                 warm_start=False, random_state=None):
         super(ELMRegressor, self).__init__(n_hidden=n_hidden,
                                            activation=activation,
+                                           estimator=estimator,
                                            C=C, class_weight=None,
                                            weight_scale=weight_scale,
                                            batch_size=batch_size,
