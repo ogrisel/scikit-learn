@@ -18,8 +18,7 @@ from ..utils import gen_batches
 from ..utils import check_array, check_X_y, column_or_1d
 from ..utils.extmath import safe_sparse_dot
 from ..utils.class_weight import compute_sample_weight
-from .neural_network_base import logistic, softmax
-from .neural_network_base import init_weights, activation_functions
+from .base import logistic, softmax, init_weights, ACTIVATIONS
 
 
 def _multiply_weights(X, sample_weight):
@@ -40,9 +39,6 @@ def _get_sample_weights(batch_slice, sample_weight):
         return None
     else:
         return sample_weight[batch_slice]
-
-
-ACTIVATIONS = activation_functions()
 
 
 class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
@@ -93,7 +89,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             raise ValueError("n_hidden must be > 0, got %s." % self.n_hidden)
         if self.C <= 0.0:
             raise ValueError("C must be > 0, got %s." % self.C)
-        if self.activation not in activation_functions():
+        if self.activation not in ACTIVATIONS:
             raise ValueError("The activation %s is not supported. Supported "
                              "activation are %s." % (self.activation,
                                                      ACTIVATIONS))

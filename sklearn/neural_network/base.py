@@ -1,4 +1,4 @@
-"""Base utilities for the neural network modules
+"""Utilities for the neural network modules
 """
 
 # Author: Issam H. Laradji <issam.laradji@gmail.com>
@@ -36,11 +36,6 @@ def softmax(X):
 
 
 ACTIVATIONS = {'tanh': tanh, 'logistic': logistic, 'relu': relu}
-
-
-def activation_functions():
-    """This function simply returns the valid activation functions. """
-    return ACTIVATIONS
 
 
 def init_weights(weight_scale, n_features, n_outputs, random_state):
