@@ -18,7 +18,7 @@ from ..utils import gen_batches
 from ..utils import check_array, check_X_y, column_or_1d
 from ..utils.extmath import safe_sparse_dot
 from ..utils.class_weight import compute_sample_weight
-from .neural_network_base import logistic, tanh, relu, softmax
+from .neural_network_base import logistic, softmax
 from .neural_network_base import init_weights, activation_functions
 
 
@@ -42,7 +42,7 @@ def _get_sample_weights(batch_slice, sample_weight):
         return sample_weight[batch_slice]
 
 
-ACTIVATIONS = {'tanh': tanh, 'logistic': logistic, 'relu': relu}
+ACTIVATIONS = activation_functions()
 
 
 class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
