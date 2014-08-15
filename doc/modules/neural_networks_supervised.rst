@@ -103,9 +103,9 @@ to the training samples::
     >>> y = [0, 1]
     >>> clf = ELMClassifier(random_state=1)
     >>> clf.fit(X, y)
-    ELMClassifier(C=1, activation='tanh', batch_size=None, class_weight=None,
+    ELMClassifier(C=1, activation='relu', batch_size=None, class_weight=None,
            n_hidden=500, random_state=1, verbose=False, warm_start=False,
-           weight_scale=0.1)
+           weight_scale=1)
 
 After training, the model can predict the class of a new sample::
 
@@ -157,11 +157,11 @@ where y is expected to be a matrix of floating point values::
     >>> y = [0.5, 2.5]
     >>> clf = ELMRegressor(random_state=1)
     >>> clf.fit(X, y)
-    ELMRegressor(C=1000000.0, activation='tanh', batch_size=None, n_hidden=100,
-           random_state=1, verbose=False, warm_start=False, weight_scale=0.1)
+    ELMRegressor(C=1000000.0, activation='relu', batch_size=None, n_hidden=100,
+           random_state=1, verbose=False, warm_start=False, weight_scale=1)
 
     >>> clf.predict([[1, 1]])
-    array([ 1.52026558])
+    array([ 1.43679063])
 
 
 .. _elm_tips:
