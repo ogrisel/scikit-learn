@@ -115,9 +115,8 @@ After training, the model can predict the class of a new sample::
 Weighted classification
 -----------------------
 
-For imbalanced datasets (which contain an imbalanced ratio of class frequencies), 
-giving more weight to classes having less samples than others could help improve
-accuracy. 
+For imbalanced datasets, giving more weight to classes having less samples than 
+others could help improve accuracy. 
 
 :class:`ELMClassifier` has the parameter ``class_weight`` in
 its ``fit`` method that can be set either to ``None`` - where no weight is

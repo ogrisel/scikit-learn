@@ -98,12 +98,8 @@ for param_name, param_values in sorted(parameters.items()):
             clf.fit(X_train, y_train)
             score = clf.score(X_test, y_test)
 
-            # Plot the decision boundary. For that, we will assign a color to
-            # each point in the mesh [x_min, m_max]x[y_min, y_max].
-            if hasattr(clf, "decision_function"):
-                Z = clf.decision_function(np.c_[xx.ravel(), yy.ravel()])
-            else:
-                Z = clf.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1]
+            # Plot the decision boundary.
+            Z = clf.predict_proba(np.c_[xx.ravel(), yy.ravel()])[:, 1]
 
             # Put the result into a color plot
             Z = Z.reshape(xx.shape)

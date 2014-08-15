@@ -312,7 +312,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         The weight values will range between plus and minus
         'weight_scale / n_features' based on the uniform distribution.
 
-    n_hidden : int, default 100
+    n_hidden : int, default 500
         The number of units in the hidden layer.
 
     activation : {'logistic', 'tanh', 'relu'}, default 'relu'
@@ -324,7 +324,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
          - 'tanh', the hyperbolic tan function,
             returns f(x) = tanh(x).
 
-         - 'relu', rectified linear unit function,
+         - 'relu', the rectified linear unit function,
             returns f(x) = max(0, x)
 
     batch_size : int, optional, default None
@@ -511,7 +511,7 @@ class ELMRegressor(BaseELM, RegressorMixin):
          - 'tanh', the hyperbolic tan function,
             returns f(x) = tanh(x).
 
-         - 'relu', rectified linear unit function,
+         - 'relu', the rectified linear unit function,
             returns f(x) = max(0, x)
 
     batch_size : int, optional, default None
