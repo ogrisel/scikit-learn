@@ -315,7 +315,7 @@ class ELMClassifier(BaseELM, ClassifierMixin):
     n_hidden : int, default 100
         The number of units in the hidden layer.
 
-    activation : {'logistic', 'tanh', 'relu'}, default 'tanh'
+    activation : {'logistic', 'tanh', 'relu'}, default 'relu'
         Activation function for the hidden layer.
 
          - 'logistic', the logistic sigmoid function,
@@ -374,8 +374,8 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         "Weighted extreme learning machine for imbalance learning."
         Neurocomputing 101 (2013): 229-242.
     """
-    def __init__(self, n_hidden=500, activation='tanh', C=1,
-                 class_weight=None, weight_scale=1., batch_size=None,
+    def __init__(self, n_hidden=500, activation='relu', C=1,
+                 class_weight=None, weight_scale=1, batch_size=None,
                  verbose=False, warm_start=False, random_state=None):
         super(ELMClassifier, self).__init__(n_hidden=n_hidden,
                                             activation=activation,
@@ -502,7 +502,7 @@ class ELMRegressor(BaseELM, RegressorMixin):
     n_hidden : int, default 100
         The number of units in the hidden layer.
 
-    activation : {'logistic', 'tanh', 'relu'}, default 'tanh'
+    activation : {'logistic', 'tanh', 'relu'}, default 'relu'
         Activation function for the hidden layer.
 
          - 'logistic', the logistic sigmoid function,
@@ -558,7 +558,7 @@ class ELMRegressor(BaseELM, RegressorMixin):
         "Weighted extreme learning machine for imbalance learning."
         Neurocomputing 101 (2013): 229-242.
     """
-    def __init__(self, n_hidden=100, activation='tanh', weight_scale=1.,
+    def __init__(self, n_hidden=100, activation='relu', weight_scale=1.,
                  batch_size=None, C=10e5, verbose=False, warm_start=False,
                  random_state=None):
         super(ELMRegressor, self).__init__(n_hidden=n_hidden,

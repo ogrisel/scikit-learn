@@ -56,7 +56,7 @@ clf_weightless.fit(X, y)
 clf_weight_auto.fit(X, y)
 clf_weight_1000.fit(X, y)
 
-fig, axes = plt.subplots(1, 3, figsize=(10, 4))
+_, axes = plt.subplots(1, 3, figsize=(10, 4))
 
 plot_decision_function(clf_weightless, axes[0], 'class_weight=None')
 plot_decision_function(clf_weight_auto, axes[1], 'class_weight="auto"')
