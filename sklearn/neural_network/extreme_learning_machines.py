@@ -68,7 +68,7 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
         """Initialize the parameter weights."""
         rng = check_random_state(self.random_state)
 
-        # Use the initialization recommended by Glorot et al.
+        # Use the initialization method recommended by Glorot et al.
         weight_init_bound = np.sqrt(6. / (n_features + self.n_hidden))
 
         self.coef_hidden_ = rng.uniform(-weight_init_bound,
@@ -568,7 +568,7 @@ class ELMRegressor(BaseELM, RegressorMixin):
         training deep feedforward neural networks." International Conference
         on Artificial Intelligence and Statistics. 2010.
     """
-    def __init__(self, n_hidden=100, activation='relu', weight_scale=1.0,
+    def __init__(self, n_hidden=100, activation='tanh', weight_scale=1.0,
                  batch_size=None, C=10e5, verbose=False, warm_start=False,
                  random_state=None):
         super(ELMRegressor, self).__init__(n_hidden=n_hidden,
