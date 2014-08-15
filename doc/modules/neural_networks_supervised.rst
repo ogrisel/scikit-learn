@@ -160,7 +160,7 @@ where y is expected to be a matrix of floating point values::
            random_state=1, verbose=False, warm_start=False, weight_scale=1.0)
 
     >>> clf.predict([[1, 1]])
-    array([ 1.43679053])
+    array([ 1.59733482])
 
 
 .. _elm_tips:
