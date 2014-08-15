@@ -67,7 +67,9 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
     def _init_weights(self, n_features):
         """Initialize the parameter weights."""
         rng = check_random_state(self.random_state)
-        weight_init_bound = 1. / n_features
+
+        # Use the initialization recommended by Glorot et al.
+        weight_init_bound = np.sqrt(6. / (n_features + self.n_hidden))
 
         self.coef_hidden_ = rng.uniform(-weight_init_bound,
                                         weight_init_bound, (n_features,
@@ -373,8 +375,12 @@ class ELMClassifier(BaseELM, ClassifierMixin):
     Zong, Weiwei, Guang-Bin Huang, and Yiqiang Chen.
         "Weighted extreme learning machine for imbalance learning."
         Neurocomputing 101 (2013): 229-242.
+
+    Glorot, Xavier, and Yoshua Bengio. "Understanding the difficulty of
+        training deep feedforward neural networks." International Conference
+        on Artificial Intelligence and Statistics. 2010.
     """
-    def __init__(self, n_hidden=500, activation='relu', C=1,
+    def __init__(self, n_hidden=500, activation='tanh', C=1,
                  class_weight=None, weight_scale=1.0, batch_size=None,
                  verbose=False, warm_start=False, random_state=None):
         super(ELMClassifier, self).__init__(n_hidden=n_hidden,
@@ -557,6 +563,10 @@ class ELMRegressor(BaseELM, RegressorMixin):
     Zong, Weiwei, Guang-Bin Huang, and Yiqiang Chen.
         "Weighted extreme learning machine for imbalance learning."
         Neurocomputing 101 (2013): 229-242.
+
+    Glorot, Xavier, and Yoshua Bengio. "Understanding the difficulty of
+        training deep feedforward neural networks." International Conference
+        on Artificial Intelligence and Statistics. 2010.
     """
     def __init__(self, n_hidden=100, activation='relu', weight_scale=1.0,
                  batch_size=None, C=10e5, verbose=False, warm_start=False,

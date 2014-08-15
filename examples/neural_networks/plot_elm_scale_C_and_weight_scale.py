@@ -37,8 +37,8 @@ random_state = 1
 
 parameters = {}
 
-parameters['C'] = np.logspace(0, 4, 5)
-parameters['weight_scale'] = np.logspace(-2, 2, 5)
+parameters['C'] = np.logspace(-4, 4, 5)
+parameters['weight_scale'] = np.logspace(-4, 4, 5)
 
 for param_name, param_values in sorted(parameters.items()):
 
@@ -46,7 +46,7 @@ for param_name, param_values in sorted(parameters.items()):
     classifiers = []
     for param_value in param_values:
         names.append("%s=%s" % (param_name, param_value))
-        clf = ELMClassifier(n_hidden=300, random_state=random_state)
+        clf = ELMClassifier(n_hidden=100, random_state=random_state)
         setattr(clf, param_name, param_value)
         classifiers.append(clf)
 

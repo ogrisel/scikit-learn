@@ -81,9 +81,8 @@ def test_classification():
     classification digits datasets.
     """
     for name, activation in product(classification_datasets, ACTIVATION_TYPES):
-            elm = ELMClassifier(
-                n_hidden=50, activation=activation, weight_scale=10,
-                random_state=random_state)
+            elm = ELMClassifier(n_hidden=50, activation=activation,
+                                weight_scale=10, random_state=random_state)
             check_elm(elm, 'classification', name, 150, 0.95)
 
 
