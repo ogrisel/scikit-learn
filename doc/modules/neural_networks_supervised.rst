@@ -11,36 +11,35 @@ Neural network models (supervised)
 
 Extreme Learning Machines
 =========================
+
 **Extreme Learning Machine (ELM)** is a supervised nonlinear learning 
 algorithm that takes the following consecutive steps for training:
 
-  *  it applies a random projection on the input space to a possibly larger 
+  *  it applies a random projection to the input space, onto a possibly higher 
      dimensional space;
   *  the result passes through an element-wise non-linear activation function,
      typically a sigmoid such as the tanh, and logistic functions; and
   *  last, it trains a linear one vs. rest classifier or a multi-output ridge 
      regression model.
 
-ELM can be considered as a single-hidden layer feedforward neural network 
+ELMs can be considered as single-hidden layer feedforward neural networks 
 (see figure 1) where:
 
-  *  it trains only the hidden-to-output connection weights;
-  *  assigns random values, as constants, to the input-to-hidden connection 
+  *  they train only the hidden-to-output connection weights;
+  *  assign random values, as constants, to the input-to-hidden connection 
      weights; and
-  *  minimizes the loss function using least squares.
+  *  minimize the loss function using least squares.
 
 In several empirical studies, ELM was found to have a generalization performance 
-similar to that of 1 hidden layer multi-layer perceptron (MLP) or radial
+similar to that of a one hidden layer multi-layer perceptron (MLP) or radial
 basis function (RBF) kernel support vector machines while being significantly 
 faster to train.
-
 
 .. figure:: ../images/neural_network.png
      :align: center
      :scale: 60%
 
      Figure 1 : Single-hidden layer feedforward network.
-
 
 ELM has three main hyper-parameters,
 
@@ -49,9 +48,9 @@ ELM has three main hyper-parameters,
   *  `C`: controls the regularization strength of the output linear model.
 
 `weight_scale` and `C` are similar in that they regularize weight parameters
-such that a higher value means less regularization hence less underfitting (or bias) but 
-potentially more overfitting (or variance). However, in terms of their effect 
-on the single-hidden layer feedforward network, `weight_scale` regularizes 
+such that a higher value means less regularization hence less underfitting (or less bias)
+but potentially more overfitting (or more variance). However, in terms of their
+effect on the single-hidden layer feedforward network, `weight_scale` regularizes 
 the input-to-hidden connection weights, whereas `C` regularizes the hidden-to-output 
 connection weights. Some examples demonstrating the effect of these two parameters are listed
 below::
@@ -65,7 +64,6 @@ below::
 
    * :ref:`example_neural_networks_plot_elm_scale_C_and_weight_scale.py`
 
-
 .. figure:: ../auto_examples/neural_networks/images/plot_elm_hyperparameters_001.png
    :target: ../auto_examples/neural_networks/plot_elm_hyperparameters.html
    :align: center
@@ -75,11 +73,9 @@ below::
 
    * :ref:`example_neural_networks_plot_elm_hyperparameters.py`
 
-
 Higher `n_hidden` provides ELM with a higher capacity to learn complex 
 functions. It allows ELM to have more feature detectors in the hidden 
 layer that characterize the training dataset. 
-
 
 This implements :ref:`classification <elm_classification>` for classification 
 and :ref:`regression <elm_regression>` for regression. They support both dense
@@ -99,9 +95,8 @@ multi-label classification on datasets.
 Like other classifiers, :class:`ELMClassifier` trains on a dataset using the
 fit method that accepts two input parameters: an array X of size 
 ``(n_samples, n_features)``, which represents the training samples, and an array y 
-of integer values of size ``(n_samples)``, which holdis the class labels respective
+of integer values of size ``(n_samples)``, which holds the class labels respective
 to the training samples::
-
 
     >>> from sklearn.neural_network import ELMClassifier
     >>> X = [[0, 0], [1, 1]]
@@ -117,25 +112,21 @@ After training, the model can predict the class of a new sample::
     >>> clf.predict([[2., 2.]])
     array([1])
 
-
 Weighted classification
 -----------------------
 
-For datasets containing an imbalanced ratio of class frequencies, it is
-important to consider adding more weight to classes having less samples than
-others. 
+For imbalanced datasets (which contain an imbalanced ratio of class frequencies), 
+giving more weight to classes having less samples than others could help improve
+accuracy. 
 
 :class:`ELMClassifier` has the parameter ``class_weight`` in
-its ``fit`` method that can be set either to ``None`` - where all samples
-are treated the same; ``auto`` - where weight is given to a sample based
+its ``fit`` method that can be set either to ``None`` - where no weight is
+given to any class; ``auto`` - where weight is given to a sample based
 on its class distribution in the dataset; and a dictionary of the form
-``{class_label : value}`` - which assigns each sample a weight ``value``
-corresponding to the sample's ``class_label``.
+``{class_label : class_weight}``.
 
-Figure [2] shows the result of adding weight to the orange samples - 
-representing a minority class, where the decision boundary sorrounding that 
-class becomes larger in radius as more weight is given.
-
+Figure 2 shows the result of adding weight to the minority class, where the 
+decision boundary surrounding that class becomes larger in radius as more weight is given.
 
 .. figure:: ../auto_examples/neural_networks/images/plot_weighted_elm_001.png
    :target: ../auto_examples/neural_networks/plot_weighted_elm.html
@@ -148,7 +139,6 @@ class becomes larger in radius as more weight is given.
 
    * :ref:`example_neural_networks_plot_weighted_elm.py`
  
-
 
 .. _elm_regression:
 
@@ -179,25 +169,18 @@ where y is expected to be a matrix of floating point values::
 Tips on Practical Use
 =====================
 
-  * **Setting `C`**: if the dataset has few samples or if the samples are noisy, 
+  * **Setting C**: if the dataset has few samples or if the samples are noisy, 
     decreasing ``C`` will increase regularization which in turn reduces 
     overfitting and might improve generalization. Increasing ``C`` will 
     therefore decrease regularization.
 
-  * **Setting `class_weight`**: if the dataset contains an imbalanced ratio 
-    of class fequencies, it is desirable to assign more weight to the class 
-    having less number of samples. Assuming class 1 is the minority 
-    class, you can assign more weight to it by setting class_weight as, say,
-    {1:100}.
+  * **Setting class_weight**: if the dataset contains an imbalanced ratio 
+    of class fequencies, it is desirable to set `class_weight='auto'`, as
+    it assigns more weight to the class having less number of samples.
 
-  * **Setting `algorithm`**: if the dataset is of size that can fit into 
-    memory then setting algorithm='standard' would be desirable. Otherwise,
-    in cases where memory is limited or there is a need for real-time learning,
-    it is prudent to have algorithm='recursive_lsqr'.
-
-  * **Setting `weight_scale`**:  this controls regularization of the weights 
-    the same way as `C` does; but instead of regularizing the hidden-to-output 
-    layer weights, it regularizes the first-to-hidden layer weights.
+  * **Setting weight_scale**:  this controls regularization of the weights 
+    the same way as ``C`` does; but instead of regularizing the hidden-to-output 
+    layer weights, it regularizes the input-to-hidden layer weights.
 
 
 Mathematical formulation
@@ -220,7 +203,6 @@ as,
 
 where  :math:`H = \sigma(W^TX + b)`, `C` is a regularization term which controls the 
 linearity of the decision function, and `I` is the identity matrix.
-
 
 .. topic:: References:
 

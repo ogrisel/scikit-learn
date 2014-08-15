@@ -81,15 +81,16 @@ def test_classification():
     classification digits datasets.
     """
     for name, activation in product(classification_datasets, ACTIVATION_TYPES):
-            elm = ELMClassifier(n_hidden=50, activation=activation,
-                                random_state=random_state)
+            elm = ELMClassifier(
+                n_hidden=50, activation=activation, weight_scale=10,
+                random_state=random_state)
             check_elm(elm, 'classification', name, 150, 0.95)
 
 
 def test_regression():
     """Test ELMRegressor.
 
-    It should achieve score higher than 0.95 for the boston dataset.
+    It should achieve an R^2 score higher than 0.9 for the boston dataset.
     """
     for activation in ACTIVATION_TYPES:
         elm = ELMRegressor(activation=activation)
@@ -101,7 +102,7 @@ def test_multilabel_classification():
     # test fit method
     X, y = make_multilabel_classification(n_samples=50, random_state=0,
                                           return_indicator=True)
-    elm = ELMClassifier()
+    elm = ELMClassifier(weight_scale=100)
     elm.fit(X, y)
     assert_greater(elm.score(X, y), 0.95)
 
@@ -219,17 +220,10 @@ def test_predict_proba_binary():
     clf = ELMClassifier(n_hidden=10)
     clf.fit(X, y)
     y_proba = clf.predict_proba(X)
-    y_log_proba = clf.predict_log_proba(X)
 
     (n_samples, n_classes) = y.shape[0], 2
 
-    proba_max = y_proba.argmax(axis=1)
-    proba_log_max = y_log_proba.argmax(axis=1)
-
     assert_equal(y_proba.shape, (n_samples, n_classes))
-    assert_array_equal(proba_max, proba_log_max)
-    assert_array_equal(y_log_proba, np.log(y_proba))
-
     assert_greater(roc_auc_score(y, y_proba[:, 1]), 0.95)
 
 
@@ -241,16 +235,10 @@ def test_predict_proba_multi():
     clf = ELMClassifier(n_hidden=5)
     clf.fit(X, y)
     y_proba = clf.predict_proba(X)
-    y_log_proba = clf.predict_log_proba(X)
 
     (n_samples, n_classes) = y.shape[0], np.unique(y).size
 
-    proba_max = y_proba.argmax(axis=1)
-    proba_log_max = y_log_proba.argmax(axis=1)
-
     assert_equal(y_proba.shape, (n_samples, n_classes))
-    assert_array_equal(proba_max, proba_log_max)
-    assert_array_equal(y_log_proba, np.log(y_proba))
 
 
 def test_recursive_and_standard():
@@ -278,17 +266,32 @@ def test_sparse_matrices():
     """Test that sparse and dense input matrices yield equal output."""
     X = Xdigits_binary[:50]
     y = ydigits_binary[:50]
-    X_sparse = csr_matrix(X)
-    elm = ELMClassifier(random_state=1, n_hidden=15, batch_size=50)
+    X = csr_matrix(X)
+    n_hidden = 15
+    batch_size = 10
+
+    # Standard ELM
+    elm = ELMClassifier(random_state=1, n_hidden=n_hidden)
+    # Batch based
+    elm_batch_based = ELMClassifier(random_state=1, n_hidden=n_hidden,
+                                    batch_size=10)
+    # ELM for partial fitting
+    elm_parital = ELMClassifier(random_state=1, n_hidden=n_hidden)
+    # Train classifiers
     elm.fit(X, y)
-    pred1 = elm.decision_function(X)
-    elm = ELMClassifier(random_state=1, n_hidden=15)
-    elm.fit(X_sparse, y)
-    pred2 = elm.decision_function(X_sparse)
-    assert_almost_equal(pred1, pred2)
-    pred1 = elm.predict(X)
-    pred2 = elm.predict(X_sparse)
-    assert_array_equal(pred1, pred2)
+    elm_batch_based.fit(X, y)
+
+    for batch_slice in gen_batches(X.shape[0], batch_size):
+        elm_parital.partial_fit(X[batch_slice], y[batch_slice])
+
+    # Get decision scores
+    y_pred = elm.decision_function(X)
+    y_pred_batch_based = elm_batch_based.decision_function(X)
+    y_pred_partial = elm_parital.decision_function(X)
+
+    # The prediction values should be the same
+    assert_almost_equal(y_pred, y_pred_batch_based)
+    assert_almost_equal(y_pred_batch_based, y_pred_partial)
 
 
 def test_verbose():
@@ -326,7 +329,7 @@ def test_warmstart():
 
 
 def test_weighted_elm():
-    """Check class weight impact on AUC
+    """Check class weight impact on AUC.
 
     Re-weighting classes is expected to improve model performance
     for imbalanced classification problems.
