@@ -23,6 +23,7 @@ from sklearn.neural_network import ELMRegressor
 from sklearn.preprocessing import StandardScaler, MinMaxScaler
 from sklearn.utils import gen_batches
 from sklearn.utils.testing import assert_raises, assert_greater, assert_equal
+from sklearn.utils.testing import assert_not_equal
 
 
 np.seterr(all='warn')
@@ -305,7 +306,7 @@ def test_verbose():
     elm.fit(X, y)
     sys.stdout = old_stdout
 
-    assert output.getvalue() != ''
+    assert_not_equal(output.getvalue(), '')
 
 
 def test_warmstart():

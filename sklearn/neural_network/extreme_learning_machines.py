@@ -218,8 +218,8 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             regularized_HT_H.flat[::self.n_hidden + 1] += 1. / self.C
 
             self.coef_output_ += linalg.solve(regularized_HT_H, Hy_batch,
-                                              sym_pos=True,
-                                              overwrite_a=False)
+                                              sym_pos=True, overwrite_a=True,
+                                              overwrite_b=True)
             if self.verbose:
                 y_scores = self._decision_scores(X[batch_slice])
                 print("Batch %d, Training mean squared error = %f" %
