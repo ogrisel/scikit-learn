@@ -185,8 +185,8 @@ Tips on Practical Use
 Mathematical formulation
 ========================
 
-A standard ELM with ``kernel='random'`` trains a single-hidden layer
-feedforward network using the following function,
+A standard ELM trains a single-hidden layer feedforward network using the 
+following function,
 
 :math:`y = \beta \cdot \sigma(W^T \cdot X + b)`
 
