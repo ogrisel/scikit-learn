@@ -144,6 +144,7 @@ def test_params_errors():
 
     assert_raises(ValueError, clf(n_hidden=-1).fit, X, y)
     assert_raises(ValueError, clf(activation='ghost').fit, X, y)
+    assert_raises(ValueError, clf(C=-1).fit, X, y)
 
 
 def test_partial_fit_classes_error():
@@ -299,14 +300,16 @@ def test_verbose():
     X = Xboston
     y = yboston
 
-    elm = ELMRegressor(verbose=True)
-    old_stdout = sys.stdout
-    sys.stdout = output = StringIO()
+    elm_fit = ELMRegressor(verbose=True)
+    elm_batch_fit = ELMRegressor(verbose=True, batch_size=50)
+    for elm in [elm_fit, elm_batch_fit]:
+        old_stdout = sys.stdout
+        sys.stdout = output = StringIO()
 
-    elm.fit(X, y)
-    sys.stdout = old_stdout
+        elm.fit(X, y)
+        sys.stdout = old_stdout
 
-    assert_not_equal(output.getvalue(), '')
+        assert_not_equal(output.getvalue(), '')
 
 
 def test_warmstart():
