@@ -302,17 +302,18 @@ class ELMClassifier(BaseELM, ClassifierMixin):
         A regularization term that controls the linearity of the decision
         function. Smaller value of C makes the decision boundary more linear.
 
-    class_weight : dict, 'auto' or None
+    class_weight : {dict, 'auto', None}, default None
         If 'auto', class weights will be given inversely proportional
         to the frequency of the class in the data.
         If a dictionary is given, keys are the class labels and the
         corresponding values are the class weights.
-        If None is given, the class weights will be uniform.
+        If None is given, then no class weights will be applied.
 
     weight_scale : float, default 1.
         Initializes and scales the input-to-hidden weights.
         The weight values will range between plus and minus
-        'weight_scale / n_features' based on the uniform distribution.
+        'sqrt(weight_scale * 6. / (n_features + n_hidden))' based on the
+        uniform distribution.
 
     n_hidden : int, default 500
         The number of units in the hidden layer.
@@ -503,7 +504,8 @@ class ELMRegressor(BaseELM, RegressorMixin):
     weight_scale : float, default 1.
         Initializes and scales the input-to-hidden weights.
         The weight values will range between plus and minus
-        'weight_scale / n_features' based on the uniform distribution.
+        'sqrt(weight_scale * 6. / (n_features + n_hidden))' based on the
+        uniform distribution.
 
     n_hidden : int, default 100
         The number of units in the hidden layer.
