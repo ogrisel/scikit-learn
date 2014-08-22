@@ -25,9 +25,9 @@ algorithm that takes the following consecutive steps for training:
 ELMs can be considered as single-hidden layer feedforward neural networks 
 (see figure 1) where:
 
-  *  they train only the hidden-to-output connection weights;
   *  assign random values, as constants, to the input-to-hidden connection 
-     weights; and
+     weights;
+  *  they only train the hidden-to-output connection weights; and
   *  minimize the loss function using least squares.
 
 In several empirical studies, ELM was found to have a generalization performance 
@@ -43,17 +43,17 @@ faster to train.
 
 ELM has three main hyper-parameters,
 
-  *  `weight_scale`: controls the variance of the random projection weights;
-  *  `n_hidden`: controls the number of hidden layer nodes; and
-  *  `C`: controls the regularization strength of the output linear model.
+  *  ``weight_scale``: controls the variance of the random projection weights;
+  *  ``n_hidden``: controls the number of hidden layer nodes; and
+  *  ``C``: controls the regularization strength of the output linear model.
 
-`weight_scale` and `C` are similar in that they regularize weight parameters
+``weight_scale`` and ``C`` are similar in that they regularize weight parameters
 such that a higher value means less regularization hence less underfitting (or less bias)
 but potentially more overfitting (or more variance). However, in terms of their
-effect on the single-hidden layer feedforward network, `weight_scale` regularizes 
-the input-to-hidden connection weights, whereas `C` regularizes the hidden-to-output 
+effect on the single-hidden layer feedforward network, ``weight_scale`` regularizes 
+the input-to-hidden connection weights, whereas ``C`` regularizes the hidden-to-output 
 connection weights. Some examples demonstrating the effect of these two parameters are listed
-below::
+below:
 
 .. figure:: ../auto_examples/neural_networks/images/plot_elm_scale_C_and_weight_scale_001.png
    :target: ../auto_examples/neural_networks/plot_elm_scale_C_and_weight_scale.html
@@ -64,16 +64,7 @@ below::
 
    * :ref:`example_neural_networks_plot_elm_scale_C_and_weight_scale.py`
 
-.. figure:: ../auto_examples/neural_networks/images/plot_elm_hyperparameters_001.png
-   :target: ../auto_examples/neural_networks/plot_elm_hyperparameters.html
-   :align: center
-   :scale: 100%
-
-.. topic:: Examples:
-
-   * :ref:`example_neural_networks_plot_elm_hyperparameters.py`
-
-Higher `n_hidden` provides ELM with a higher capacity to learn complex 
+Higher ``n_hidden`` provides ELM with a higher capacity to learn complex 
 functions. It allows ELM to have more feature detectors in the hidden 
 layer that characterize the training dataset. 
 
@@ -168,18 +159,50 @@ where y is expected to be a matrix of floating point values::
 Tips on Practical Use
 =====================
 
+  * **Setting n_hidden**: increasing ``n_hidden`` - the number of nodes in 
+    the hidden layer, allows the ELM to capture more complex representations of
+    the input features, usually leading to better generalization. However, higher
+    ``n_hidden`` value (1) would require ``C`` and ``weight_scale`` to be adjusted
+    to avoid potential overfitting, and (2) would increase memory usage, 
+    training time, and prediction time.
+
   * **Setting C**: if the dataset has few samples or if the samples are noisy, 
     decreasing ``C`` will increase regularization which in turn reduces 
     overfitting and might improve generalization. Increasing ``C`` will 
     therefore decrease regularization.
 
+  * **Setting weight_scale**:  this controls regularization of the weights 
+    the same way as ``C`` does; but instead of regularizing the hidden-to-output 
+    layer weights, it regularizes the input-to-hidden layer weights.
+
   * **Setting class_weight**: if the dataset contains an imbalanced ratio 
     of class fequencies, it is desirable to set `class_weight='auto'`, as
     it assigns more weight to the class having less number of samples.
 
-  * **Setting weight_scale**:  this controls regularization of the weights 
-    the same way as ``C`` does; but instead of regularizing the hidden-to-output 
-    layer weights, it regularizes the input-to-hidden layer weights.
+  * **Setting batch_size**: training on large datasets or having a large 
+    ``n_hidden`` value could cause issues for limited memory. In this case, it is 
+    recommended to set ``batch_size=1000`` in order to process the data in chunks. 
+    This will run the internal sequential learner which avoids computing the non-linear 
+    feature expansion on the full training set at once. Please note that the end 
+    results are the same regardless of the ``batch_size`` value but smaller values could 
+    increase training time.
+
+  * **Preprocessing**: Making sure that the input features vary on the same scale is 
+    important for having consistent prediction results. ``StandardScaler`` and ``**MinMaxScaler``
+    are two appropriate scalers for this task. A good practice is to use ``Pipeline`` as 
+    demonstrated in the ``plot_elm_hyperparameters.py`` example.
+
+Please see the example below to observe the impact of ``C`` and ``weight_scale`` 
+on testing score.
+
+.. figure:: ../auto_examples/neural_networks/images/plot_elm_hyperparameters_001.png
+   :target: ../auto_examples/neural_networks/plot_elm_hyperparameters.html
+   :align: center
+   :scale: 100%
+
+.. topic:: Examples:
+
+   * :ref:`example_neural_networks_plot_elm_hyperparameters.py`
 
 
 Mathematical formulation
@@ -198,10 +221,18 @@ and :math:`\sigma` is the non-linear, component-wise activation function.
 ELM solves for :math:`\beta` using the ridge regression implementation, given
 as,
 
-:math:`(H^T H + (1/C)*I)^{-1} H^T y`
+:math:`(H^T H + (1 / C) * I)^{-1} H^T y`
 
-where  :math:`H = \sigma(W^TX + b)`, `C` is a regularization term which controls the 
-linearity of the decision function, and `I` is the identity matrix.
+where  :math:`H = \sigma(W^TX + b)`, ``C`` is a regularization term which controls the 
+linearity of the decision function, and ``I`` is the identity matrix.
+
+
+Related Models
+==============
+
+  * :ref:`Kernel approximation <kernel_approximation>` : this introduces other models
+    that map the input feature space to an intermediate non-linear feature space 
+    suitable for training linear models.
 
 .. topic:: References:
 
