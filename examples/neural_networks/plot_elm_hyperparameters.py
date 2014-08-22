@@ -13,6 +13,10 @@ The example then generates a color map to display the scores obtained from
 GridSearchCV in a 2D plot. During this experiment, the number of hidden neurons
 was set to 1024.
 
+The resulting plot has a diagonal showing a set of high validation scores.
+This is because, keeping the rest of the parameters fixed, the overfitting
+caused by larger weight_scale is offset by smaller C, which regularizes
+the trained output weights.
 """
 print(__doc__)
 

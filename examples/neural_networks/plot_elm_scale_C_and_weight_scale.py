@@ -1,7 +1,7 @@
 """
-====================================================
-Varying hyperparameters in Extreme Learning Machines
-====================================================
+=================================================================
+Impact of ELMs hyperparameters C and weight_scale on toy datasets
+=================================================================
 
 This illustrates how varying the regularization terms weight_scale, and C can
 affect the nonlinearity degree of ELM's decision function.
@@ -62,7 +62,7 @@ for param_name, param_values in sorted(parameters.items()):
                 make_circles(noise=0.2, factor=0.5, random_state=random_state),
                 linearly_separable]
 
-    figure = plt.figure(figsize=(27, 9))
+    figure = plt.figure(figsize=(17, 9))
     i = 1
     # iterate over datasets
     for X, y in datasets:

@@ -217,6 +217,11 @@ class BaseELM(six.with_metaclass(ABCMeta, BaseEstimator)):
             regularized_HT_H = self._HT_H_accumulated.copy()
             regularized_HT_H.flat[::self.n_hidden + 1] += 1. / self.C
 
+            # It is safe to use linalg.solve (instead of linalg.lstsq
+            # which is slow) since it is highly unlikely that
+            # regularized_HT_H is singular due to the random
+            # projection of the first layer and 'C' regularization being
+            # not dangerously large.
             self.coef_output_ += linalg.solve(regularized_HT_H, Hy_batch,
                                               sym_pos=True, overwrite_a=True,
                                               overwrite_b=True)
