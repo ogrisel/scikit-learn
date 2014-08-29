@@ -403,7 +403,7 @@ class _SigmoidCalibration(BaseEstimator, RegressorMixin):
         return 1. / (1. + np.exp(self.a_ * T + self.b_))
 
 
-def calibration_curve(y_true, y_prob, n_bins=5):
+def calibration_curve(y_true, y_prob, normalize=False, n_bins=5):
     """Compute true and predicted probabilities for a calibration curve
 
     Parameters
@@ -413,6 +413,11 @@ def calibration_curve(y_true, y_prob, n_bins=5):
 
     y_prob : array, shape (n_samples,)
         Probabilities of the positive class.
+
+    normalize : bool, optional, default=False
+        Whether y_prob needs to be normalized into the bin [0, 1], i.e. is not
+        a proper probability. If True, the smallest value in y_prob is mapped
+        onto 0 and the largest one onto 1.
 
     n_bins : int
         Number of bins. A bigger number requires more data.
@@ -434,6 +439,13 @@ def calibration_curve(y_true, y_prob, n_bins=5):
     """
     y_true = column_or_1d(y_true)
     y_prob = column_or_1d(y_prob)
+
+    if normalize:  # Normalize predicted values into interval [0, 1]
+        y_prob = (y_prob - y_prob.min()) / (y_prob.max() - y_prob.min())
+    elif y_prob.min() < 0 or y_prob.max() > 1:
+        raise ValueError("y_prob has values outside [0, 1] and normalize is "
+                         "set to False.")
+
     y_true = _check_and_normalize(y_true, y_prob)
 
     bins = np.linspace(0., 1. + 1e-8, n_bins + 1)
