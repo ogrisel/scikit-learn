@@ -3,10 +3,10 @@
 Probability calibration of classifiers
 ======================================
 
-When performing classfication you often want to predict, not only
+When performing classification you often want to predict, not only
 the class label, but also the associated probability. This probability
 gives you some kind of confidence on the prediction. This example
-demonstrates how to transform the decisition function of a generic
+demonstrates how to transform the decision function of a generic
 classifier into a calibrated probability. The accuracy is estimated
 with Brier's score (see http://en.wikipedia.org/wiki/Brier_score).
 
@@ -73,22 +73,28 @@ print("With sigmoid calibration: %1.3f" % clf_sigmoid_score)
 
 ###############################################################################
 # Plot the data and the predicted probabilities
-
-plt.close('all')
-
 plt.figure()
 for this_y in np.unique(y):
     this_X = X_train[y_train == this_y]
-    plt.plot(this_X[:, 0], this_X[:, 1], 'x')
+    plt.plot(this_X[:, 0], this_X[:, 1], 'x', label="Class %s" % this_y)
+plt.legend(loc="best")
+plt.title("Data")
 
 plt.figure()
-order = np.lexsort((y_test, prob_pos_clf))
-plt.plot(prob_pos_clf[order], 'xr', label='No calibration (%1.3f)' % clf_score)
+order = np.lexsort((prob_pos_clf, ))
+plt.plot(prob_pos_clf[order], 'r', label='No calibration (%1.3f)' % clf_score)
 plt.plot(prob_pos_isotonic[order], 'g', linewidth=3,
          label='Isotonic calibration (%1.3f)' % clf_isotonic_score)
 plt.plot(prob_pos_sigmoid[order], 'b', linewidth=3,
-         label='Simoid calibration (%1.3f)' % clf_sigmoid_score)
-plt.plot(y_test[order], 'sg', linewidth=3, label='y')
+         label='Sigmoid calibration (%1.3f)' % clf_sigmoid_score)
+plt.plot(np.linspace(0, y_test.size, 51)[1::2],
+         y_test[order].reshape(25, -1).mean(1),
+         'k', linewidth=3, label=r'Empirical')
 plt.ylim([-0.05, 1.05])
+plt.xlabel("Instances sorted according to predicted probability "
+           "(uncalibrated GNB)")
+plt.ylabel("P(y=1)")
 plt.legend(loc="upper left")
+plt.title("Gaussian Naive Bayes probabilities")
+
 plt.show()

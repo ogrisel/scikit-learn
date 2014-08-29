@@ -1,7 +1,7 @@
 """
-============================
-Probability Calibration plot
-============================
+=============================
+Probability Calibration curve
+=============================
 
 When performing classfication you often want to predict, not only
 the class label, but also the associated probability. This probability
@@ -53,10 +53,11 @@ gnb_sigmoid = CalibratedClassifierCV(gnb, cv=2, method='sigmoid')
 
 print("-- Brier scores:")
 
-plt.figure()
-plt.xlabel("Mean predicted value")
-plt.ylabel("Fraction of positives")
-plt.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
+plt.figure(figsize=(10, 10))
+ax1 = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
+ax2 = plt.subplot2grid((3, 1), (2, 0))
+
+ax1.plot([0, 1], [0, 1], "k:", label="Perfectly calibrated")
 for clf, name in [(lr, 'Logistic'),
                   (gnb, 'Naive Bayes'),
                   (gnb_isotonic, 'Naive Bayes + Isotonic'),
@@ -67,11 +68,21 @@ for clf, name in [(lr, 'Logistic'),
     print("%s: %1.3f" % (name, clf_score))
     fraction_of_positives, mean_predicted_value = \
         calibration_curve(y_test, prob_pos, n_bins=10)
-    plt.plot(mean_predicted_value, fraction_of_positives, "s-",
+
+    ax1.plot(mean_predicted_value, fraction_of_positives, "s-",
              label="%s (%1.3f)" % (name, clf_score))
-plt.xlabel("Mean predicted value")
-plt.ylabel("Fraction of positives")
-plt.legend(loc="lower right")
-plt.ylim([-0.05, 1.05])
-plt.title('Calibration plots  (reliability curve)')
+
+    ax2.hist(prob_pos, range=(0, 1), bins=10, label=name,
+             histtype="step", lw=2)
+
+ax1.set_ylabel("Fraction of positives")
+ax1.set_ylim([-0.05, 1.05])
+ax1.legend(loc="lower right")
+ax1.set_title('Calibration plots  (reliability curve)')
+
+ax2.set_xlabel("Mean predicted value")
+ax2.set_ylabel("Count")
+ax2.legend(loc="best")
+
+plt.tight_layout()
 plt.show()
