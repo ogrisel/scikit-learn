@@ -403,8 +403,8 @@ class _SigmoidCalibration(BaseEstimator, RegressorMixin):
         return 1. / (1. + np.exp(self.a_ * T + self.b_))
 
 
-def calibration_plot(y_true, y_prob, n_bins=5):
-    """Compute true and predicted probabilities for a calibration plot
+def calibration_curve(y_true, y_prob, n_bins=5):
+    """Compute true and predicted probabilities for a calibration curve
 
     Parameters
     ----------
