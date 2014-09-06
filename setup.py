@@ -10,6 +10,12 @@ import sys
 import os
 import shutil
 from distutils.command.clean import clean as Clean
+#try:
+    # Only used by the release manager of the project
+import wheelhouse_uploader.cmd
+cmdclass = vars(wheelhouse_uploader.cmd)
+#except ImportError:
+#    cmdclass = {}
 
 if sys.version_info[0] < 3:
     import __builtin__ as builtins
@@ -75,6 +81,8 @@ class CleanCommand(Clean):
                 if dirname == '__pycache__':
                     shutil.rmtree(os.path.join(dirpath, dirname))
 
+cmdclass['clean'] = CleanCommand
+
 
 ###############################################################################
 def configuration(parent_package='', top_path=None):
@@ -124,7 +132,7 @@ def setup_package():
                                  'Programming Language :: Python :: 3.3',
                                  'Programming Language :: Python :: 3.4',
                                  ],
-                    cmdclass={'clean': CleanCommand},
+                    cmdclass=cmdclass,
                     **extra_setuptools_args)
 
     if (len(sys.argv) >= 2
