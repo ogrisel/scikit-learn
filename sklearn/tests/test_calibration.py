@@ -22,16 +22,19 @@ def test_calibration():
     n_samples = 500
     X, y = make_classification(n_samples=2 * n_samples, n_features=6,
                                random_state=42)
+    sample_weight = np.random.random(y.size)
 
     X -= X.min()  # MultinomialNB only allows positive X
 
     # split train and test
-    X_train, y_train = X[:n_samples], y[:n_samples]
-    X_test, y_test = X[n_samples:], y[n_samples:]
+    X_train, y_train, sw_train = \
+        X[:n_samples], y[:n_samples], sample_weight[:n_samples]
+    X_test, y_test, sw_test = \
+        X[n_samples:], y[n_samples:], sample_weight[n_samples:]
 
     # Naive-Bayes
     clf = MultinomialNB()
-    clf.fit(X_train, y_train)
+    clf.fit(X_train, y_train, sw_train)
     prob_pos_clf = clf.predict_proba(X_test)[:, 1]
 
     # Naive Bayes with calibration
@@ -40,7 +43,7 @@ def test_calibration():
                                        sparse.csr_matrix(X_test))]:
         for method in ['isotonic', 'sigmoid']:
             pc_clf = CalibratedClassifierCV(clf, method=method, cv=2)
-            pc_clf.fit(this_X_train, y_train)
+            pc_clf.fit(this_X_train, y_train, sample_weight=sw_train)
             prob_pos_pc_clf = pc_clf.predict_proba(this_X_test)[:, 1]
 
             assert_true(brier_score_loss(y_test, prob_pos_clf) >

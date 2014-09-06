@@ -1535,7 +1535,7 @@ def _check_and_normalize(y_true, y_prob):
     return label_binarize(y_true, labels)[:, 0]
 
 
-def brier_score_loss(y_true, y_prob):
+def brier_score_loss(y_true, y_prob, sample_weight=None):
     """Compute the Brier score
 
     The smaller the Brier score, the better, hence the naming with "loss".
@@ -1564,6 +1564,9 @@ def brier_score_loss(y_true, y_prob):
     y_prob : array, shape (n_samples,)
         Probabilities of the positive class.
 
+    sample_weight : array-like of shape = [n_samples], optional
+        Sample weights.
+
     Returns
     -------
     score : float
@@ -1587,4 +1590,4 @@ def brier_score_loss(y_true, y_prob):
     y_true = column_or_1d(y_true)
     y_prob = column_or_1d(y_prob)
     y_true = _check_and_normalize(y_true, y_prob)
-    return np.mean((y_true - y_prob) ** 2)
+    return np.average((y_true - y_prob) ** 2, weights=sample_weight)

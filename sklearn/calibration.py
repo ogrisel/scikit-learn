@@ -2,8 +2,11 @@
 
 # Author: Alexandre Gramfort <alexandre.gramfort@telecom-paristech.fr>
 #         Balazs Kegl <balazs.kegl@gmail.com>
+#         Jan Hendrik Metzen <jhm@informatik.uni-bremen.de>
 #
 # License: BSD 3 clause
+
+import inspect
 
 from math import log
 import numpy as np
@@ -70,7 +73,7 @@ class CalibratedClassifier(BaseEstimator, ClassifierMixin):
 
         return df, idx_pos_class
 
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """Calibrate the fitted model
 
         Parameters
@@ -80,6 +83,9 @@ class CalibratedClassifier(BaseEstimator, ClassifierMixin):
 
         y : array-like, shape (n_samples,)
             Target values.
+
+        sample_weight : array-like, shape = [n_samples] or None
+            Sample weights. If None, then samples are equally weighted.
 
         Returns
         -------
@@ -105,7 +111,7 @@ class CalibratedClassifier(BaseEstimator, ClassifierMixin):
             else:
                 raise ValueError('method should be "sigmoid" or '
                                  '"isotonic". Got %s.' % self.method)
-            calibrator.fit(this_df, Y[:, k])
+            calibrator.fit(this_df, Y[:, k], sample_weight)
             self.calibrators_.append(calibrator)
 
         return self
@@ -207,7 +213,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         self.method = method
         self.cv = cv
 
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """Fit the calibrated model
 
         Parameters
@@ -217,6 +223,9 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
 
         y : array-like, shape (n_samples,)
             Target values.
+
+        sample_weight : array-like, shape = [n_samples] or None
+            Sample weights. If None, then samples are equally weighted.
 
         Returns
         -------
@@ -234,10 +243,19 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
 
         for train, test in cv:
             this_estimator = clone(self.base_estimator)
-            this_estimator.fit(X[train], y[train])
+            if sample_weight is not None and \
+               "sample_weight" in inspect.getargspec(this_estimator.fit)[0]:
+                this_estimator.fit(X[train], y[train], sample_weight[train])
+            else:
+                this_estimator.fit(X[train], y[train])
+
             calibrated_classifier = CalibratedClassifier(this_estimator,
                                                          method=self.method)
-            calibrated_classifier.fit(X[test], y[test])
+            if sample_weight is not None:
+                calibrated_classifier.fit(X[test], y[test],
+                                          sample_weight[test])
+            else:
+                calibrated_classifier.fit(X[test], y[test])
             self.calibrated_classifiers_.append(calibrated_classifier)
 
         return self
@@ -291,7 +309,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
 
 
-def sigmoid_calibration(df, y):
+def sigmoid_calibration(df, y, sample_weight=None):
     """Probability Calibration with sigmoid method (Platt 2000)
 
     Parameters
@@ -301,6 +319,9 @@ def sigmoid_calibration(df, y):
 
     y : ndarray, shape (n_samples,)
         The targets.
+
+    sample_weight : array-like, shape = [n_samples] or None
+        Sample weights. If None, then samples are equally weighted.
 
     Returns
     -------
@@ -332,21 +353,26 @@ def sigmoid_calibration(df, y):
         # From Platt (beginning of Section 2.2)
         E = np.exp(AB[0] * F + AB[1])
         P = 1. / (1. + E)
-        return -(np.dot(T, np.log(P + tiny))
-                 + np.dot(T1, np.log(1. - P + tiny)))
+        l = -(T * np.log(P + tiny) + T1 * np.log(1. - P + tiny))
+        if sample_weight is not None:
+            return (sample_weight * l).sum()
+        else:
+            return l.sum()
 
     def grad(AB):
         # gradient of the objective function
         E = np.exp(AB[0] * F + AB[1])
         P = 1. / (1. + E)
         TEP_minus_T1P = P * (T * E - T1)
+        if sample_weight is not None:
+            TEP_minus_T1P *= sample_weight
         dA = np.dot(TEP_minus_T1P, F)
         dB = np.sum(TEP_minus_T1P)
         return np.array([dA, dB])
 
     AB0 = np.array([0., log((prior0 + 1.) / (prior1 + 1.))])
     AB_ = fmin_bfgs(objective, AB0, fprime=grad, disp=False)
-    return AB_
+    return AB_[0], AB_[1]
 
 
 class _SigmoidCalibration(BaseEstimator, RegressorMixin):
@@ -360,7 +386,7 @@ class _SigmoidCalibration(BaseEstimator, RegressorMixin):
     `b_` : float
         The intercept.
     """
-    def fit(self, X, y):
+    def fit(self, X, y, sample_weight=None):
         """Fit the model using X, y as training data.
 
         Parameters
@@ -370,6 +396,9 @@ class _SigmoidCalibration(BaseEstimator, RegressorMixin):
 
         y : array-like, shape (n_samples,)
             Training target.
+
+        sample_weight : array-like, shape = [n_samples] or None
+            Sample weights. If None, then samples are equally weighted.
 
         Returns
         -------
@@ -383,7 +412,7 @@ class _SigmoidCalibration(BaseEstimator, RegressorMixin):
         if len(X.shape) != 1:
             raise ValueError("X should be a 1d array")
 
-        self.a_, self.b_ = sigmoid_calibration(X, y)
+        self.a_, self.b_ = sigmoid_calibration(X, y, sample_weight)
         return self
 
     def predict(self, T):
