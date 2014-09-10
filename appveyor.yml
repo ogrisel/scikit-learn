@@ -57,7 +57,19 @@ test_script:
 
   # Skip joblib tests that require multiprocessing as they are prone to random
   # slow down
-  - "python -c \"import nose; nose.main()\" -s sklearn"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
+  - "python -c \"import nose; nose.main()\" -s sklearn.linear_model.tests.test_least_angle:test_lasso_lars_path_length"
 
   # Move back to the project folder
   - "cd .."
