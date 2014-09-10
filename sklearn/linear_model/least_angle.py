@@ -201,7 +201,7 @@ def lars_path(X, y, Xy=None, Gram=None, max_iter=500,
             prev_coef = coefs[n_iter - 1]
 
         alpha[0] = C / n_samples
-        if alpha[0] <= alpha_min:  # early stopping
+        if alpha[0] <= alpha_min + 10 * np.finfo(np.float32).eps:  # early stopping
             print("early stopping: alpha[0]=%f alpha_min=%f" % (alpha[0], alpha_min))
             if not (abs(alpha[0] - alpha_min) < 10 * np.finfo(np.float32).eps):
                 print("not close enough for interpolation")
