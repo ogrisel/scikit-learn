@@ -4,11 +4,11 @@ Impact of ELMs hyperparameters C and weight_scale on toy datasets
 =================================================================
 
 This illustrates how varying the regularization terms weight_scale, and C can
-affect the nonlinearity degree of ELM's decision function.
+affect the regularity or smoothness of an ELM's decision function.
 
 This example generates two plots, corresponding to each of the hyperparameters.
-They control regularization in that they constrain the
-coefficients of the decision function.
+They control regularization in that they constrain the coefficients of the
+decision function.
 
 If, for example, there is high bias - as can be indicated by a high training
 error, increasing C or weight_scale would decrease bias and therefore reduce
@@ -38,7 +38,9 @@ random_state = 1
 parameters = {}
 
 parameters['C'] = np.logspace(-4, 4, 5)
-parameters['weight_scale'] = np.logspace(-4, 4, 5)
+parameters['weight_scale'] = np.logspace(-2, 2, 5)
+
+default_parameters = ELMClassifier().get_params()
 
 for param_name, param_values in sorted(parameters.items()):
 
@@ -63,6 +65,7 @@ for param_name, param_values in sorted(parameters.items()):
                 linearly_separable]
 
     figure = plt.figure(figsize=(17, 9))
+
     i = 1
     # iterate over datasets
     for X, y in datasets:
@@ -119,7 +122,12 @@ for param_name, param_values in sorted(parameters.items()):
             ax.text(xx.max() - .3, yy.min() + .3, ('%.2f' % score).lstrip('0'),
                     size=15, horizontalalignment='right')
             i += 1
-
     figure.subplots_adjust(left=.02, right=.98)
 
+    other_param_name = 'C' if param_name == 'weight_scale' else 'weight_scale'
+    other_param_value = default_parameters[other_param_name]
+    figure.suptitle("Impact of varying {param_name} for fixed"
+                    " {other_param_name}={other_param_value}".format(
+                    param_name=param_name, other_param_name=other_param_name,
+                    other_param_value=other_param_value))
 plt.show()
