@@ -21,4 +21,3 @@ Supervised learning
     modules/label_propagation.rst
     modules/lda_qda.rst
     modules/isotonic.rst
-    modules/neural_networks_supervised
