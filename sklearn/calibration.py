@@ -50,6 +50,9 @@ class CalibratedClassifier(BaseEstimator, ClassifierMixin):
 
     .. [3] Probabilistic Outputs for Support Vector Machines and Comparisons to
            Regularized Likelihood Methods, J. Platt, (1999)
+
+    .. [4] Predicting Good Probabilities with Supervised Learning, 
+           A. Niculescu-Mizil & R. Caruana, ICML 2005
     """
     def __init__(self, base_estimator, method='sigmoid'):
         self.base_estimator = base_estimator
@@ -207,6 +210,9 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
 
     .. [3] Probabilistic Outputs for Support Vector Machines and Comparisons to
            Regularized Likelihood Methods, J. Platt, (1999)
+
+    .. [4] Predicting Good Probabilities with Supervised Learning, 
+           A. Niculescu-Mizil & R. Caruana, ICML 2005
     """
     def __init__(self, base_estimator=GaussianNB(), method='sigmoid', cv=3):
         self.base_estimator = base_estimator

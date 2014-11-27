@@ -7,16 +7,21 @@ Probability calibration
 .. currentmodule:: sklearn.calibration
 
 
-When performing classification you often want to predict, not only
-the class label, but also the associated probability. This probability
-gives you some kind of confidence on the prediction. Some models
-can give you poor estimates of the class probabilities and some even
-do not not support probability prediction. The calibration module
-allows you to better calibrate the probabilities of a given model,
-or to add support for probability prediction. Two approaches
-are provided: a parametric approach based on Platt's sigmoid
-model and a non-parametric approach based on isotonic regression
-:mod:`sklearn.isotonic`.
+When performing classification you often want not only to predict the class
+label, but also obtain a probability of the respective label.  This probability
+gives you some kind of confidence on the prediction.  Some models can give you
+poor estimates of the class probabilities and some even do not not support
+probability prediction. The calibration module allows you to better calibrate
+the probabilities of a given model, or to add support for probability
+prediction.
+
+Well calibrated classifiers are probabilistic classifiers for which the output
+of the predict_proba method can be directly interpreted as a confidence level.
+For instance a well calibrated (binary) classifier should classify the samples
+such that among the samples to which it gave a predict_proba value close to 0.8,
+approx. 80% actually belong to the positive class. Two approaches are provided:
+a parametric approach based on Platt's sigmoid model and a non-parametric
+approach based on isotonic regression :mod:`sklearn.isotonic`.
 
 Probability calibration should be done on new data not used
 for model fitting. The class :class:`CalibratedClassifier` allows you
@@ -32,18 +37,18 @@ data. The blob in the middle contains random samples of each class.
 The probability for the samples in this blob should be 0.5.
 
 .. figure:: ../auto_examples/images/plot_calibration_001.png
-   :target: ../auto_examples/images/plot_calibration.html
+   :target: ../auto_examples/plot_calibration.html
    :align: center
 
 The following image shows on the data above the estimated probability
-using a Gaussian Naive-Bayes classifier without calibration,
+using a Gaussian naive Bayes classifier without calibration,
 with a sigmoid calibration and with a non-parametric isotonic
 calibration. One can observe that the non-parametric model
 provides the most accurate probability estimates for samples
 in the middle, i.e. 0.5.
 
 .. figure:: ../auto_examples/images/plot_calibration_002.png
-   :target: ../auto_examples/images/plot_calibration.html
+   :target: ../auto_examples/plot_calibration.html
    :align: center
 
 The last image shows with the covertype dataset the estimated
@@ -56,10 +61,10 @@ logistic regression is well calibrated and that isotonic calibration
 greatly improves over uncalibrated :class:`GaussianNB`.
 
 The following calibration plots were made with
-:func:`calibration.calibration_plot`.
+:func:`calibration.plot_calibration_curve`.
 
-.. figure:: ../auto_examples/images/plot_calibration_plot_001.png
-   :target: ../auto_examples/images/plot_calibration_plot.html
+.. figure:: ../auto_examples/images/plot_calibration_curve_001.png
+   :target: ../auto_examples/plot_calibration_curve.html
    :align: center
 
 .. topic:: References:
@@ -72,3 +77,6 @@ The following calibration plots were made with
 
     .. [3] Probabilistic Outputs for Support Vector Machines and Comparisons to
           Regularized Likelihood Methods, J. Platt, (1999)
+
+    .. [4] Predicting Good Probabilities with Supervised Learning, 
+          A. Niculescu-Mizil & R. Caruana, ICML 2005
