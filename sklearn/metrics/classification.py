@@ -1518,7 +1518,8 @@ def hinge_loss(y_true, pred_decision, labels=None, sample_weight=None):
     return np.average(losses, weights=sample_weight)
 
 
-def _check_and_normalize(y_true, y_prob):
+def _check_binary_probabilistic_predictions(y_true, y_prob):
+    """Check that y_true is binary and y_prob contains valid probabilities"""
     check_consistent_length(y_true, y_prob)
 
     labels = np.unique(y_true)
@@ -1589,5 +1590,5 @@ def brier_score_loss(y_true, y_prob, sample_weight=None):
     """
     y_true = column_or_1d(y_true)
     y_prob = column_or_1d(y_prob)
-    y_true = _check_and_normalize(y_true, y_prob)
+    y_true = _check_binary_probabilistic_predictions(y_true, y_prob)
     return np.average((y_true - y_prob) ** 2, weights=sample_weight)

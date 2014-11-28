@@ -43,6 +43,8 @@ def test_calibration():
                                        sparse.csr_matrix(X_test))]:
         for method in ['isotonic', 'sigmoid']:
             pc_clf = CalibratedClassifierCV(clf, method=method, cv=2)
+            # Note that this fit overwrites the fit on the entire training
+            # set
             pc_clf.fit(this_X_train, y_train, sample_weight=sw_train)
             prob_pos_pc_clf = pc_clf.predict_proba(this_X_test)[:, 1]
 
@@ -62,6 +64,42 @@ def test_calibration():
     assert_array_almost_equal(np.sum(probas, axis=1), np.ones(len(X_test)))
     assert_true(clf.fit(X_train, y_train).score(X_test, y_test) <=
                 ir_clf.fit(X_train, y_train).score(X_test, y_test))
+
+
+def test_calibration_prefit():
+    """Test calibration for prefitted classifiers"""
+    n_samples = 500
+    X, y = make_classification(n_samples=3 * n_samples, n_features=6,
+                               random_state=42)
+    sample_weight = np.random.random(y.size)
+
+    X -= X.min()  # MultinomialNB only allows positive X
+
+    # split train and test
+    X_train, y_train, sw_train = \
+        X[:n_samples], y[:n_samples], sample_weight[:n_samples]
+    X_calib, y_calib, sw_calib = \
+        X[n_samples:2*n_samples], y[n_samples:2*n_samples], \
+        sample_weight[n_samples:2*n_samples]
+    X_test, y_test, sw_test = \
+        X[2*n_samples:], y[2*n_samples:], sample_weight[2*n_samples:]
+
+    # Naive-Bayes
+    clf = MultinomialNB()
+    clf.fit(X_train, y_train, sw_train)
+    prob_pos_clf = clf.predict_proba(X_test)[:, 1]
+
+    # Naive Bayes with calibration
+    for this_X_calib, this_X_test in [(X_calib, X_test),
+                                      (sparse.csr_matrix(X_calib),
+                                       sparse.csr_matrix(X_test))]:
+        for method in ['isotonic', 'sigmoid']:
+            pc_clf = CalibratedClassifierCV(clf, method=method, cv="prefit")
+            pc_clf.fit(this_X_calib, y_calib, sample_weight=sw_calib)
+            prob_pos_pc_clf = pc_clf.predict_proba(this_X_test)[:, 1]
+
+            assert_true(brier_score_loss(y_test, prob_pos_clf) >
+                        brier_score_loss(y_test, prob_pos_pc_clf))
 
 
 def test_sigmoid_calibration():
