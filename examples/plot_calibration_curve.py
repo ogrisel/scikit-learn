@@ -14,6 +14,7 @@ calibrated is the predicted probability.
 print(__doc__)
 
 # Author: Alexandre Gramfort <alexandre.gramfort@telecom-paristech.fr>
+#         Jan Hendrik Metzen <jhm@informatik.uni-bremen.de>
 # License: BSD Style.
 
 import matplotlib.pyplot as plt
@@ -21,9 +22,11 @@ import matplotlib.pyplot as plt
 from sklearn import datasets
 from sklearn.naive_bayes import GaussianNB
 from sklearn.linear_model import LogisticRegression
-from sklearn.metrics import brier_score_loss
+from sklearn.metrics import (brier_score_loss, precision_score, recall_score,
+                             f1_score)
 from sklearn.calibration import CalibratedClassifierCV, calibration_curve
 from sklearn.cross_validation import train_test_split
+
 
 data = datasets.fetch_covtype()
 X = data.data
@@ -51,7 +54,6 @@ gnb_sigmoid = CalibratedClassifierCV(gnb, cv=2, method='sigmoid')
 ###############################################################################
 # Plot calibration plots
 
-print("-- Brier scores:")
 
 plt.figure(figsize=(10, 10))
 ax1 = plt.subplot2grid((3, 1), (0, 0), rowspan=2)
@@ -65,7 +67,12 @@ for clf, name in [(lr, 'Logistic'),
     clf.fit(X_train, y_train)
     prob_pos = clf.predict_proba(X_test)[:, 1]
     clf_score = brier_score_loss(y_test, prob_pos, pos_label=y.max())
-    print("%s: %1.3f" % (name, clf_score))
+    print("%s:" % name)
+    print("\tBrier: %1.3f" % (clf_score))
+    print("\tPrecision: %1.3f" % precision_score(y_test, prob_pos < 0.5))
+    print("\tRecall: %1.3f" % recall_score(y_test, prob_pos < 0.5))
+    print("\tF1: %1.3f" % f1_score(y_test, prob_pos < 0.5))
+
     fraction_of_positives, mean_predicted_value = \
         calibration_curve(y_test, prob_pos, n_bins=10)
 

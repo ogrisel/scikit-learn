@@ -28,7 +28,7 @@ from scipy.sparse import coo_matrix
 from scipy.sparse import csr_matrix
 from scipy.spatial.distance import hamming as sp_hamming
 
-from ..preprocessing import LabelBinarizer
+from ..preprocessing import LabelBinarizer, label_binarize
 from ..preprocessing import LabelEncoder
 from ..utils import check_array
 from ..utils import check_consistent_length
@@ -1525,7 +1525,8 @@ def _check_binary_probabilistic_predictions(y_true, y_prob):
     labels = np.unique(y_true)
 
     if len(labels) != 2:
-        raise ValueError("Only binary classification is supported.")
+        raise ValueError("Only binary classification is supported. "
+                         "Provided labels %s." % labels)
 
     if y_prob.max() > 1:
         raise ValueError("y_prob contains values greater than 1.")
@@ -1555,7 +1556,9 @@ def brier_score_loss(y_true, y_prob, sample_weight=None, pos_label=1):
     can be structured as true or false, but is inappropriate for ordinal
     variables which can take on three or more values (this is because the
     Brier score assumes that all possible outcomes are equivalently
-    "distant" from one another).
+    "distant" from one another). Which label is considered to be the positive
+    label is controlled via the parameter pos_label, which defaults to 1.
+    
 
     Parameters
     ----------

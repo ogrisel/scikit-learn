@@ -16,7 +16,7 @@ from scipy.optimize import fmin_bfgs
 
 from .base import BaseEstimator, ClassifierMixin, RegressorMixin, clone
 from .preprocessing import LabelBinarizer
-from .utils import check_array, indexable, column_or_1d
+from .utils import check_X_y, check_array, indexable, column_or_1d
 from .isotonic import IsotonicRegression
 from .naive_bayes import GaussianNB
 from .cross_validation import _check_cv
@@ -91,8 +91,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         self : object
             Returns an instance of self.
         """
-        X = check_array(X, accept_sparse=['csc', 'csr', 'coo'])
-        y = column_or_1d(y)
+        X, y = check_X_y(X, y, accept_sparse=['csc', 'csr', 'coo'])
         X, y = indexable(X, y)
         lb = LabelBinarizer().fit(y)
         self.classes_ = lb.classes_
@@ -252,10 +251,6 @@ class _CalibratedClassifier(object):
         self : object
             Returns an instance of self.
         """
-        X = check_array(X, accept_sparse=['csc', 'csr', 'coo'])
-        y = column_or_1d(y)
-        X, y = indexable(X, y)
-
         lb = LabelBinarizer()
         Y = lb.fit_transform(y)
         self.classes_ = lb.classes_
@@ -292,7 +287,6 @@ class _CalibratedClassifier(object):
         C : array, shape (n_samples, n_classes)
             The predicted probas. Can be exact zeros.
         """
-        X = check_array(X, accept_sparse=['csc', 'csr', 'coo'])
         n_classes = len(self.classes_)
         proba = np.zeros((X.shape[0], n_classes))
 
