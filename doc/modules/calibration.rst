@@ -73,12 +73,16 @@ obtained with :class:`LogisticRegression`, :class:`GaussianNB`,
 :class:`GaussianNB` with both isotonic calibration and sigmoid calibration. The
 calibration performance is evaluated with Brier score
 :func:`metrics.brier_score_loss`, reported in the legend (the smaller the
-better). One can observe here that logistic regression is well calibrated and
-that isotonic calibration greatly improves over uncalibrated
-:class:`GaussianNB`.
-
-The following calibration plots were made with
-:func:`calibration.plot_calibration_curve`.
+better). One can observe here that logistic regression is well
+calibrated while raw Gaussian naive Bayes performs very badly. Its  calibration
+curve is above the diagonal which indicates that it's classification is
+imbalanced and it classifies many positive example as negative (bad precision).
+Calibration of the probabilities of Gaussian naive Bayes with isotonic 
+regression can fix this issue as can be seen from the nearly diagonal 
+calibration curve. Sigmoid calibration also improves the brier score, albeit 
+not as strongly as the non-parametric isotonic regression. This can be 
+attributed to the fact that we have plenty of calibration data such that the
+greater flexibility of the non-parametric model can be exploited.
 
 .. figure:: ../auto_examples/images/plot_calibration_curve_001.png
    :target: ../auto_examples/plot_calibration_curve.html

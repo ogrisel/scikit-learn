@@ -3,13 +3,26 @@
 Probability Calibration curve
 =============================
 
-When performing classfication you often want to predict, not only
-the class label, but also the associated probability. This probability
-gives you some kind of confidence on the prediction. This example
-demonstrates how to transform the decisition function of a generic
-classifier into a probability and how to display how well
-calibrated is the predicted probability.
+When performing classfication you often want to predict, not only the class
+label, but also the associated probability. This probability gives you some kind
+of confidence on the prediction. This example demonstrates how to transform the
+decision function of a generic classifier into a probability and how to
+display how well calibrated is the predicted probability.
 
+The experiment is peformed on the covertype dataset. It shows the estimated
+probabilities obtained with logistic regression, Gaussian naive Bayes, and
+Gaussian naive Bayes with both isotonic calibration and sigmoid calibration. The
+calibration performance is evaluated with Brier score, reported in the legend
+(the smaller the better). One can observe here that logistic regression is well
+calibrated while raw Gaussian naive Bayes performs very badly. Its calibration
+curve is above the diagonal which indicates that its classification is
+imbalanced and it classifies many positive example as negative (bad precision).
+Calibration of the probabilities of Gaussian naive Bayes with isotonic 
+regression can fix this issue as can be seen from the nearly diagonal 
+calibration curve. Sigmoid calibration also improves the brier score, albeit 
+not as strongly as the non-parametric isotonic regression. This can be 
+attributed to the fact that we have plenty of calibration data such that the
+greater flexibility of the non-parametric model can be exploited.
 """
 print(__doc__)
 
