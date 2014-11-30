@@ -634,6 +634,7 @@ def check_classifiers_input_shapes(name, Classifier):
     # raised
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always", DataConversionWarning)
+        warnings.simplefilter("ignore", RuntimeWarning)
         classifier.fit(X, y[:, np.newaxis])
     msg = "expected 1 DataConversionWarning, got: %s" % (
         ", ".join([str(w_x) for w_x in w]))
