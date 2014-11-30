@@ -64,7 +64,7 @@ for clf, name in [(lr, 'Logistic'),
                   (gnb_sigmoid, 'Naive Bayes + Sigmoid')]:
     clf.fit(X_train, y_train)
     prob_pos = clf.predict_proba(X_test)[:, 1]
-    clf_score = brier_score_loss(y_test, prob_pos)
+    clf_score = brier_score_loss(y_test, prob_pos, pos_label=y.max())
     print("%s: %1.3f" % (name, clf_score))
     fraction_of_positives, mean_predicted_value = \
         calibration_curve(y_test, prob_pos, n_bins=10)
