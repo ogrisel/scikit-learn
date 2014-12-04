@@ -10,8 +10,9 @@ from nose.tools import assert_true
 
 from sklearn.datasets import make_classification, make_blobs
 from sklearn.naive_bayes import MultinomialNB
+from sklearn.ensemble import RandomForestClassifier
 from sklearn.svm import LinearSVC
-from sklearn.metrics import brier_score_loss
+from sklearn.metrics import brier_score_loss, log_loss
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.calibration import sigmoid_calibration, _SigmoidCalibration
 from sklearn.calibration import calibration_curve
@@ -48,9 +49,31 @@ def test_calibration():
             pc_clf.fit(this_X_train, y_train, sample_weight=sw_train)
             prob_pos_pc_clf = pc_clf.predict_proba(this_X_test)[:, 1]
 
+            # Check that brier score has improved after calibration
             assert_true(brier_score_loss(y_test, prob_pos_clf) >
                         brier_score_loss(y_test, prob_pos_pc_clf))
 
+            # Check invariance against relabeling [0, 1] -> [1, 2]
+            pc_clf.fit(this_X_train, y_train + 1, sample_weight=sw_train)
+            prob_pos_pc_clf_relabeled = pc_clf.predict_proba(this_X_test)[:, 1]
+            assert_array_almost_equal(prob_pos_pc_clf,
+                                      prob_pos_pc_clf_relabeled)
+
+            # Check invariance against relabeling [0, 1] -> [-1, 1]
+            pc_clf.fit(this_X_train, 2 * y_train - 1, sample_weight=sw_train)
+            prob_pos_pc_clf_relabeled = pc_clf.predict_proba(this_X_test)[:, 1]
+            assert_array_almost_equal(prob_pos_pc_clf, 
+                                      prob_pos_pc_clf_relabeled)
+
+            # Check invariance against relabeling [0, 1] -> [1, 0]
+            pc_clf.fit(this_X_train, (y_train + 1) % 2, sample_weight=sw_train)
+            prob_pos_pc_clf_relabeled = pc_clf.predict_proba(this_X_test)[:, 1]
+            assert_array_almost_equal(prob_pos_pc_clf, 
+                                      1 - prob_pos_pc_clf_relabeled)
+
+
+def test_calibration_multiclass():
+    """Test calibration for multiclass """
     # test multi-class setting with classifier that implements
     # only decision function
     clf = LinearSVC()
@@ -64,6 +87,24 @@ def test_calibration():
     assert_array_almost_equal(np.sum(probas, axis=1), np.ones(len(X_test)))
     assert_true(clf.fit(X_train, y_train).score(X_test, y_test) <=
                 ir_clf.fit(X_train, y_train).score(X_test, y_test))
+
+    # Test that calibration of a multiclass classifier decreases log-loss
+    X, y = make_blobs(n_samples=1000, n_features=2, random_state=42,
+                      cluster_std=3.0)
+    X_train, y_train = X[::2], y[::2]
+    X_test, y_test = X[1::2], y[1::2]
+
+    clf = RandomForestClassifier(n_estimators=100)
+    clf.fit(X_train, y_train)
+    clf_probs = clf.predict_proba(X_test)
+    score = log_loss(y_test, clf_probs)
+
+    ir_clf = CalibratedClassifierCV(clf, method='sigmoid', cv=10)
+    ir_clf.fit(X_train, y_train)
+    ir_clf_probs = ir_clf.predict_proba(X_test)
+    ir_score = log_loss(y_test, ir_clf_probs)
+
+    assert_true(ir_score < score)
 
 
 def test_calibration_prefit():
@@ -127,3 +168,4 @@ def test_calibration_curve():
     assert_almost_equal(prob_pred, [0.1, 0.9])
     assert_almost_equal(prob_true, prob_true_unnormalized)
     assert_almost_equal(prob_pred, prob_pred_unnormalized)
+    
