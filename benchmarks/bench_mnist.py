@@ -13,14 +13,15 @@ operating the Windows 7 64-bit version.
 
     Classification performance:
     ===========================
-    Classifier            train-time  test-time error-rate
-    ------------------------------------------------------
-    MultilayerPerceptron  655.5s      0.30s     0.0169
-    nystroem_approx_svm   125.0s      0.91s     0.0239
-    ExtraTrees            79.9s       0.34s     0.0272
-    fourier_approx_svm    148.9s      0.60s     0.0488
-    LogisticRegression    68.9s       0.14s     0.0799
 
+    Classifier               train-time   test-time   error-rate
+    ------------------------------------------------------------
+    MultilayerPerceptron       1308.66s       0.31s       0.0184
+    nystroem_approx_svm         115.00s       3.42s       0.0218
+    ExtraTrees                   32.09s       1.10s       0.0279
+    fourier_approx_svm          144.52s       1.81s       0.0478
+    LogisticRegression           44.00s       0.03s       0.0799
+    SGDLogisticRegression        12.24s       0.03s       0.0943
 
 """
 
@@ -42,7 +43,7 @@ from sklearn.datasets import fetch_mldata
 from sklearn.ensemble import ExtraTreesClassifier
 from sklearn.kernel_approximation import (RBFSampler,
                                           Nystroem)
-from sklearn.linear_model import LogisticRegression
+from sklearn.linear_model import LogisticRegression, SGDClassifier
 from sklearn.neural_network import MultilayerPerceptronClassifier
 from sklearn import metrics
 
@@ -86,14 +87,12 @@ print("{0: <25} {1}".format("number of classes:",
                             np.unique(y_train).shape[0]))
 print("{0: <25} {1}".format("data type:",
                             X_train.dtype))
-print("{0: <25} {1} (pos={2}, neg={3}, size={4}MB)".format(
+print("{0: <25} {1} (size={2}MB)".format(
     "number of train samples:",
-      X_train.shape[0], np.sum(y_train == 1),
-      np.sum(y_train == -1), int(X_train.nbytes / 1e6)))
-print("{0: <25} {1} (pos={2}, neg={3}, size={4}MB)".format(
+      X_train.shape[0], int(X_train.nbytes / 1e6)))
+print("{0: <25} {1} (size={2}MB)".format(
       "number of test samples:",
-      X_test.shape[0], np.sum(y_test == 1),
-      np.sum(y_test == -1), int(X_test.nbytes / 1e6)))
+      X_test.shape[0], int(X_test.nbytes / 1e6)))
 
 
 classifiers = dict()
@@ -113,6 +112,9 @@ def benchmark(clf):
 # Train Logistic Regression model
 classifiers['LogisticRegression'] = LogisticRegression()
 
+# Train Logistic Regression model with stochastic gradient descent
+classifiers['SGDLogisticRegression'] = SGDClassifier(loss="log", n_iter=10, shuffle=True)
+
 # Train MultilayerPerceptron model
 classifiers['MultilayerPerceptron'] = MultilayerPerceptronClassifier(
     hidden_layer_sizes=(200,),
@@ -128,9 +130,8 @@ classifiers['ExtraTrees'] = ExtraTreesClassifier(n_estimators=100,
 # Train linear svm with kernel approximation of RBFSampler and Nystroem
 
 # create pipeline
-feature_map_fourier = RBFSampler(gamma=.031, random_state=1,
-                                 n_components=1000)
-feature_map_nystroem = Nystroem(gamma=.031, random_state=1, n_components=1000)
+feature_map_fourier = RBFSampler(gamma=.015, random_state=1, n_components=1000)
+feature_map_nystroem = Nystroem(gamma=.015, random_state=1, n_components=1000)
 
 classifiers['fourier_approx_svm'] = \
     pipeline.Pipeline(
@@ -166,18 +167,18 @@ print()
 
 
 def print_row(clf_type, train_time, test_time, err):
-    print("{0: <25} {1: ^15} {2: ^15} {3: ^15}".format(
+    print("{0: <23} {1: >10.2f}s {2: >10.2f}s {3: >12.4f}".format(
           clf_type,
           train_time,
           test_time,
           err))
 
-print("{0: <25} {1: ^15} {2: ^15} {3: ^15}".format(
+print("{0: <24} {1: >10} {2: >11} {3: >12}".format(
     "Classifier  ",
     "train-time",
     "test-time",
     "error-rate"))
-print("-" * 70)
+print("-" * 60)
 
 for name in sorted(selected_classifiers, key=lambda name: err[name]):
     print_row(name, train_time[name], test_time[name], err[name])
