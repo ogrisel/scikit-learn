@@ -384,7 +384,14 @@ def test_partial_fit_errors():
     # no classes passed
     assert_raises(ValueError,
                   MultilayerPerceptronClassifier(
-                      algorithm='l-bfgs').partial_fit,
+                      algorithm='sgd').partial_fit,
+                  X, y,
+                  classes=[2])
+
+    # l-bfgs doesn't support partial_fit
+    assert_raises(NotImplementedError,
+                  MultilayerPerceptronClassifier(
+                  ).partial_fit,
                   X, y,
                   classes=[2])
 
