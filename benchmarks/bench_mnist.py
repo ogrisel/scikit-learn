@@ -117,10 +117,14 @@ classifiers['SGDLogisticRegression'] = SGDClassifier(loss="log", n_iter=10, shuf
 
 # Train MultilayerPerceptron model
 classifiers['MultilayerPerceptron'] = MultilayerPerceptronClassifier(
-    hidden_layer_sizes=(200,),
+    hidden_layer_sizes=(100, 100),
     max_iter=400,
-    alpha=0.5,
-    algorithm='l-bfgs',
+    alpha=1e-4,
+    algorithm='sgd',
+    learning_rate_init=0.5,
+    momentum=0.9,
+    verbose=1,
+    tol=1e-4,
     random_state=1)
 
 # Train Extra-Trees model
