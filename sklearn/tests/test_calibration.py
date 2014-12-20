@@ -99,12 +99,12 @@ def test_calibration_multiclass():
     clf_probs = clf.predict_proba(X_test)
     score = log_loss(y_test, clf_probs)
 
-    ir_clf = CalibratedClassifierCV(clf, method='sigmoid', cv=10)
-    ir_clf.fit(X_train, y_train)
-    ir_clf_probs = ir_clf.predict_proba(X_test)
-    ir_score = log_loss(y_test, ir_clf_probs)
+    sig_clf = CalibratedClassifierCV(clf, method='sigmoid', cv=10)
+    sig_clf.fit(X_train, y_train)
+    sig_clf_probs = sig_clf.predict_proba(X_test)
+    sig_score = log_loss(y_test, sig_clf_probs)
 
-    assert_true(ir_score < score)
+    assert_true(sig_score < score)
 
 
 def test_calibration_prefit():
