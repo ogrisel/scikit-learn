@@ -72,11 +72,48 @@ plt.plot([0.0], [0.0], 'bo', ms=20, label="Class 3")
 # Plot boundaries of unit simplex
 plt.plot([0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], 'k', label="Simplex")
 
+# Annotate points on the simplex
+plt.annotate(r'($\frac{1}{3}$, $\frac{1}{3}$, $\frac{1}{3}$)', 
+			 xy=(1.0/3, 1.0/3), xytext=(1.0/3, .23), xycoords='data', 
+			 arrowprops=dict(facecolor='black', shrink=0.05),
+             horizontalalignment='center', verticalalignment='center')
+plt.plot([1.0/3], [1.0/3], 'ko', ms=5)
+plt.annotate(r'($\frac{1}{2}$, $0$, $\frac{1}{2}$)', 
+			 xy=(.5, .0), xytext=(.5, .1), xycoords='data', 
+			 arrowprops=dict(facecolor='black', shrink=0.05),
+             horizontalalignment='center', verticalalignment='center')
+plt.annotate(r'($0$, $\frac{1}{2}$, $\frac{1}{2}$)', 
+			 xy=(.0, .5), xytext=(.1, .5), xycoords='data', 
+			 arrowprops=dict(facecolor='black', shrink=0.05),
+             horizontalalignment='center', verticalalignment='center')
+plt.annotate(r'($\frac{1}{2}$, $\frac{1}{2}$, $0$)', 
+			 xy=(.5, .5), xytext=(.6, .6), xycoords='data', 
+			 arrowprops=dict(facecolor='black', shrink=0.05),
+             horizontalalignment='center', verticalalignment='center')
+plt.annotate(r'($0$, $0$, $1$)', 
+			 xy=(0, 0), xytext=(.1, .1), xycoords='data', 
+			 arrowprops=dict(facecolor='black', shrink=0.05),
+             horizontalalignment='center', verticalalignment='center')
+plt.annotate(r'($1$, $0$, $0$)', 
+			 xy=(1, 0), xytext=(1, .1), xycoords='data', 
+			 arrowprops=dict(facecolor='black', shrink=0.05),
+             horizontalalignment='center', verticalalignment='center')
+plt.annotate(r'($0$, $1$, $0$)', 
+			 xy=(0, 1), xytext=(.1, 1), xycoords='data', 
+			 arrowprops=dict(facecolor='black', shrink=0.05),
+             horizontalalignment='center', verticalalignment='center')
+# Add grid
+plt.grid("off")
+for x in [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]:
+	plt.plot([0, x], [x, 0], 'k', alpha=0.2)
+	plt.plot([0, 0 + (1-x)/2], [x, x + (1-x)/2], 'k', alpha=0.2)
+	plt.plot([x, x + (1-x)/2], [0, 0 + (1-x)/2], 'k', alpha=0.2)
+
 plt.title("Log-loss uncalibrated: %.3f Log-loss calibrated: %.3f"
 		  % (score, sig_score))
 plt.xlabel("Probability class 1")
 plt.ylabel("Probability class 2")
-plt.xlim(-0.01, 1.01)
-plt.ylim(-0.01, 1.01)
+plt.xlim(-0.05, 1.05)
+plt.ylim(-0.05, 1.05)
 plt.legend(loc="best")
 plt.show()
