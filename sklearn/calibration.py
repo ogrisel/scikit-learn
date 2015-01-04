@@ -29,7 +29,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
     With this class, the base_estimator is fit on the train set of the
     cross-validation generator and the test set is used for calibration.
     The probabilities for each of the folds are then averaged
-    for prediction. In case that cv="prefit" is passed to __init__, 
+    for prediction. In case that cv="prefit" is passed to __init__,
     it is it is assumed that base_estimator has been
     fitted already and all data is used for calibration. Note that
     data for fitting the classifier and for calibrating it must be disjpint.
@@ -45,8 +45,8 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         The method to use for calibration. Can be 'sigmoid' which
         corresponds to Platt's method or 'isotonic' which is a
         non-parameteric approach. It is not advised to use isotonic calibration
-        with too few calibration samples (<<1000) since it tends overfit. Use 
-        sigmoids (Platt's calibration) in this case.
+        with too few calibration samples (<<1000) since it tends to overfit.
+        Use sigmoids (Platt's calibration) in this case.
 
     cv : integer or cross-validation generator or "prefit", optional
         If an integer is passed, it is the number of folds (default 3).
@@ -66,7 +66,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
     .. [3] Probabilistic Outputs for Support Vector Machines and Comparisons to
            Regularized Likelihood Methods, J. Platt, (1999)
 
-    .. [4] Predicting Good Probabilities with Supervised Learning, 
+    .. [4] Predicting Good Probabilities with Supervised Learning,
            A. Niculescu-Mizil & R. Caruana, ICML 2005
     """
     def __init__(self, base_estimator=GaussianNB(), method='sigmoid', cv=3):
@@ -112,8 +112,10 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
             for train, test in cv:
                 this_estimator = clone(self.base_estimator)
                 if sample_weight is not None and \
-                   "sample_weight" in inspect.getargspec(this_estimator.fit)[0]:
-                    this_estimator.fit(X[train], y[train], sample_weight[train])
+                   "sample_weight" in inspect.getargspec(
+                        this_estimator.fit)[0]:
+                    this_estimator.fit(X[train], y[train],
+                                       sample_weight[train])
                 else:
                     this_estimator.fit(X[train], y[train])
 
@@ -145,19 +147,14 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
             The predicted probas.
         """
         X = check_array(X, accept_sparse=['csc', 'csr', 'coo'])
+        # Compute the arithmetic mean of the predictions of the calibrated
+        # classfiers
         mean_proba = np.zeros((X.shape[0], len(self.classes_)))
-        # tiny = np.finfo(np.float).tiny
-
-        # XXX: Which average should be taken? Geometric Harmonic etc.
         for calibrated_classifier in self.calibrated_classifiers_:
             proba = calibrated_classifier.predict_proba(X)
             mean_proba += proba
-            # XXX : don't know if I should average the log or plain probas
-            # proba = np.maximum(proba, tiny)  # to avoid log of 0 warning
-            # mean_proba += np.log(proba)
 
         mean_proba /= len(self.calibrated_classifiers_)
-        # proba = np.exp(mean_proba)
 
         return mean_proba
 
@@ -209,7 +206,7 @@ class _CalibratedClassifier(object):
     .. [3] Probabilistic Outputs for Support Vector Machines and Comparisons to
            Regularized Likelihood Methods, J. Platt, (1999)
 
-    .. [4] Predicting Good Probabilities with Supervised Learning, 
+    .. [4] Predicting Good Probabilities with Supervised Learning,
            A. Niculescu-Mizil & R. Caruana, ICML 2005
     """
     def __init__(self, base_estimator, method='sigmoid'):

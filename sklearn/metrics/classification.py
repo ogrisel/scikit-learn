@@ -1558,7 +1558,7 @@ def brier_score_loss(y_true, y_prob, sample_weight=None, pos_label=None):
     Brier score assumes that all possible outcomes are equivalently
     "distant" from one another). Which label is considered to be the positive
     label is controlled via the parameter pos_label, which defaults to 1.
-    
+
 
     Parameters
     ----------
@@ -1591,7 +1591,8 @@ def brier_score_loss(y_true, y_prob, sample_weight=None, pos_label=None):
     0.037...
     >>> brier_score_loss(y_true, 1-y_prob, pos_label=0)  # doctest: +ELLIPSIS
     0.037...
-    >>> brier_score_loss(y_true_categorical, y_prob, pos_label="ham")  # doctest: +ELLIPSIS
+    >>> brier_score_loss(y_true_categorical, y_prob,
+                         pos_label="ham")  # doctest: +ELLIPSIS
     0.037...
     >>> brier_score_loss(y_true, np.array(y_prob) > 0.5)
     0.0

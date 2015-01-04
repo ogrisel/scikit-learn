@@ -62,16 +62,16 @@ def test_calibration():
             # Check invariance against relabeling [0, 1] -> [-1, 1]
             pc_clf.fit(this_X_train, 2 * y_train - 1, sample_weight=sw_train)
             prob_pos_pc_clf_relabeled = pc_clf.predict_proba(this_X_test)[:, 1]
-            assert_array_almost_equal(prob_pos_pc_clf, 
+            assert_array_almost_equal(prob_pos_pc_clf,
                                       prob_pos_pc_clf_relabeled)
 
             # Check invariance against relabeling [0, 1] -> [1, 0]
-            pc_clf.fit(this_X_train, (y_train + 1) % 2, 
+            pc_clf.fit(this_X_train, (y_train + 1) % 2,
                        sample_weight=sw_train)
             prob_pos_pc_clf_relabeled = \
                 pc_clf.predict_proba(this_X_test)[:, 1]
             if method == "sigmoid":
-                assert_array_almost_equal(prob_pos_pc_clf, 
+                assert_array_almost_equal(prob_pos_pc_clf,
                                           1 - prob_pos_pc_clf_relabeled)
             else:
                 # Isotonic calibration is not invariant against relabeling
@@ -79,7 +79,6 @@ def test_calibration():
                 assert_true(brier_score_loss(y_test, prob_pos_clf) >
                             brier_score_loss((y_test + 1) % 2,
                                              prob_pos_pc_clf_relabeled))
-
 
 
 def test_calibration_multiclass():
@@ -179,4 +178,3 @@ def test_calibration_curve():
     assert_almost_equal(prob_pred, [0.1, 0.9])
     assert_almost_equal(prob_true, prob_true_unnormalized)
     assert_almost_equal(prob_pred, prob_pred_unnormalized)
-    
