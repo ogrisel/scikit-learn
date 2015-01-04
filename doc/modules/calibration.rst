@@ -60,8 +60,8 @@ with different biases per method:
    (compare Niculescu-Mizil and Caruana [4]).
 
 Two approaches for performing calibration of probabilistic predictions are
-provided: a parametric approach based on Platt's sigmoid model and a  non-
-parametric approach based on isotonic regression (:mod:`sklearn.isotonic`).
+provided: a parametric approach based on Platt's sigmoid model and a 
+non-parametric approach based on isotonic regression (:mod:`sklearn.isotonic`).
 Probability calibration should be done on new data not used for model fitting.
 The class :class:`CalibratedClassifierCV` uses a cross-validation generator and
 estimates for each split the model parameter on the train samples and the
@@ -91,14 +91,14 @@ in the middle, i.e., 0.5.
    :target: ../auto_examples/plot_calibration.html
    :align: center
 
-The last image shows on the covertype dataset the estimated probabilities
+The next image shows on the covertype dataset the estimated probabilities
 obtained with :class:`LogisticRegression`, :class:`GaussianNB`, and
 :class:`GaussianNB` with both isotonic calibration and sigmoid calibration. The
 calibration performance is evaluated with Brier score
 :func:`metrics.brier_score_loss`, reported in the legend (the smaller the
 better). One can observe here that logistic regression is well
 calibrated while raw Gaussian naive Bayes performs very badly. Its  calibration
-curve is above the diagonal which indicates that it's classification is
+curve is above the diagonal which indicates that its classification is
 imbalanced and it classifies many positive example as negative (bad precision).
 Calibration of the probabilities of Gaussian naive Bayes with isotonic 
 regression can fix this issue as can be seen from the nearly diagonal 
@@ -110,6 +110,34 @@ greater flexibility of the non-parametric model can be exploited.
 .. figure:: ../auto_examples/images/plot_calibration_curve_001.png
    :target: ../auto_examples/plot_calibration_curve.html
    :align: center
+
+:class:`CalibratedClassifierCV` can also deal with classification tasks that 
+involve more than two classes if the base estimator can do so. In this case,
+the classifier is calibrated first for each class separately in an one-vs-rest 
+fashion. When predicting probabilities for unseen data, the calibrated 
+probabilities for each class are predicted separately. As those probabilities
+do not necessarily sum to one, a postprocessing is performed to normalize them.
+
+The next image illustrates how sigmoid calibration changes predicted
+probabilities for a 3-class classification problem. Illustrated is the 
+standard 2-simplex, where the three corners correspond to the three classes. 
+Arrows point from the probability vectors predicted by the uncalibrated 
+classifier to the probability vectors predicted by the calibrated 
+classifier. Colors indicate the true class of an instance (red: class 1, 
+green: class 2, blue: class 3).
+
+.. figure:: ../auto_examples/images/plot_calibration_multiclass_001.png
+   :target: ../auto_examples/plot_calibration_multiclass.html
+   :align: center
+
+The base classifier is a random forest classifier with 25 base estimators
+(trees). This classifier is overly confident in its predictions and thus
+incurs a large log-loss. Calibrating this classifier with method='sigmoid'
+reduces the confidence of the predictions, i.e., moves the probability 
+vectors from the edges of the simplex towards the center. This calibration
+results in a lower log-loss. Note that an alternative would have been to 
+increase the number of base estimators which would have resulted in a similar
+decrease in log-loss.
 
 .. topic:: References:
 

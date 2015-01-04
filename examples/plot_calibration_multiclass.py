@@ -16,7 +16,7 @@ The base classifier is a random forest classifier with 25 base estimators
 incurs a large log-loss. Calibrating this classifier with method='sigmoid'
 reduces the confidence of the predictions, i.e., moves the probability 
 vectors from the edges of the simplex towards the center. This calibration
-decreases a lower log-loss. Note that an alternative would have been to 
+results in a lower log-loss. Note that an alternative would have been to 
 increase the number of base estimators which would have resulted in a similar
 decrease in log-loss.
 """
@@ -64,6 +64,7 @@ for i in range(clf_probs.shape[0]):
 	          sig_clf_probs[i, 1] - clf_probs[i, 1],
 	          color=colors[y_test[i]], head_width=1e-2)
 
+plt.figure(1)
 # Plot perfect predictions
 plt.plot([1.0], [0.0], 'ro', ms=20, label="Class 1")
 plt.plot([0.0], [1.0], 'go', ms=20, label="Class 2")
