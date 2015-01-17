@@ -768,6 +768,7 @@ details.
    metrics.accuracy_score
    metrics.auc
    metrics.average_precision_score
+   metrics.brier_score_loss
    metrics.classification_report
    metrics.confusion_matrix
    metrics.f1_score
@@ -1027,7 +1028,6 @@ See the :ref:`metrics` section of the user guide for further details.
    :toctree: generated/
    :template: class.rst
 
-   calibration.CalibratedClassifier
    calibration.CalibratedClassifierCV
 
 
@@ -1035,7 +1035,7 @@ See the :ref:`metrics` section of the user guide for further details.
    :toctree: generated/
    :template: function.rst
 
-   calibration.calibration_plot
+   calibration.calibration_curve
 
 
 .. _cross_decomposition_ref:

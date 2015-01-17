@@ -26,41 +26,46 @@ how well the probabilistic predictions of different classifiers are calibrated:
    :target: ../auto_examples/plot_compare_calibration.html
    :align: center
 
+.. currentmodule:: sklearn.linear_model
 :class:`LogisticRegression` returns well calibrated predictions as it directly
 optimizes log-loss. In contrast, the other methods return biased probabilities;
 with different biases per method:
 
- * :class:`GaussianNaiveBayes` tends to push probabilties to 0 or 1 (note the 
-   counts in the histograms). This is mainly because it makes the assumption 
-   that  features are conditionally independent given the class, which is not 
+ * .. currentmodule:: sklearn.naive_bayes
+   :class:`GaussianNB` tends to push probabilties to 0 or 1 (note the
+   counts in the histograms). This is mainly because it makes the assumption
+   that  features are conditionally independent given the class, which is not
    the case in  this dataset which contains 2 redundant features.
 
- * :class:`RandomForestClassifier` shows the opposite behavior: the histograms
+ * .. currentmodule:: sklearn.ensemble
+   :class:`RandomForestClassifier` shows the opposite behavior: the histograms
    show peaks at approx. 0.2 and 0.9 probability, while probabilities close to
-   0 or 1 are very rare. An explanation for this is given by Niculescu-Mizil 
+   0 or 1 are very rare. An explanation for this is given by Niculescu-Mizil
    and Caruana [4]: "Methods such as bagging and random forests that average
    predictions from a base set of models can have difficulty making predictions
    near 0 and 1 because variance in the underlying base models will bias
    predictions that should be near zero or one away from these values. Because
-   predictions are restricted to the interval [0,1], errors caused by variance 
-   tend to be one-sided near zero and one. For example, if a model should 
-   predict p = 0 for a case, the only way bagging can achieve this is if all 
-   bagged trees predict zero. If we add noise to the trees that bagging is 
-   averaging over, this noise will cause some trees to predict values larger 
-   than 0 for this case, thus moving the average prediction of the bagged 
-   ensemble away from 0. We observe this effect most strongly with random 
-   forests because the base-level trees trained with random forests have 
-   relatively high variance due to feature subseting." As a result, the 
+   predictions are restricted to the interval [0,1], errors caused by variance
+   tend to be one-sided near zero and one. For example, if a model should
+   predict p = 0 for a case, the only way bagging can achieve this is if all
+   bagged trees predict zero. If we add noise to the trees that bagging is
+   averaging over, this noise will cause some trees to predict values larger
+   than 0 for this case, thus moving the average prediction of the bagged
+   ensemble away from 0. We observe this effect most strongly with random
+   forests because the base-level trees trained with random forests have
+   relatively high variance due to feature subseting." As a result, the
    calibration curve shows a characteristic sigmoid shape, indicating that the
-   classifier could trust its "intuition" more and return probabilties closer 
+   classifier could trust its "intuition" more and return probabilties closer
    to 0 or 1 typically.
 
- * Support Vector Classification (:class:`SVC`) shows a similar sigmoid curve
+ * .. currentmodule:: sklearn.svm
+   Support Vector Classification (:class:`SVC`) shows a similar sigmoid curve
    as  the  RandomForestClassifier, which is typical for maximum-margin methods
    (compare Niculescu-Mizil and Caruana [4]).
 
+.. currentmodule:: sklearn.calibration
 Two approaches for performing calibration of probabilistic predictions are
-provided: a parametric approach based on Platt's sigmoid model and a 
+provided: a parametric approach based on Platt's sigmoid model and a
 non-parametric approach based on isotonic regression (:mod:`sklearn.isotonic`).
 Probability calibration should be done on new data not used for model fitting.
 The class :class:`CalibratedClassifierCV` uses a cross-validation generator and
@@ -91,19 +96,20 @@ in the middle, i.e., 0.5.
    :target: ../auto_examples/plot_calibration.html
    :align: center
 
+.. currentmodule:: sklearn.metrics
 The next image shows on the covertype dataset the estimated probabilities
-obtained with :class:`LogisticRegression`, :class:`GaussianNB`, and
-:class:`GaussianNB` with both isotonic calibration and sigmoid calibration. The
+obtained with logistic regression, Gaussian Naive Bayes, and Gaussian Naive
+Bayes with both isotonic calibration and sigmoid calibration. The
 calibration performance is evaluated with Brier score
-:func:`metrics.brier_score_loss`, reported in the legend (the smaller the
+:func:`brier_score_loss`, reported in the legend (the smaller the
 better). One can observe here that logistic regression is well
 calibrated while raw Gaussian naive Bayes performs very badly. Its  calibration
 curve is above the diagonal which indicates that its classification is
 imbalanced and it classifies many positive example as negative (bad precision).
-Calibration of the probabilities of Gaussian naive Bayes with isotonic 
-regression can fix this issue as can be seen from the nearly diagonal 
-calibration curve. Sigmoid calibration also improves the brier score, albeit 
-not as strongly as the non-parametric isotonic regression. This can be 
+Calibration of the probabilities of Gaussian naive Bayes with isotonic
+regression can fix this issue as can be seen from the nearly diagonal
+calibration curve. Sigmoid calibration also improves the brier score, albeit
+not as strongly as the non-parametric isotonic regression. This can be
 attributed to the fact that we have plenty of calibration data such that the
 greater flexibility of the non-parametric model can be exploited.
 
@@ -111,19 +117,20 @@ greater flexibility of the non-parametric model can be exploited.
    :target: ../auto_examples/plot_calibration_curve.html
    :align: center
 
-:class:`CalibratedClassifierCV` can also deal with classification tasks that 
+.. currentmodule:: sklearn.calibration
+:class:`CalibratedClassifierCV` can also deal with classification tasks that
 involve more than two classes if the base estimator can do so. In this case,
-the classifier is calibrated first for each class separately in an one-vs-rest 
-fashion. When predicting probabilities for unseen data, the calibrated 
+the classifier is calibrated first for each class separately in an one-vs-rest
+fashion. When predicting probabilities for unseen data, the calibrated
 probabilities for each class are predicted separately. As those probabilities
 do not necessarily sum to one, a postprocessing is performed to normalize them.
 
 The next image illustrates how sigmoid calibration changes predicted
-probabilities for a 3-class classification problem. Illustrated is the 
-standard 2-simplex, where the three corners correspond to the three classes. 
-Arrows point from the probability vectors predicted by the uncalibrated 
-classifier to the probability vectors predicted by the calibrated 
-classifier. Colors indicate the true class of an instance (red: class 1, 
+probabilities for a 3-class classification problem. Illustrated is the
+standard 2-simplex, where the three corners correspond to the three classes.
+Arrows point from the probability vectors predicted by the uncalibrated
+classifier to the probability vectors predicted by the calibrated
+classifier. Colors indicate the true class of an instance (red: class 1,
 green: class 2, blue: class 3).
 
 .. figure:: ../auto_examples/images/plot_calibration_multiclass_001.png
@@ -133,9 +140,9 @@ green: class 2, blue: class 3).
 The base classifier is a random forest classifier with 25 base estimators
 (trees). This classifier is overly confident in its predictions and thus
 incurs a large log-loss. Calibrating this classifier with method='sigmoid'
-reduces the confidence of the predictions, i.e., moves the probability 
+reduces the confidence of the predictions, i.e., moves the probability
 vectors from the edges of the simplex towards the center. This calibration
-results in a lower log-loss. Note that an alternative would have been to 
+results in a lower log-loss. Note that an alternative would have been to
 increase the number of base estimators which would have resulted in a similar
 decrease in log-loss.
 
@@ -150,5 +157,5 @@ decrease in log-loss.
     .. [3] Probabilistic Outputs for Support Vector Machines and Comparisons to
           Regularized Likelihood Methods, J. Platt, (1999)
 
-    .. [4] Predicting Good Probabilities with Supervised Learning, 
+    .. [4] Predicting Good Probabilities with Supervised Learning,
           A. Niculescu-Mizil & R. Caruana, ICML 2005

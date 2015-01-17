@@ -1538,7 +1538,7 @@ def _check_binary_probabilistic_predictions(y_true, y_prob):
 
 
 def brier_score_loss(y_true, y_prob, sample_weight=None, pos_label=None):
-    """Compute the Brier score
+    """Compute the Brier score.
 
     The smaller the Brier score, the better, hence the naming with "loss".
 

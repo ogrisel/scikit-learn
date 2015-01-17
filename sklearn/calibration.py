@@ -1,4 +1,4 @@
-"""Calibration estimators."""
+"""Calibration of predicted probabilities."""
 
 # Author: Alexandre Gramfort <alexandre.gramfort@telecom-paristech.fr>
 #         Balazs Kegl <balazs.kegl@gmail.com>
@@ -24,7 +24,7 @@ from .metrics.classification import _check_binary_probabilistic_predictions
 
 
 class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
-    """Probability calibration with isotonic regression or sigmoid
+    """Probability calibration with isotonic regression or sigmoid.
 
     With this class, the base_estimator is fit on the train set of the
     cross-validation generator and the test set is used for calibration.
@@ -54,6 +54,16 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         sklearn.cross_validation module for the list of possible objects.
         If "prefit" is passed, it is assumed that base_estimator has been
         fitted already and all data is used for calibration.
+
+    Attributes
+    ----------
+    classes_ : array, shape (n_classes)
+        The class labels.
+
+    calibrated_classifiers_: list (len() equal to cv or 1 if cv == "prefit")
+        The list of calibrated classifiers, one for each crossvalidation fold,
+        which has been fitted on all but the validation fold and calibrated
+        on the validation fold.
 
     References
     ----------
@@ -433,7 +443,7 @@ class _SigmoidCalibration(BaseEstimator, RegressorMixin):
 
 
 def calibration_curve(y_true, y_prob, normalize=False, n_bins=5):
-    """Compute true and predicted probabilities for a calibration curve
+    """Compute true and predicted probabilities for a calibration curve.
 
     Parameters
     ----------
