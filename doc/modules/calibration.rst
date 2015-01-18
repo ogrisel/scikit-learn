@@ -126,25 +126,32 @@ probabilities for each class are predicted separately. As those probabilities
 do not necessarily sum to one, a postprocessing is performed to normalize them.
 
 The next image illustrates how sigmoid calibration changes predicted
-probabilities for a 3-class classification problem. Illustrated is the
-standard 2-simplex, where the three corners correspond to the three classes.
-Arrows point from the probability vectors predicted by the uncalibrated
-classifier to the probability vectors predicted by the calibrated
-classifier. Colors indicate the true class of an instance (red: class 1,
-green: class 2, blue: class 3).
+probabilities for a 3-class classification problem. Illustrated is the standard
+2-simplex, where the three corners correspond to the three classes. Arrows point
+from the probability vectors predicted by an uncalibrated classifier to the
+probability vectors predicted by the same classifier after sigmoid calibration
+on a hold-out validation set. Colors indicate the true class of an instance
+(red: class 1, green: class 2, blue: class 3).
+
+.. figure:: ../auto_examples/images/plot_calibration_multiclass_000.png
+   :target: ../auto_examples/plot_calibration_multiclass.html
+   :align: center
+
+The base classifier is a random forest classifier with 25 base estimators
+(trees). If this classifier is trained on all 800 traing datapoints, it is
+overly confident in its predictions and thus incurs a large log-loss.
+Calibrating an identical classifier, which was trained on 600 datapoints, with
+method='sigmoid' on the remaining 200 datapoints reduces the confidence of the
+predictions, i.e., moves the probability vectors from the edges of the simplex
+towards the center:
 
 .. figure:: ../auto_examples/images/plot_calibration_multiclass_001.png
    :target: ../auto_examples/plot_calibration_multiclass.html
    :align: center
 
-The base classifier is a random forest classifier with 25 base estimators
-(trees). This classifier is overly confident in its predictions and thus
-incurs a large log-loss. Calibrating this classifier with method='sigmoid'
-reduces the confidence of the predictions, i.e., moves the probability
-vectors from the edges of the simplex towards the center. This calibration
-results in a lower log-loss. Note that an alternative would have been to
-increase the number of base estimators which would have resulted in a similar
-decrease in log-loss.
+This calibration results in a lower log-loss. Note that an alternative would
+have been to increase the number of base estimators which would have resulted in
+a similar decrease in log-loss.
 
 .. topic:: References:
 

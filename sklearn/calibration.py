@@ -17,6 +17,7 @@ from scipy.optimize import fmin_bfgs
 from .base import BaseEstimator, ClassifierMixin, RegressorMixin, clone
 from .preprocessing import LabelBinarizer
 from .utils import check_X_y, check_array, indexable, column_or_1d
+from .utils.validation import check_is_fitted
 from .isotonic import IsotonicRegression
 from .naive_bayes import GaussianNB
 from .cross_validation import _check_cv
@@ -156,6 +157,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         C : array, shape (n_samples, n_classes)
             The predicted probas.
         """
+        check_is_fitted(self, ["classes_", "calibrated_classifiers_"])
         X = check_array(X, accept_sparse=['csc', 'csr', 'coo'])
         # Compute the arithmetic mean of the predictions of the calibrated
         # classfiers
@@ -182,6 +184,7 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         C : array, shape (n_samples,)
             The predicted class.
         """
+        check_is_fitted(self, ["classes_", "calibrated_classifiers_"])
         return self.classes_[np.argmax(self.predict_proba(X), axis=1)]
 
 
@@ -270,6 +273,13 @@ class _CalibratedClassifier(object):
         for k, this_df in zip(idx_pos_class, df.T):
             if self.method == 'isotonic':
                 calibrator = IsotonicRegression(out_of_bounds='clip')
+                # XXX: isotonic regression cannot deal correctly with
+                #      situations in which multiple inputs are identical but
+                #      have different outputs. Since this is not untypical
+                #      when calibrating, we add some small random jitter to
+                #      the inputs.
+                this_df = \
+                    this_df + np.random.normal(0, 1e-10, this_df.shape[0])
             elif self.method == 'sigmoid':
                 calibrator = _SigmoidCalibration()
             else:
@@ -315,6 +325,9 @@ class _CalibratedClassifier(object):
 
         # XXX : for some reason all probas can be 0
         proba[np.isnan(proba)] = 1. / n_classes
+
+        # Deal with cases where the predicted probability minimally exceeds 1.0
+        proba[(1.0 < proba) &  (proba <= 1.0 + 1e-5)] = 1.0
 
         return proba
 
