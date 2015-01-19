@@ -37,9 +37,10 @@ subseting." As a result, the calibration curve shows a characteristic sigmoid
 shape, indicating that the classifier could trust its "intuition" more and
 return probabilties closer to 0 or 1 typically.
 
-* Support Vector Classification (SVC) shows a similar sigmoid curve as
+* Support Vector Classification (SVC) shows an even more sigmoid curve as
 the  RandomForestClassifier, which is typical for maximum-margin methods
-(compare Niculescu-Mizil and Caruana [1]).
+(compare Niculescu-Mizil and Caruana [1]), which focus on hard samples
+that are close to the decision boundary (the support vectors).
 
 .. topic:: References:
 
@@ -79,7 +80,7 @@ y_test = y[train_samples:]
 # Create classifiers
 lr = LogisticRegression()
 gnb = GaussianNB()
-svc = SVC(kernel='rbf', C=1.0, probability=True)
+svc = LinearSVC(C=1.0)
 rfc = RandomForestClassifier(n_estimators=100)
 
 
@@ -96,7 +97,12 @@ for clf, name in [(lr, 'Logistic'),
                   (svc, 'Support Vector Classification'),
                   (rfc, 'Random Forest')]:
     clf.fit(X_train, y_train)
-    prob_pos = clf.predict_proba(X_test)[:, 1]
+    if hasattr(clf, "predict_proba"):
+        prob_pos = clf.predict_proba(X_test)[:, 1]
+    else:  # use decision function
+        prob_pos = clf.decision_function(X_test)
+        prob_pos = \
+            (prob_pos - prob_pos.min()) / (prob_pos.max() - prob_pos.min())
     fraction_of_positives, mean_predicted_value = \
         calibration_curve(y_test, prob_pos, n_bins=10)
 
@@ -113,7 +119,7 @@ ax1.set_title('Calibration plots  (reliability curve)')
 
 ax2.set_xlabel("Mean predicted value")
 ax2.set_ylabel("Count")
-ax2.legend(loc="upper center")
+ax2.legend(loc="upper center", ncol=2)
 
 plt.tight_layout()
 plt.show()

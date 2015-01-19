@@ -70,11 +70,11 @@ non-parametric approach based on isotonic regression (:mod:`sklearn.isotonic`).
 Probability calibration should be done on new data not used for model fitting.
 The class :class:`CalibratedClassifierCV` uses a cross-validation generator and
 estimates for each split the model parameter on the train samples and the
-calibration of the test samples. The probabilities predicted obtained for each
+calibration of the test samples. The probabilities predicted for the
 folds are then averaged. Already fitted classifiers can be calibrated by
 :class:`CalibratedClassifierCV` via the paramter cv="prefit". In this case,
 the user has to take care manually that data for model fitting and calibration
-is disjoint.
+are disjoint.
 
 The following images demonstrate the benefit of probability calibration.
 The first image present a dataset with 2 classes and 3 blobs of
@@ -97,25 +97,47 @@ in the middle, i.e., 0.5.
    :align: center
 
 .. currentmodule:: sklearn.metrics
-The next image shows on the covertype dataset the estimated probabilities
-obtained with logistic regression, Gaussian Naive Bayes, and Gaussian Naive
-Bayes with both isotonic calibration and sigmoid calibration. The
-calibration performance is evaluated with Brier score
-:func:`brier_score_loss`, reported in the legend (the smaller the
-better). One can observe here that logistic regression is well
-calibrated while raw Gaussian naive Bayes performs very badly. Its  calibration
-curve is above the diagonal which indicates that its classification is
-imbalanced and it classifies many positive example as negative (bad precision).
-Calibration of the probabilities of Gaussian naive Bayes with isotonic
-regression can fix this issue as can be seen from the nearly diagonal
-calibration curve. Sigmoid calibration also improves the brier score, albeit
-not as strongly as the non-parametric isotonic regression. This can be
-attributed to the fact that we have plenty of calibration data such that the
-greater flexibility of the non-parametric model can be exploited.
+The following experiment is performed on an artificial dataset for binary classification
+with 100.000 samples (1.000 of them are used for model fitting) with 20
+features. Of the 20 features, only 2 are informative and 10 are redundant. The
+following figure shows the estimated probabilities obtained with logistic
+regression, Gaussian naive Bayes, and Gaussian naive Bayes with both isotonic
+calibration and sigmoid calibration. The calibration performance is evaluated
+with Brier score :func:`brier_score_loss`, reported in the legend (the smaller the better). One can
+observe here that logistic regression is well calibrated while raw Gaussian
+naive Bayes performs very badly. This is because of the redundant features
+which violate the assumption of feature-independence and result in an overly
+confident classifier, which is indicated by the typical transposed-sigmoid
+curve.
+
 
 .. figure:: ../auto_examples/images/plot_calibration_curve_001.png
    :target: ../auto_examples/plot_calibration_curve.html
    :align: center
+
+Calibration of the probabilities of Gaussian naive Bayes with isotonic
+regression can fix this issue as can be seen from the nearly diagonal
+calibration curve. Sigmoid calibration also improves the brier score slightly,
+albeit not as strongly as the non-parametric isotonic regression. This can be
+attributed to the fact that we have plenty of calibration data such that the
+greater flexibility of the non-parametric model can be exploited.
+
+.. currentmodule:: sklearn.svm
+The next figure shows the calibration curve of a linear support-vector
+classifier (:class:`LinearSVC`) on the same data. LinearSVC shows the opposite behavior as Gaussian
+naive Bayes: the calibration curve has a sigmoid curve, which is typical for
+an under-confident classifier. In the case of LinearSVC, this is caused by the
+margin property of the hinge loss, which lets the model focus on hard samples
+that are close to the decision boundary (the support vectors).
+
+.. figure:: ../auto_examples/images/plot_calibration_curve_002.png
+   :target: ../auto_examples/plot_calibration_curve.html
+   :align: center
+
+Both kinds of calibration can fix this issue and yield nearly identical
+results. This shows that sigmoid calibration can deal with situations where
+the calibration curve of the base classifier is sigmoid (e.g., for LinearSVC)
+but not where it is transposed-sigmoid (e.g., Gaussian naive Bayes).
 
 .. currentmodule:: sklearn.calibration
 :class:`CalibratedClassifierCV` can also deal with classification tasks that
@@ -138,7 +160,7 @@ on a hold-out validation set. Colors indicate the true class of an instance
    :align: center
 
 The base classifier is a random forest classifier with 25 base estimators
-(trees). If this classifier is trained on all 800 traing datapoints, it is
+(trees). If this classifier is trained on all 800 training datapoints, it is
 overly confident in its predictions and thus incurs a large log-loss.
 Calibrating an identical classifier, which was trained on 600 datapoints, with
 method='sigmoid' on the remaining 200 datapoints reduces the confidence of the

@@ -12,7 +12,7 @@ sigmoid calibration on a hold-out validation set. Colors indicate the true
 class of an instance (red: class 1, green: class 2, blue: class 3).
 
 The base classifier is a random forest classifier with 25 base estimators
-(trees). If this classifier is trained on all 800 traing datapoints, it is
+(trees). If this classifier is trained on all 800 training datapoints, it is
 overly confident in its predictions and thus incurs a large log-loss.
 Calibrating an identical classifier, which was trained on 600 datapoints, with
 method='sigmoid' on the remaining 200 datapoints reduces the confidence of the
