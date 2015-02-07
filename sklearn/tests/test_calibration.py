@@ -6,7 +6,7 @@ from scipy import sparse
 
 from sklearn.utils.testing import assert_array_almost_equal, assert_equal
 from sklearn.utils.testing import assert_almost_equal
-from nose.tools import assert_true
+from nose.tools import assert_true, assert_greater, assert_greater_equal
 
 from sklearn.datasets import make_classification, make_blobs
 from sklearn.naive_bayes import MultinomialNB
@@ -50,8 +50,8 @@ def test_calibration():
             prob_pos_pc_clf = pc_clf.predict_proba(this_X_test)[:, 1]
 
             # Check that brier score has improved after calibration
-            assert_true(brier_score_loss(y_test, prob_pos_clf) >
-                        brier_score_loss(y_test, prob_pos_pc_clf))
+            assert_greater(brier_score_loss(y_test, prob_pos_clf),
+                           brier_score_loss(y_test, prob_pos_pc_clf))
 
             # Check invariance against relabeling [0, 1] -> [1, 2]
             pc_clf.fit(this_X_train, y_train + 1, sample_weight=sw_train)
@@ -76,9 +76,9 @@ def test_calibration():
             else:
                 # Isotonic calibration is not invariant against relabeling
                 # but should improve in both cases
-                assert_true(brier_score_loss(y_test, prob_pos_clf) >
-                            brier_score_loss((y_test + 1) % 2,
-                                             prob_pos_pc_clf_relabeled))
+                assert_greater(brier_score_loss(y_test, prob_pos_clf),
+                               brier_score_loss((y_test + 1) % 2,
+                                                prob_pos_pc_clf_relabeled))
 
 
 def test_calibration_multiclass():
@@ -95,8 +95,9 @@ def test_calibration_multiclass():
         cal_clf.fit(X_train, y_train)
         probas = cal_clf.predict_proba(X_test)
         assert_array_almost_equal(np.sum(probas, axis=1), np.ones(len(X_test)))
-        assert_true(clf.fit(X_train, y_train).score(X_test, y_test) <=
-                    cal_clf.fit(X_train, y_train).score(X_test, y_test))
+        assert_greater_equal(
+            cal_clf.fit(X_train, y_train).score(X_test, y_test),
+            clf.fit(X_train, y_train).score(X_test, y_test))
 
     # Test that calibration of a multiclass classifier decreases log-loss
     X, y = make_blobs(n_samples=100, n_features=2, random_state=42,
@@ -107,14 +108,14 @@ def test_calibration_multiclass():
     clf = RandomForestClassifier(n_estimators=10, random_state=42)
     clf.fit(X_train, y_train)
     clf_probs = clf.predict_proba(X_test)
-    score = log_loss(y_test, clf_probs)
+    loss = log_loss(y_test, clf_probs)
 
     for method in ['isotonic', 'sigmoid']:
         cal_clf = CalibratedClassifierCV(clf, method=method, cv=3)
         cal_clf.fit(X_train, y_train)
         cal_clf_probs = cal_clf.predict_proba(X_test)
-        cal_score = log_loss(y_test, cal_clf_probs)
-        assert_true(cal_score < score)
+        cal_loss = log_loss(y_test, cal_clf_probs)
+        assert_greater(loss, cal_loss)
 
 
 def test_calibration_prefit():
@@ -149,8 +150,8 @@ def test_calibration_prefit():
             pc_clf.fit(this_X_calib, y_calib, sample_weight=sw_calib)
             prob_pos_pc_clf = pc_clf.predict_proba(this_X_test)[:, 1]
 
-            assert_true(brier_score_loss(y_test, prob_pos_clf) >
-                        brier_score_loss(y_test, prob_pos_pc_clf))
+            assert_greater(brier_score_loss(y_test, prob_pos_clf),
+                           brier_score_loss(y_test, prob_pos_pc_clf))
 
 
 def test_sigmoid_calibration():
