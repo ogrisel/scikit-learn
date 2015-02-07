@@ -4,10 +4,9 @@
 import numpy as np
 from scipy import sparse
 
-from sklearn.utils.testing import assert_array_almost_equal, assert_equal
-from sklearn.utils.testing import assert_almost_equal
-from nose.tools import assert_true, assert_greater, assert_greater_equal
-
+from sklearn.utils.testing import (assert_array_almost_equal, assert_equal,
+                                   assert_greater, assert_almost_equal,
+                                   assert_greater_equal)
 from sklearn.datasets import make_classification, make_blobs
 from sklearn.naive_bayes import MultinomialNB
 from sklearn.ensemble import RandomForestClassifier
@@ -90,16 +89,27 @@ def test_calibration_multiclass():
                       cluster_std=3.0)
     X_train, y_train = X[::2], y[::2]
     X_test, y_test = X[1::2], y[1::2]
+
+    clf.fit(X_train, y_train)
     for method in ['isotonic', 'sigmoid']:
         cal_clf = CalibratedClassifierCV(clf, method=method, cv=2)
         cal_clf.fit(X_train, y_train)
         probas = cal_clf.predict_proba(X_test)
         assert_array_almost_equal(np.sum(probas, axis=1), np.ones(len(X_test)))
-        assert_greater_equal(
-            cal_clf.fit(X_train, y_train).score(X_test, y_test),
-            clf.fit(X_train, y_train).score(X_test, y_test))
+
+        # Check that log-loss of calibrated classifier is smaller than
+        # log-loss of naively turned OvR decision function to probabilities
+        # via softmax
+        def softmax(y_pred):
+            e = np.exp(-y_pred)
+            return e / e.sum(axis=1).reshape(-1, 1)
+        uncalibrated_log_loss = \
+            log_loss(y_test, softmax(clf.decision_function(X_test)))
+        calibrated_log_loss = log_loss(y_test, probas)
+        assert_greater_equal(uncalibrated_log_loss, calibrated_log_loss)
 
     # Test that calibration of a multiclass classifier decreases log-loss
+    # for RandomForestClassifier
     X, y = make_blobs(n_samples=100, n_features=2, random_state=42,
                       cluster_std=3.0)
     X_train, y_train = X[::2], y[::2]

@@ -109,6 +109,16 @@ class CalibratedClassifierCV(BaseEstimator, ClassifierMixin):
         lb = LabelBinarizer().fit(y)
         self.classes_ = lb.classes_
 
+        # Check that we each cross-validation fold can have at least one
+        # example per class
+        n_folds = self.cv if isinstance(self.cv, int) \
+            else self.cv.n_folds if hasattr(self.cv, "n_folds") else None
+        if n_folds and \
+           np.any([np.sum(y==class_) < n_folds for class_ in self.classes_]):
+            raise ValueError("Requesting %d-fold cross-validation but provided"
+                             " less than %d examples for at least one class."
+                             % (n_folds, n_folds))
+
         self.calibrated_classifiers_ = []
         if self.cv == "prefit":
             calibrated_classifier = _CalibratedClassifier(self.base_estimator,
