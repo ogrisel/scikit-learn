@@ -85,8 +85,14 @@ def test_calibration_multiclass():
     # test multi-class setting with classifier that implements
     # only decision function
     clf = LinearSVC()
-    X, y = make_blobs(n_samples=100, n_features=2, random_state=42,
-                      cluster_std=3.0)
+    X, y_idx = make_blobs(n_samples=100, n_features=2, random_state=42,
+                          centers=3, cluster_std=3.0)
+
+    # Use categorical labels to check that CalibratedClassifierCV supports
+    # them correctly
+    target_names = np.array(['a', 'b', 'c'])
+    y = target_names[y_idx]
+
     X_train, y_train = X[::2], y[::2]
     X_test, y_test = X[1::2], y[1::2]
 
