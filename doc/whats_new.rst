@@ -328,6 +328,9 @@ Bug fixes
       :class:`neighbors.NearestNeighbors` return the samples lying on the
       boundary for ``algorithm='brute'``. By `Yan Yi`_.
 
+    - Fixed handling of ties in :class:`isotonic.IsotonicRegression`.
+      We now use the weighted average of targets (secondary method). By
+      `Andreas Müller`_ and `Michael Bommarito <http://bommaritollc.com/>`_.
 
 API changes summary
 -------------------
