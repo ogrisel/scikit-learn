@@ -3,7 +3,7 @@
 
 # Author: Issam H. Laradji <issam.laradji@gmail.com>
 # Licence: BSD 3 clause
-
+from __future__ import division
 import numpy as np
 
 from abc import ABCMeta, abstractmethod
@@ -333,8 +333,8 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
             self.layers_coef_ = []
             self.layers_intercept_ = []
 
+            rng = check_random_state(self.random_state)
             for i in range(self.n_layers_ - 1):
-                rng = check_random_state(self.random_state)
 
                 n_fan_in = layer_units[i]
                 n_fan_out = layer_units[i + 1]
@@ -343,9 +343,9 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
                 # Glorot et al.
                 weight_init_bound = np.sqrt(6. / (n_fan_in + n_fan_out))
 
-                self.layers_coef_.append(rng.uniform(-weight_init_bound,
-                                                     weight_init_bound,
-                                                     (n_fan_in, n_fan_out)))
+                weights = rng.uniform(-weight_init_bound, weight_init_bound,
+                                      size=(n_fan_in, n_fan_out))
+                self.layers_coef_.append(weights)
                 self.layers_intercept_.append(rng.uniform(-weight_init_bound,
                                                           weight_init_bound,
                                                           n_fan_out))
@@ -359,18 +359,16 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
         else:
             batch_size = np.clip(self.batch_size, 1, n_samples)
 
-        # Initialize lists
+        # Pre-allocate data-structures used to fit the model
         activations = [X]
         activations.extend(np.empty((batch_size, n_fan_out))
                            for n_fan_out in layer_units[1:])
         deltas = [np.empty_like(a_layer) for a_layer in activations]
 
-        coef_grads = [np.empty((n_fan_in, n_fan_out)) for n_fan_in,
-                      n_fan_out in zip(layer_units[:-1],
-                                       layer_units[1:])]
+        coef_grads = [np.empty((n_in, n_out)) for n_in, n_out
+                      in zip(layer_units[:-1], layer_units[1:])]
 
-        intercept_grads = [np.empty(n_fan_out) for n_fan_out in
-                           layer_units[1:]]
+        intercept_grads = [np.empty(n_out) for n_out in layer_units[1:]]
 
         # Run the Stochastic Gradient Descent algorithm
         if self.algorithm == 'sgd':
@@ -383,8 +381,8 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
                             intercept_grads, layer_units)
         return self
 
-    def _fit_lbfgs(self, X, y, activations, deltas, coef_grads, intercept_grads,
-                   layer_units):
+    def _fit_lbfgs(self, X, y, activations, deltas, coef_grads,
+                   intercept_grads, layer_units):
         # Store meta information for the parameters
         self._coef_indptr = []
         self._intercept_indptr = []
@@ -425,21 +423,25 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
 
     def _fit_sgd(self, X, y, activations, deltas, coef_grads, intercept_grads,
                  layer_units, incremental):
-        best_cost = np.inf
-        cost_increase_count = 0
+        prev_cost = np.inf
         n_samples = X.shape[0]
         batch_size = np.clip(self.batch_size, 1, n_samples)
-        intercept_update_prev = [np.zeros_like(grads) for grads in intercept_grads]
+        intercept_update_prev = [np.zeros_like(grads)
+                                 for grads in intercept_grads]
         coef_update_prev = [np.zeros_like(grads) for grads in coef_grads]
 
         try:
             for i in range(self.max_iter):
                 for batch_slice in gen_batches(n_samples, batch_size):
                     activations[0] = X[batch_slice]
-                    self.cost_, coef_grads, intercept_grads = self._backprop(
+                    batch_cost, coef_grads, intercept_grads = self._backprop(
                         X[batch_slice], y[batch_slice],
                         activations, deltas, coef_grads,
                         intercept_grads)
+                    if not hasattr(self, 'cost_') or self.cost_ is None:
+                        self.cost_ = batch_cost
+                    else:
+                        self.cost_ = .9 * self.cost_ + .1 * batch_cost
 
                     # update weights
                     for i in range(self.n_layers_ - 1):
@@ -467,26 +469,19 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
                 if incremental:
                     break
 
-                if self.cost_ > best_cost:
-                    cost_increase_count += 1
+                if np.abs(self.cost_ - prev_cost) < self.tol:
+                    # Convergence detected with tolerance
+                    break
 
                 if (self.learning_rate == 'constant'
-                    and cost_increase_count >= 2):
-                        self.learning_rate_ /= 5
+                        and self.cost_ > prev_cost):
+                        self.learning_rate_ /= 2
                         if self.verbose:
                             print("Training cost did not improve for 2"
                                   " consecutive epochs: setting learning rate"
                                   " to %f" % self.learning_rate_)
-                        # Try some more iterations with the new learning rate
-                        cost_increase_count = 0
 
-                elif np.abs(self.cost_ - best_cost) < self.tol:
-                    # Convergence detected with tolerance
-                    break
-
-                if self.cost_ < best_cost:
-                    cost_increase_count = 0
-                    best_cost = self.cost_
+                prev_cost = self.cost_
 
                 if self.n_iter_ == self.max_iter:
                     warnings.warn('SGD: Maximum iterations have reached and'
@@ -606,7 +601,7 @@ class MultilayerPerceptronClassifier(BaseMultilayerPerceptron,
     alpha : float, optional, default 0.00001
         L2 penalty (regularization term) parameter.
 
-    batch_size : int, optional, default 200
+    batch_size : int, optional, default 128
         Size of minibatches in SGD optimizer.
         If you select the algorithm as 'l-bfgs',
         then the classifier will not use minibatches.
@@ -617,7 +612,7 @@ class MultilayerPerceptronClassifier(BaseMultilayerPerceptron,
         -'constant', as it stands,  keeps the learning rate
          'learning_rate_init' constant as long as the training keeps decreasing.
          Each time 2 consecitive epochs fail to decrease the training cost,
-         the current learning rate is divided by 5.
+         the current learning rate is divided by 2.
 
         -'invscaling' gradually decreases the learning rate 'learning_rate_' at
           each time step 't' using an inverse scaling exponent of 'power_t'.
@@ -721,7 +716,7 @@ class MultilayerPerceptronClassifier(BaseMultilayerPerceptron,
     """
     def __init__(self, hidden_layer_sizes=(100,), activation="relu",
                  algorithm='l-bfgs', alpha=0.00001,
-                 batch_size=200, learning_rate="constant",
+                 batch_size=128, learning_rate="constant",
                  learning_rate_init=0.5, power_t=0.5, max_iter=200,
                  shuffle=True, random_state=None, tol=1e-5,
                  verbose=False, warm_start=False, momentum=0):
@@ -880,7 +875,7 @@ class MultilayerPerceptronRegressor(BaseMultilayerPerceptron, RegressorMixin):
     alpha : float, optional, default 0.00001
         L2 penalty (regularization term) parameter.
 
-    batch_size : int, optional, default 200
+    batch_size : int, optional, default 128
         Size of minibatches in SGD optimizer.
         If you select the algorithm as 'l-bfgs',
         then the classifier will not use minibatches.
@@ -988,7 +983,7 @@ class MultilayerPerceptronRegressor(BaseMultilayerPerceptron, RegressorMixin):
     """
     def __init__(self, hidden_layer_sizes=(100,), activation="relu",
                  algorithm='l-bfgs', alpha=0.00001,
-                 batch_size=200, learning_rate="constant",
+                 batch_size=128, learning_rate="constant",
                  learning_rate_init=0.1,
                  power_t=0.5, max_iter=100, shuffle=True,
                  random_state=None, tol=1e-5,
