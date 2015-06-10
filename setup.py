@@ -40,24 +40,23 @@ DOWNLOAD_URL = 'http://sourceforge.net/projects/scikit-learn/files/'
 import sklearn
 VERSION = sklearn.__version__
 
-
-# Optional setuptools features
-# We need to import setuptools early, if we want setuptools features,
-# as it monkey-patches the 'setup' function
-# For some commands, use setuptools
-SETUPTOOLS_COMMANDS = set([
-    'develop', 'release', 'bdist_egg', 'bdist_rpm',
-    'bdist_wininst', 'install_egg_info', 'build_sphinx',
-    'egg_info', 'easy_install', 'upload', 'bdist_wheel',
-    '--single-version-externally-managed',
-])
-if SETUPTOOLS_COMMANDS.intersection(sys.argv):
+try:
+    # The following will  monkey-patch the 'setup' function
     import setuptools
+
+    # Never try to install as a .egg folder
+    if 'install' in sys.argv:
+        sys.argv.append('--single-version-externally-managed')
+        sys.argv.append("--record")
+        sys.argv.append('scikit_learn.egg-info/installed-files.txt')
+
+    # Do not install
     extra_setuptools_args = dict(
         zip_safe=False,  # the package can run out of an .egg file
         include_package_data=True,
     )
-else:
+except ImportError:
+    # Keep setuptools an optional dependency
     extra_setuptools_args = dict()
 
 
