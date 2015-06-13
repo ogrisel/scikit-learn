@@ -449,6 +449,25 @@ class TransformerMixin(object):
             return self.fit(X, y, **fit_params).transform(X)
 
 
+class DensityMixin(object):
+    """Mixin class for all density estimators in scikit-learn."""
+    _estimator_type = "DensityEstimator"
+
+    def score(self, X, y = None):
+        """Returns the log likelihood under the model on the given data X.
+
+        Parameters
+        ----------
+        X : array-like, shape = (n_samples, n_features)
+
+        Returns
+        -------
+        score: float
+            sum of log probability of samples
+        """
+        return np.sum(self.score_samples(X))
+
+
 ###############################################################################
 class MetaEstimatorMixin(object):
     """Mixin class for all meta estimators in scikit-learn."""
