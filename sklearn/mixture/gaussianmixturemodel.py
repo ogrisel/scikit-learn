@@ -8,9 +8,11 @@ from ..base import BaseEstimator
 from ..base import DensityMixin
 from .. import cluster
 from ..utils import check_random_state, check_array
+from ..utils.extmath import logsumexp
 from sklearn.externals.six.moves import zip
 
-EPS = np.finfo(np.float64).eps*10
+EPS = np.finfo(np.float64).eps * 10
+
 
 def _sufficient_Sk_full(responsibilities, X, xk, min_covar):
     # maybe we could use some methods in sklearn.covariance
@@ -29,18 +31,22 @@ def _sufficient_Sk_full(responsibilities, X, xk, min_covar):
 def _sufficient_Sk_diag(responsibilities, X, xk, min_covar):
     pass
 
+
 def _sufficient_Sk_spherical(responsibilities, X, xk, min_covar):
     pass
+
 
 def _sufficient_Sk_tied(responsibilities, X, xk, min_covar):
     pass
 
+
 def _sufficient_Sk(responsibilities, X, xk, min_covar, covariance_type):
-    sufficient_sk_functions = {"full":_sufficient_Sk_full,
+    sufficient_sk_functions = {"full": _sufficient_Sk_full,
                                "diag": _sufficient_Sk_diag,
-                               "spherical":_sufficient_Sk_spherical,
-                               "tied":_sufficient_Sk_tied}
+                               "spherical": _sufficient_Sk_spherical,
+                               "tied": _sufficient_Sk_tied}
     return sufficient_sk_functions[covariance_type](responsibilities, X, xk, min_covar)
+
 
 class _MixtureModelBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)):
 
@@ -71,21 +77,19 @@ class _MixtureModelBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)
             # check shape
             if weights.shape != (self.n_components,):
                 raise ValueError(
-                    "The GaussianMixtureModel parameter 'weight' must "
-                    "have shape (%s, )." % self.n_components)
+                    "The parameter 'weights' must have shape (%s, )."
+                    % self.n_components)
 
             # check range
             if (any(np.less(weights, 0)) or
                     any(np.greater(weights, 1))):
                 raise ValueError(
-                    "The GaussianMixtureModel parameter 'weight' must "
-                    "be in the range [0, 1].")
+                    "The parameter 'weights' must be in the range [0, 1].")
 
             # check normalization
             if not np.less_equal(np.abs(1 - np.sum(weights)), EPS):
                 raise ValueError(
-                    "The GaussianMixtureModel parameter 'weight' must "
-                    "be normalized.")
+                    "The parameter 'weights' must be normalized.")
 
     def _check_means(self, means):
         if self.means_ is not None:
@@ -170,23 +174,29 @@ class _MixtureModelBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)
         pass
 
     def _estimate_responsibilities(self, X):
-        estimate_log_likelihood_functions = {
-            "full": self._estimate_log_likelihood_full,
-            "tied": self._estimate_log_likelihood_tied,
-            "diag": self._estimate_log_likelihood_diag,
-            "spheircal": self._estimate_log_likelihood_spherical
-        }
-        weighted_log_likelihood = self._estimate_log_weights() \
-                                 + estimate_log_likelihood_functions[self.covariance_type](X)
-        return weighted_log_likelihood / weighted_log_likelihood.sum(axis=1)[:, np.newaxis]
+        weighted_log_likelihood = self._estimate_log_likelihood(X)
+        log_probabilities = self.score_samples(X)
+        responsibilities = np.exp(weighted_log_likelihood - log_probabilities[:, np.newaxis])
+        return responsibilities
+
+    def score_samples(self, X):
+        weighted_log_likelihood = self._estimate_log_likelihood(X)
+        log_probabilities = logsumexp(weighted_log_likelihood, axis=1)
+        return log_probabilities
 
     @abstractmethod
     def _estimate_log_weights(self):
         pass
 
-    @abstractmethod
     def _estimate_log_likelihood(self, X):
-        pass
+        estimate_log_likelihood_functions = {
+            "full": self._estimate_log_likelihood_full,
+            "tied": self._estimate_log_likelihood_tied,
+            "diag": self._estimate_log_likelihood_diag,
+            "spherical": self._estimate_log_likelihood_spherical
+        }
+        weighted_log_likelihood = self._estimate_log_weights() + estimate_log_likelihood_functions[self.covariance_type](X)
+        return weighted_log_likelihood
 
     def _e_step(self, X):
         self._estimate_responsibilities(X)
@@ -206,7 +216,7 @@ class _MixtureModelBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)
                 responsibilities = np.random.rand(X.shape[0], self.n_components)
                 responsibilities = responsibilities / responsibilities.sum(axis=1)[:, np.newaxis]
 
-            nk, xk, Sk = self._suffcient_statistics(X, responsibilities)
+            nk, xk, Sk = self._sufficient_statistics(X, responsibilities)
             if self.weights_ is None:
                 self.weights_ = self._estimate_weights(responsibilities, nk, xk, Sk)
             if self.means_ is None:
@@ -214,7 +224,7 @@ class _MixtureModelBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)
             if self.covars_ is None:
                 self.covars_ = self._estimate_covariances(responsibilities, nk, xk, Sk)
 
-    def _suffcient_statistics(self, X, responsibilities):
+    def _sufficient_statistics(self, X, responsibilities):
         # compute three sufficient statistics
         nk = responsibilities.sum(axis=0)
         xk = np.dot(responsibilities.T, X) / nk[:, np.newaxis]
@@ -239,15 +249,15 @@ class _MixtureModelBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)
 
                 # log_likelihood
                 prev_log_likelihood = current_log_likelihood
-                current_log_likelihood = self._estimate_log_likelihood(X)
+                current_log_likelihood = self.score(X)
                 if prev_log_likelihood is not None:
                     change = abs(current_log_likelihood - prev_log_likelihood)
                     if change < self.tol:
                         self.converged_ = True
 
                 # m step
-                nk, xk, Sk = self._suffcient_statistics(X, responsibilities)
-                self._m_step(nk, xk, Sk)
+                nk, xk, Sk = self._sufficient_statistics(X, responsibilities)
+                self._m_step(responsibilities, nk, xk, Sk)
 
             if self.n_iter:
                 if current_log_likelihood > max_log_prob:
@@ -272,10 +282,8 @@ class _MixtureModelBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)
         return responsibilities
 
     def fit(self, X, y=None):
-        return self._fit(X)
-
-    def score_samples(self, X):
-        pass
+        self._fit(X)
+        return self
 
     def predict(self, X):
         pass
@@ -291,21 +299,21 @@ class _MixtureModelBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)
 
 
 class GaussianMixtureModel(_MixtureModelBase):
-    def _estimate_log_weight(self):
-        ln_weights = np.log(self.weights_)
+    def _estimate_log_weights(self):
+        return np.log(self.weights_)
 
     def _estimate_log_likelihood_full(self, X):
         n_samples, n_features = X.shape
         log_prob = np.empty((n_samples, self.n_components))
-        for c, (mu, cv) in enumerate(zip(self.means_,  self.covars_)):
+        for k, (mu, cov) in enumerate(zip(self.means_,  self.covars_)):
             try:
-                cv_chol = linalg.cholesky(cv, lower=True)
+                cov_chol = linalg.cholesky(cov, lower=True)
             except:
                 raise ValueError("'covars' must be symmetric, "
                                  "positive-definite")
-            cv_log_det = 2 * np.sum(np.log(np.diagonal(cv_chol)))
-            cv_sol = linalg.solve_triangular(cv_chol, (X - mu).T, lower=True).T
-            log_prob[:, c] = - .5 * (np.sum(cv_sol ** 2, axis=1) +
+            cv_log_det = 2 * np.sum(np.log(np.diagonal(cov_chol)))
+            cv_sol = linalg.solve_triangular(cov_chol, (X - mu).T, lower=True).T
+            log_prob[:, k] = - .5 * (np.sum(cv_sol ** 2, axis=1) +
                                      n_features * np.log(2 * np.pi) + cv_log_det)
         return log_prob
 
@@ -319,13 +327,13 @@ class GaussianMixtureModel(_MixtureModelBase):
         pass
 
     def _estimate_weights(self, X, nk, xk, Sk):
-        self.weights_ = nk.sum(axis=0) / X.shape[0]
+        return nk / X.shape[0]
 
     def _estimate_means(self, X, nk, xk, Sk):
-        self.means_ = xk
+        return xk
 
     def _estimate_covariances_full(self, X, nk, xk, Sk):
-        pass
+        return Sk
 
     def _estimate_covariances_tied(self, X, nk, xk, Sk):
         pass
@@ -334,12 +342,6 @@ class GaussianMixtureModel(_MixtureModelBase):
         pass
 
     def _estimate_covariances_spherical(self, X, nk, xk, Sk):
-        pass
-
-    def _estimate_log_weights(self):
-        pass
-
-    def _estimate_log_likelihood(self, X):
         pass
 
 
@@ -392,10 +394,6 @@ class BayesianGaussianMixtureModel(_MixtureModelBase):
 
     def _estimate_log_weights(self):
         pass
-
-    def _estimate_log_likelihood(self, X):
-        pass
-
 
 class DirichletProcessGaussianMixtureModel(BayesianGaussianMixtureModel):
 
