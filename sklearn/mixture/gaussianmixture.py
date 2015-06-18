@@ -318,7 +318,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         if (self.init_weights_ is None or self.init_means_ is None or
            self.init_covars_ is None):
             if self.verbose > 1:
-                print('\tInitializing parameters ... ')
+                print_('\n\tInitializing parameters ... ', end='')
 
             # use self.init_params to initialize
             if self.init_params == 'kmeans':
@@ -339,31 +339,31 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                 self.weights_ = self._estimate_weights(responsibilities,
                                                        nk, xk, Sk)
                 if self.verbose > 1:
-                    print('\tWeights are initialized.')
+                    print_('\n\tWeights are initialized.', end='')
             else:
                 self.weights_ = self.init_weights_
                 if self.verbose > 1:
-                    print('\tWeights are provided.')
+                    print_('\n\tWeights are provided.', end='')
 
             if self.init_means_ is None:
                 self.means_ = self._estimate_means(responsibilities,
                                                    nk, xk, Sk)
                 if self.verbose > 1:
-                    print('\tMeans are initialized.')
+                    print_('\n\tMeans are initialized.', end='')
             else:
                 self.means_ = self.init_means_
                 if self.verbose > 1:
-                    print('\tMeans are provided.')
+                    print_('\n\tMeans are provided.', end='')
 
             if self.init_covars_ is None:
                 self.covars_ = self._estimate_covariances(responsibilities,
                                                           nk, xk, Sk)
                 if self.verbose > 1:
-                    print('\tCovariances are initialized.')
+                    print_('\n\tCovariances are initialized.', end='')
             else:
                 self.covars_ = self.init_covars_
                 if self.verbose > 1:
-                    print('\tCovariances are provided.')
+                    print_('\n\tCovariances are provided.', end='')
 
     def fit(self, X, y=None):
         # check the parameters
@@ -371,29 +371,40 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         max_log_likelihood = -np.infty
 
         if self.verbose > 0:
-            print(('The estimation of %s is started.' %
-                  self.__class__.__name__))
+            print_('The estimation of %s started.' %
+                   self.__class__.__name__, end='')
 
         for init in range(self.n_init):
             if self.verbose > 0:
-                print('Initialization ' + str(init + 1))
+                print_('\nInitialization %s' % (init + 1), end='')
                 start_init_time = time()
 
             self._initialize(X)
-            current_log_likelihood = self.score(X)
+            current_log_likelihood = -np.infty
             if self.verbose > 1:
-                print('\tInitial log-likelihood %s\tUsed %.5fs' %
-                      (current_log_likelihood, time() - start_init_time))
+                print_('\n\tUsed %.5fs' % (time() - start_init_time), end='')
 
             self.converged_ = False
 
             for i in range(self.n_iter):
                 if self.verbose > 0:
-                    print_('\tIteration %s ' % str(i + 1), end=' ')
                     start_iter_time = time()
 
                 # e step
                 responsibilities = self._estimate_responsibilities(X)
+
+                # log_likelihood
+                prev_log_likelihood = current_log_likelihood
+                current_log_likelihood = self.score(X)
+
+                if self.verbose > 1:
+                    print_('\tLog-likelihood %s' % current_log_likelihood,
+                           end=' ')
+
+                change = abs(current_log_likelihood - prev_log_likelihood)
+                if change < self.tol:
+                    self.converged_ = True
+                    break
 
                 # m step
                 nk, xk, Sk = _sufficient_statistics(responsibilities, X,
@@ -401,27 +412,25 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                                                     self.covariance_type)
                 self._m_step(responsibilities, nk, xk, Sk)
 
-                # log_likelihood
-                prev_log_likelihood = current_log_likelihood
-                current_log_likelihood = self.score(X)
-
-                if self.verbose > 1:
-                    print_('Log-likelihood %s\tUsed %.5fs' %
-                           (current_log_likelihood, time() - start_iter_time),
-                           end=' ')
                 if self.verbose > 0:
-                    print
-
-                change = abs(current_log_likelihood - prev_log_likelihood)
-                if change < self.tol:
-                    self.converged_ = True
-                    if self.verbose > 0:
-                            print('\tEstimation converged.')
-                    break
+                    print_('\n\tIteration %s' % (i + 1), end='')
+                if self.verbose > 1:
+                    print_('\tused %.5fs' % (time() - start_init_time),
+                           end=' ')
+            if not self.converged_ and self.verbose > 1:
+                current_log_likelihood = self.score(X)
+                print_('\tLog-likelihood %s' % current_log_likelihood, end='')
 
             if self.verbose > 1:
-                print_('\tInitialization %s used %.5fs ' %
-                       (str(init + 1), time() - start_init_time), end=' ')
+                print_('\n\tInitialization %s used %.5fs' %
+                       (str(init + 1), time() - start_init_time), end='')
+            if self.verbose > 0:
+                print
+            if not self.converged_:
+                warnings.warn('Iteration is not converged.'
+                              'Try to increase the number of iterations')
+            elif self.verbose > 0:
+                print_('\tEstimation converged.\n', end='')
 
             if self.n_iter and current_log_likelihood > max_log_likelihood:
                 max_log_likelihood = current_log_likelihood
@@ -429,9 +438,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                                'means': self.means_,
                                'covars': self.covars_}
                 if self.verbose > 1:
-                    print('\tBetter parameters are found.')
-                if self.verbose > 0:
-                    print
+                    print_('\tBetter parameters are found.\n', end='')
 
         if np.isneginf(max_log_likelihood) and self.n_iter:
             raise RuntimeError(
