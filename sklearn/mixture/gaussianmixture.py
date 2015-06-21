@@ -17,129 +17,205 @@ from sklearn.externals.six import print_
 EPS = np.finfo(np.float64).eps * 10
 
 
-def _check_weights(n_components, n_features, weights):
-    if weights is not None:
-        # check value
-        weights = check_array(weights, ensure_2d=False)
-
-        # check shape
-        if weights.shape != (n_components,):
-            raise ValueError("'weights' must have shape (n_components, )")
-
-        # check range
-        if (any(np.less(weights, 0)) or
-                any(np.greater(weights, 1))):
-            raise ValueError("'weights' must be in the range [0, 1]")
-
-        # check normalization
-        if not np.allclose(np.abs(1 - np.sum(weights)), 0.0):
-            raise ValueError("'weights' must be normalized")
-
-
-def _check_means(n_components, n_features, means):
-    if means is not None:
-        # check value
-        means = check_array(means)
-
-        # check shape
-        if means.shape != (n_components, n_features):
-            raise ValueError("'means' must have shape (%s, %d)"
-                             % (n_components, n_features))
+def _check_X(X, n_components, n_features=None):
+    """Check the input data X
+    """
+    # check the input data X
+    # remove 'ensure_2d=False' after #4511 is merged
+    X = check_array(X, dtype=np.float64, ensure_2d=False)
+    if X.ndim != 2:
+        raise ValueError("The data should have shape of "
+                         "(n_samples, n_features), but got %s dimension(s)" %
+                         X.ndim)
+    if X.shape[0] < n_components:
+        raise ValueError(
+            'Estimation with %s components, but got only %s samples.'
+            % (n_components, X.shape[0]))
+    if n_features is not None and X.shape[1] != n_features:
+        raise ValueError("The data should %s features, but got %s features"
+                         % (n_features, X.shape[1]))
+    return X
 
 
-def _check_covars_full(n_components, n_features, covars):
+def _check_weights(weights, n_components, n_features):
+    """Check the weights
+    """
+    # check value
+    weights = check_array(weights, dtype=np.float64, ensure_2d=False)
+
+    # check shape
+    if weights.shape != (n_components,):
+        raise ValueError("'weights' must have shape (n_components, )")
+
+    # check range
+    if (any(np.less(weights, 0)) or
+            any(np.greater(weights, 1))):
+        raise ValueError("'weights' must be in the range [0, 1]")
+
+    # check normalization
+    if not np.allclose(np.abs(1 - np.sum(weights)), 0.0):
+        raise ValueError("'weights' must be normalized")
+    return weights
+
+
+def _check_means(means, n_components, n_features):
+    """Check the means
+    """
+    # check value
+    means = check_array(means, dtype=np.float64, ensure_2d=False)
+
+    # check shape
+    if means.shape != (n_components, n_features):
+        raise ValueError("'means' must have shape (%s, %d)"
+                         % (n_components, n_features))
+    return means
+
+
+def _check_covars_full(covars, n_components, n_features):
     # the shape of covars must be k x d x d
-    if covars is not None:
-        if (covars.ndim != 3 or covars.shape[0] != n_components or
-                covars.shape[1] != n_features or
-                covars.shape[2] != n_features):
-            raise ValueError("'full' covariances must have shape "
-                             "(n_components, n_features, n_features)")
-        for k, cov in enumerate(covars):
-            if (not np.allclose(cov, cov.T) or
-                    np.any(np.less_equal(linalg.eigvalsh(cov), 0.0))):
-                raise ValueError("The component %d of 'full' covars must be "
-                                 "symmetric, positive-definite" % k)
+    covars = check_array(covars, dtype=np.float64, ensure_2d=False)
+
+    # check dimension
+    if (covars.ndim != 3 or covars.shape[0] != n_components or
+            covars.shape[1] != n_features or
+            covars.shape[2] != n_features):
+        raise ValueError("'full' covariances must have shape "
+                         "(n_components, n_features, n_features)")
+    for k, cov in enumerate(covars):
+        if (not np.allclose(cov, cov.T) or
+                np.any(np.less_equal(linalg.eigvalsh(cov), 0.0))):
+            raise ValueError("The component %d of 'full' covars must be "
+                             "symmetric, positive-definite" % k)
+    return covars
 
 
-def _check_covars_tied(n_components, n_features, covars):
+def _check_covars_tied(covars, n_components, n_features):
     # the shape of covars must be d x d
-    if covars is not None:
-        if (covars.ndim != 2 or
-                covars.shape[0] != n_features or
-                covars.shape[1] != n_features):
-            raise ValueError("'tied' covariances must have shape "
-                             "(n_features, n_features)")
-        if (not np.allclose(covars, covars.T) or
-                np.any(np.less_equal(linalg.eigvalsh(covars), 0.0))):
-            raise ValueError("'tied' covariance must be "
-                             "symmetric, positive-definite")
+    covars = check_array(covars, dtype=np.float64, ensure_2d=False)
+
+    if (covars.ndim != 2 or
+            covars.shape[0] != n_features or
+            covars.shape[1] != n_features):
+        raise ValueError("'tied' covariances must have shape "
+                         "(n_features, n_features)")
+    if (not np.allclose(covars, covars.T) or
+            np.any(np.less_equal(linalg.eigvalsh(covars), 0.0))):
+        raise ValueError("'tied' covariance must be "
+                         "symmetric, positive-definite")
+    return covars
 
 
-def _check_covars_diag(n_components, n_features, covars):
+def _check_covars_diag(covars, n_components, n_features):
     # the shape of covars must be k x d
-    if covars is not None:
-        if (covars.ndim != 2 or
-                covars.shape[0] != n_components or
-                covars.shape[1] != n_features):
-            raise ValueError("'diag' covariances must have shape "
-                             "(n_components, n_features)")
-        if np.any(np.less_equal(covars, 0.0)):
-            raise ValueError("'diag' covariance must be positive")
+    covars = check_array(covars, dtype=np.float64, ensure_2d=False)
+
+    if (covars.ndim != 2 or
+            covars.shape[0] != n_components or
+            covars.shape[1] != n_features):
+        raise ValueError("'diag' covariances must have shape "
+                         "(n_components, n_features)")
+    if np.any(np.less_equal(covars, 0.0)):
+        raise ValueError("'diag' covariance must be positive")
+    return covars
 
 
-def _check_covars_spherical(n_components, n_features, covars):
+def _check_covars_spherical(covars, n_components, n_features):
     # the shape of covars must be (k, )
-    if covars is not None:
-        if covars.ndim != 1 or covars.shape[0] != n_components:
-            raise ValueError("'spherical' covariances must have shape "
-                             "(n_components, )")
-        if np.any(np.less_equal(covars, 0.0)):
-            raise ValueError("'spherical' covariance must be positive")
+    covars = check_array(covars, dtype=np.float64, ensure_2d=False)
+
+    if covars.ndim != 1 or covars.shape[0] != n_components:
+        raise ValueError("'spherical' covariances must have shape "
+                         "(n_components, )")
+    if np.any(np.less_equal(covars, 0.0)):
+        raise ValueError("'spherical' covariance must be positive")
+    return covars
 
 
 def _check_covars(n_components, n_features, covars, covariance_type):
+    """Check the covariances
+    """
     check_covars_functions = {"full": _check_covars_full,
                               "tied": _check_covars_tied,
                               "diag": _check_covars_tied,
                               "spherical": _check_covars_spherical}
-    check_covars_functions[covariance_type](n_components, n_features, covars)
+    return check_covars_functions[covariance_type](covars, n_components,
+                                                   n_features)
 
+# replaced simplified equations, cov(X) = E[X^2]-E[X]^2
+# since users may not estimate all of parameters
+def _sufficient_Sk_full(responsibilities, X, nk, xk, min_covar):
+    """Compute the covariance matrices for the 'full' case
 
-def _sufficient_Sk_full(responsibilities, X, xk, min_covar):
-    # maybe we could use some methods in sklearn.covariance
+    Parameters
+    ----------
+    responsibilities : array-like, shape = [n_samples, n_components]
+
+    X : array-like, shape = [n_samples, n_features]
+
+    nk: array-like, shape = [n_components, ]
+
+    xk : array-like, shape = [n_components, n_features]
+
+    min_covar : float
+
+    Returns
+    -------
+    Sk : array, shape = [n_components, n_features, n_features]
+    """
     n_features = X.shape[1]
     n_components = xk.shape[0]
-    covars = np.empty((n_components, n_features, n_features))
+    Sk = np.empty((n_components, n_features, n_features))
     for k in range(n_components):
-        post = responsibilities[:, k]
-        diff = X - xk[k]
         with np.errstate(under='ignore'):
             # remove + 10 * EPS
-            covars[k] = np.dot(post * diff.T, diff) / post.sum()
-            covars[k].flat[::n_features+1] += min_covar
-    return covars
+            diff = X - xk[k]
+            Sk[k] = np.dot(responsibilities[:, k] * diff.T, diff) / nk[k]
+            Sk[k].flat[::n_features+1] += min_covar
+    return Sk
 
 
-def _sufficient_Sk_diag(responsibilities, X, xk, min_covar):
+def _sufficient_Sk_diag(responsibilities, X, nk, xk, min_covar):
+    """Compute the covariance matrices for the 'diag' case
+
+    Parameters
+    ----------
+    responsibilities : array-like, shape = [n_samples, n_components]
+
+    X : array-like, shape = [n_samples, n_features]
+
+    nk: array-like, shape = [n_components, ]
+
+    xk : array-like, shape = [n_components, n_features]
+
+    min_covar : float
+
+    Returns
+    -------
+    Sk : array, shape = [n_components, n_features]
+    """
+    avg_X2 = np.dot(responsibilities.T, X * X) / nk[:, np.newaxis]
+    avg_means2 = xk ** 2
+    avg_X_means = xk * np.dot(responsibilities.T, X) / nk[:, np.newaxis]
+    return avg_X2 - 2 * avg_X_means + avg_means2 + min_covar
+
+
+def _sufficient_Sk_spherical(responsibilities, X, nk, xk, min_covar):
     pass
 
 
-def _sufficient_Sk_spherical(responsibilities, X, xk, min_covar):
+def _sufficient_Sk_tied(responsibilities, X, nk, xk, min_covar):
     pass
 
 
-def _sufficient_Sk_tied(responsibilities, X, xk, min_covar):
-    pass
-
-
-def _sufficient_Sk(responsibilities, X, xk, min_covar, covariance_type):
+def _sufficient_Sk(responsibilities, X, nk, xk, min_covar, covariance_type):
+    # TODO we could use some methods in sklearn.covariance
+    # TODO degenerate cases
     sufficient_sk_functions = {"full": _sufficient_Sk_full,
                                "tied": _sufficient_Sk_tied,
                                "diag": _sufficient_Sk_diag,
                                "spherical": _sufficient_Sk_spherical}
-    return sufficient_sk_functions[covariance_type](responsibilities, X, xk,
-                                                    min_covar)
+    return sufficient_sk_functions[covariance_type](responsibilities, X, nk,
+                                                    xk, min_covar)
 
 
 def _sufficient_statistics(responsibilities, X, min_covar, covariance_type):
@@ -147,7 +223,8 @@ def _sufficient_statistics(responsibilities, X, min_covar, covariance_type):
     nk = responsibilities.sum(axis=0)
     # remove + 10 * EPS
     xk = np.dot(responsibilities.T, X) / nk[:, np.newaxis]
-    Sk = _sufficient_Sk(responsibilities, X, xk, min_covar, covariance_type)
+    Sk = _sufficient_Sk(responsibilities, X, nk, xk, min_covar,
+                        covariance_type)
     return nk, xk, Sk
 
 
@@ -204,25 +281,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                 raise ValueError('Invalid value for covariance_type: %s' %
                                  covariance_type)
 
-    def _check(self, X):
-        # check the input data X
-        X = check_array(X, dtype=np.float64)
-        if X.shape[0] < self.n_components:
-            raise ValueError(
-                '%s estimation with %s components, but got only %s samples.'
-                % (self.__class__.__name__, self.n_components, X.shape[0]))
-
-        # check weights
-        _check_weights(self.n_components, X.shape[1], self.init_weights_)
-
-        # check means
-        _check_means(self.n_components, X.shape[1], self.init_means_)
-
-        # check covars
-        _check_covars(self.n_components, X.shape[1], self.init_covars_,
-                      self.covariance_type)
-
-    # m-step functions
+    # m-step methods
     @abstractmethod
     def _estimate_weights(self, X, nk, xk, Sk):
         pass
@@ -262,7 +321,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         self.means_ = self._estimate_means(responsibilities, nk, xk, Sk)
         self.covars_ = self._estimate_covariances(responsibilities, nk, xk, Sk)
 
-    # e-step functions
+    # e-step methods
     @abstractmethod
     def _estimate_log_weights(self):
         pass
@@ -303,6 +362,11 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         return responsibilities
 
     def score_samples(self, X):
+        check_is_fitted(self, 'weights_')
+        check_is_fitted(self, 'means_')
+        check_is_fitted(self, 'covars_')
+        X = _check_X(X, self.n_components, self.means_.shape[1])
+
         weighted_log_likelihood = self._estimate_log_likelihood(X)
         log_probabilities = logsumexp(weighted_log_likelihood, axis=1)
         return log_probabilities
@@ -314,9 +378,9 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         responsibilities[range(X.shape[0]), labels] = 1
         return responsibilities
 
-    def _initialize(self, X):
-        if (self.init_weights_ is None or self.init_means_ is None or
-           self.init_covars_ is None):
+    def _initialize(self, X, init_weights_, init_means_, init_covars_):
+        if (init_weights_ is None or init_means_ is None or
+           init_covars_ is None):
             if self.verbose > 1:
                 print_('\n\tInitializing parameters ... ', end='')
 
@@ -335,39 +399,54 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
             nk, xk, Sk = _sufficient_statistics(responsibilities, X,
                                                 self.min_covar,
                                                 self.covariance_type)
-            if self.init_weights_ is None:
+            if init_weights_ is None:
                 self.weights_ = self._estimate_weights(responsibilities,
                                                        nk, xk, Sk)
                 if self.verbose > 1:
                     print_('\n\tWeights are initialized.', end='')
             else:
-                self.weights_ = self.init_weights_
+                self.weights_ = init_weights_
                 if self.verbose > 1:
                     print_('\n\tWeights are provided.', end='')
 
-            if self.init_means_ is None:
+            if init_means_ is None:
                 self.means_ = self._estimate_means(responsibilities,
                                                    nk, xk, Sk)
                 if self.verbose > 1:
                     print_('\n\tMeans are initialized.', end='')
             else:
-                self.means_ = self.init_means_
+                self.means_ = init_means_
                 if self.verbose > 1:
                     print_('\n\tMeans are provided.', end='')
 
-            if self.init_covars_ is None:
+            if init_covars_ is None:
                 self.covars_ = self._estimate_covariances(responsibilities,
                                                           nk, xk, Sk)
                 if self.verbose > 1:
                     print_('\n\tCovariances are initialized.', end='')
             else:
-                self.covars_ = self.init_covars_
+                self.covars_ = init_covars_
                 if self.verbose > 1:
                     print_('\n\tCovariances are provided.', end='')
 
     def fit(self, X, y=None):
         # check the parameters
-        self._check(X)
+        X = _check_X(X, self.n_components)
+
+        # check weights
+        if self.init_weights_ is not None:
+            self.init_weights_ = _check_weights(self.init_weights_,
+                                                self.n_components, X.shape[1])
+        # check means
+        if self.init_means_ is not None:
+            self.init_means_ = _check_means(self.init_means_,
+                                            self.n_components, X.shape[1])
+        # check covars
+        if self.init_covars_ is not None:
+            self.init_covars_ = _check_covars(self.init_covars_,
+                                              self.n_components, X.shape[1],
+                                              self.covariance_type)
+
         max_log_likelihood = -np.infty
 
         if self.verbose > 0:
@@ -379,7 +458,9 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                 print_('\nInitialization %s' % (init + 1), end='')
                 start_init_time = time()
 
-            self._initialize(X)
+            self._initialize(X, self.init_weights_, self.init_means_,
+                             self.init_covars_)
+
             current_log_likelihood = -np.infty
             if self.verbose > 1:
                 print_('\n\tUsed %.5fs' % (time() - start_init_time), end='')
@@ -423,14 +504,16 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
 
             if self.verbose > 1:
                 print_('\n\tInitialization %s used %.5fs' %
-                       (str(init + 1), time() - start_init_time), end='')
+                       (init + 1, time() - start_init_time), end='')
             if self.verbose > 0:
                 print
             if not self.converged_:
-                warnings.warn('Iteration is not converged.'
-                              'Try to increase the number of iterations')
+                warnings.warn('Initialization %s is not converged. '
+                              'Try to increase the number of iterations'
+                              % (init + 1))
             elif self.verbose > 0:
-                print_('\tEstimation converged.\n', end='')
+                print_('\tInitialization %s is converged.\n'
+                       % (init + 1), end='')
 
             if self.n_iter and current_log_likelihood > max_log_likelihood:
                 max_log_likelihood = current_log_likelihood
@@ -458,6 +541,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         check_is_fitted(self, 'weights_')
         check_is_fitted(self, 'means_')
         check_is_fitted(self, 'covars_')
+        X = _check_X(X, self.n_components, self.means_.shape[1])
         return self._estimate_log_likelihood(X).argmax(axis=1)
 
     def fit_predict(self, X, y=None):
@@ -469,6 +553,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         check_is_fitted(self, 'weights_')
         check_is_fitted(self, 'means_')
         check_is_fitted(self, 'covars_')
+        X = _check_X(X, self.n_components, self.means_.shapep[1])
         return self._estimate_responsibilities(X)
 
     def sample(self):
@@ -482,6 +567,8 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
 
 
 class GaussianMixture(_MixtureBase):
+
+    # e-step functions
     def _estimate_log_weights(self):
         return np.log(self.weights_)
 
@@ -497,20 +584,27 @@ class GaussianMixture(_MixtureBase):
             cv_log_det = 2 * np.sum(np.log(np.diagonal(cov_chol)))
             cv_sol = linalg.solve_triangular(cov_chol, (X - mu).T,
                                              lower=True).T
-            log_prob[:, k] = - .5 * (np.sum(cv_sol ** 2, axis=1) +
-                                     n_features * np.log(2 * np.pi) +
-                                     cv_log_det)
+            log_prob[:, k] = - .5 * (n_features * np.log(2 * np.pi)
+                                     + np.sum(np.square(cv_sol), axis=1)
+                                     + cv_log_det)
         return log_prob
 
     def _estimate_log_likelihood_tied(self, X):
         pass
 
     def _estimate_log_likelihood_diag(self, X):
-        pass
+        n_samples, n_features = X.shape
+        log_prob = - .5 * (n_features * np.log(2 * np.pi)
+                           + np.sum(np.log(self.covars_), 1)
+                           + np.sum(np.square(self.means_) / self.covars_, 1)
+                           - 2 * np.dot(X, (self.means_ / self.covars_).T)
+                           + np.dot(X ** 2, (1/self.covars_.T)))
+        return log_prob
 
     def _estimate_log_likelihood_spherical(self, X):
         pass
 
+    # m-step functions
     def _estimate_weights(self, X, nk, xk, Sk):
         return nk / X.shape[0]
 
@@ -524,7 +618,7 @@ class GaussianMixture(_MixtureBase):
         pass
 
     def _estimate_covariances_diag(self, X, nk, xk, Sk):
-        pass
+        return Sk
 
     def _estimate_covariances_spherical(self, X, nk, xk, Sk):
         pass
