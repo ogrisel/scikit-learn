@@ -11,6 +11,7 @@ from .. import cluster
 from ..utils import check_random_state, check_array
 from ..utils.validation import check_is_fitted
 from ..utils.extmath import logsumexp
+from sklearn.utils import ConvergenceWarning
 from sklearn.externals.six.moves import zip
 from sklearn.externals.six import print_
 
@@ -200,11 +201,17 @@ def _sufficient_Sk_diag(responsibilities, X, nk, xk, min_covar):
 
 
 def _sufficient_Sk_spherical(responsibilities, X, nk, xk, min_covar):
-    pass
+    covars = _sufficient_Sk_diag(responsibilities, X, nk, xk, min_covar)
+    return covars.mean(axis=1)
 
 
 def _sufficient_Sk_tied(responsibilities, X, nk, xk, min_covar):
-    pass
+    avg_X2 = np.dot(X.T, X)
+    avg_means2 = np.dot(nk * xk.T, xk)
+    covars = avg_X2 - avg_means2
+    covars *= 1. / X.shape[0]
+    covars.flat[::len(covars) + 1] += min_covar
+    return covars
 
 
 def _sufficient_Sk(responsibilities, X, nk, xk, min_covar, covariance_type):
@@ -253,6 +260,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         self.tol = tol
         self.min_covar = min_covar
         self.random_state = random_state
+        self.random_state_ = None
         self.n_iter = n_iter
         self.n_init = n_init
         self.params = params
@@ -274,6 +282,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                              self.__class__.__name__)
 
         if params != 'wmc':
+            # TODO deprecate 'params'
             warnings.warn("All of the weights, the means and the covariances "
                           "should be estimated, but got params = %s" % params)
 
@@ -327,39 +336,39 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         pass
 
     @abstractmethod
-    def _estimate_log_likelihood_full(self, X):
+    def _estimate_log_probabilities_full(self, X):
         pass
 
     @abstractmethod
-    def _estimate_log_likelihood_tied(self, X):
+    def _estimate_log_probabilities_tied(self, X):
         pass
 
     @abstractmethod
-    def _estimate_log_likelihood_diag(self, X):
+    def _estimate_log_probabilities_diag(self, X):
         pass
 
     @abstractmethod
-    def _estimate_log_likelihood_spherical(self, X):
+    def _estimate_log_probabilities_spherical(self, X):
         pass
 
-    def _estimate_log_likelihood(self, X):
-        estimate_log_likelihood_functions = {
-            "full": self._estimate_log_likelihood_full,
-            "tied": self._estimate_log_likelihood_tied,
-            "diag": self._estimate_log_likelihood_diag,
-            "spherical": self._estimate_log_likelihood_spherical
+    def _estimate_log_probabilities(self, X):
+        estimate_log_probabilities_functions = {
+            "full": self._estimate_log_probabilities_full,
+            "tied": self._estimate_log_probabilities_tied,
+            "diag": self._estimate_log_probabilities_diag,
+            "spherical": self._estimate_log_probabilities_spherical
         }
-        weighted_log_likelihood = (self._estimate_log_weights() +
-                                   estimate_log_likelihood_functions
-                                   [self.covariance_type](X))
-        return weighted_log_likelihood
+        weighted_log_probabilities = (self._estimate_log_weights() +
+                                      estimate_log_probabilities_functions
+                                      [self.covariance_type](X))
+        return weighted_log_probabilities
 
-    def _estimate_responsibilities(self, X):
-        weighted_log_likelihood = self._estimate_log_likelihood(X)
-        log_probabilities = logsumexp(weighted_log_likelihood, axis=1)
-        responsibilities = np.exp(weighted_log_likelihood -
+    def _estimate_log_probabilities_responsibilities(self, X):
+        weighted_log_probabilities = self._estimate_log_probabilities(X)
+        log_probabilities = logsumexp(weighted_log_probabilities, axis=1)
+        responsibilities = np.exp(weighted_log_probabilities -
                                   log_probabilities[:, np.newaxis])
-        return responsibilities
+        return log_probabilities, responsibilities
 
     def score_samples(self, X):
         check_is_fitted(self, 'weights_')
@@ -367,31 +376,38 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         check_is_fitted(self, 'covars_')
         X = _check_X(X, self.n_components, self.means_.shape[1])
 
-        weighted_log_likelihood = self._estimate_log_likelihood(X)
+        weighted_log_likelihood = self._estimate_log_probabilities(X)
         log_probabilities = logsumexp(weighted_log_likelihood, axis=1)
         return log_probabilities
 
-    def _initialize_by_kmeans(self, X):
+    def _initialize_by_kmeans(self, X, random_state=None):
         labels = cluster.KMeans(n_clusters=self.n_components,
-                                random_state=self.random_state).fit(X).labels_
+                                random_state=random_state).fit(X).labels_
         responsibilities = np.zeros((X.shape[0], self.n_components))
         responsibilities[range(X.shape[0]), labels] = 1
         return responsibilities
 
-    def _initialize(self, X, init_weights_, init_means_, init_covars_):
+    def _initialize(self, X, init_weights_, init_means_, init_covars_,
+                    random_state=None):
         if (init_weights_ is None or init_means_ is None or
            init_covars_ is None):
+            if random_state is None:
+                random_state = self.random_state_
+            rng = check_random_state(random_state)
+
             if self.verbose > 1:
-                print_('\n\tInitializing parameters ... ', end='')
+                print_('\n\tInitializing parameters by ', end='')
 
             # use self.init_params to initialize
             if self.init_params == 'kmeans':
-                responsibilities = self._initialize_by_kmeans(X)
+                print_('kmeans.', end='')
+                responsibilities = self._initialize_by_kmeans(X, rng)
             else:
                 # other initialization methods as long as
                 # they return responsibilities
-                responsibilities = np.random.rand(X.shape[0],
-                                                  self.n_components)
+                print_('random initialization.', end='')
+                responsibilities = rng.rand(X.shape[0],
+                                            self.n_components)
                 responsibilities = (responsibilities /
                                     responsibilities.sum(axis=1)
                                     [:, np.newaxis])
@@ -432,6 +448,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
     def fit(self, X, y=None):
         # check the parameters
         X = _check_X(X, self.n_components)
+        self.random_state_ = check_random_state(self.random_state)
 
         # check weights
         if self.init_weights_ is not None:
@@ -455,11 +472,11 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
 
         for init in range(self.n_init):
             if self.verbose > 0:
-                print_('\nInitialization %s' % (init + 1), end='')
+                print_('\nInitialization %d' % (init + 1), end='')
                 start_init_time = time()
 
             self._initialize(X, self.init_weights_, self.init_means_,
-                             self.init_covars_)
+                             self.init_covars_, self.random_state_)
 
             current_log_likelihood = -np.infty
             if self.verbose > 1:
@@ -471,15 +488,15 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                 if self.verbose > 0:
                     start_iter_time = time()
 
-                # e step
-                responsibilities = self._estimate_responsibilities(X)
-
-                # log_likelihood
                 prev_log_likelihood = current_log_likelihood
-                current_log_likelihood = self.score(X)
+
+                # e step
+                log_probabilities, responsibilities = \
+                    self._estimate_log_probabilities_responsibilities(X)
+                current_log_likelihood = log_probabilities.sum()
 
                 if self.verbose > 1:
-                    print_('\tLog-likelihood %s' % current_log_likelihood,
+                    print_('\tLog-likelihood %.5f' % current_log_likelihood,
                            end=' ')
 
                 change = abs(current_log_likelihood - prev_log_likelihood)
@@ -494,25 +511,25 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                 self._m_step(responsibilities, nk, xk, Sk)
 
                 if self.verbose > 0:
-                    print_('\n\tIteration %s' % (i + 1), end='')
+                    print_('\n\tIteration %d' % (i + 1), end='')
                 if self.verbose > 1:
                     print_('\tused %.5fs' % (time() - start_init_time),
                            end=' ')
             if not self.converged_ and self.verbose > 1:
                 current_log_likelihood = self.score(X)
-                print_('\tLog-likelihood %s' % current_log_likelihood, end='')
+                print_('\tLog-likelihood %.5f' % current_log_likelihood, end='')
 
             if self.verbose > 1:
                 print_('\n\tInitialization %s used %.5fs' %
                        (init + 1, time() - start_init_time), end='')
             if self.verbose > 0:
-                print
+                print_('\n')
             if not self.converged_:
-                warnings.warn('Initialization %s is not converged. '
+                warnings.warn('Initialization %d is not converged. '
                               'Try to increase the number of iterations'
-                              % (init + 1))
+                              % (init + 1), ConvergenceWarning)
             elif self.verbose > 0:
-                print_('\tInitialization %s is converged.\n'
+                print_('\tInitialization %d is converged.\n'
                        % (init + 1), end='')
 
             if self.n_iter and current_log_likelihood > max_log_likelihood:
@@ -542,7 +559,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         check_is_fitted(self, 'means_')
         check_is_fitted(self, 'covars_')
         X = _check_X(X, self.n_components, self.means_.shape[1])
-        return self._estimate_log_likelihood(X).argmax(axis=1)
+        return self._estimate_log_probabilities(X).argmax(axis=1)
 
     def fit_predict(self, X, y=None):
         self.fit(X)
@@ -553,8 +570,10 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         check_is_fitted(self, 'weights_')
         check_is_fitted(self, 'means_')
         check_is_fitted(self, 'covars_')
-        X = _check_X(X, self.n_components, self.means_.shapep[1])
-        return self._estimate_responsibilities(X)
+        X = _check_X(X, self.n_components, self.means_.shape[1])
+        _, responsibilities = \
+            self._estimate_log_probabilities_responsibilities(X)
+        return responsibilities
 
     def sample(self):
         pass
@@ -572,7 +591,7 @@ class GaussianMixture(_MixtureBase):
     def _estimate_log_weights(self):
         return np.log(self.weights_)
 
-    def _estimate_log_likelihood_full(self, X):
+    def _estimate_log_probabilities_full(self, X):
         n_samples, n_features = X.shape
         log_prob = np.empty((n_samples, self.n_components))
         for k, (mu, cov) in enumerate(zip(self.means_,  self.covars_)):
@@ -581,28 +600,48 @@ class GaussianMixture(_MixtureBase):
             except:
                 raise ValueError("'covars' must be symmetric, "
                                  "positive-definite")
-            cv_log_det = 2 * np.sum(np.log(np.diagonal(cov_chol)))
+            cv_log_det = 2. * np.sum(np.log(np.diagonal(cov_chol)))
             cv_sol = linalg.solve_triangular(cov_chol, (X - mu).T,
                                              lower=True).T
             log_prob[:, k] = - .5 * (n_features * np.log(2 * np.pi)
-                                     + np.sum(np.square(cv_sol), axis=1)
-                                     + cv_log_det)
+                                     + cv_log_det
+                                     + np.sum(np.square(cv_sol), axis=1))
         return log_prob
 
-    def _estimate_log_likelihood_tied(self, X):
-        pass
+    def _estimate_log_probabilities_tied(self, X):
+        n_samples, n_features = X.shape
+        log_prob = np.empty((n_samples, self.n_components))
+        try:
+            cov_chol = linalg.cholesky(self.covars_, lower=True)
+        except:
+            raise ValueError("'covars' must be symmetric, positive-definite")
+        cv_log_det = 2. * np.sum(np.log(np.diagonal(cov_chol)))
+        for k, mu in enumerate(self.means_):
+            cv_sol = linalg.solve_triangular(cov_chol, (X - mu).T,
+                                             lower=True).T
+            log_prob[:, k] = np.sum(np.square(cv_sol), axis=1)
+        log_prob = - .5 * (n_features * np.log(2 * np.pi)
+                            + cv_log_det
+                            + log_prob)
+        return log_prob
 
-    def _estimate_log_likelihood_diag(self, X):
+    def _estimate_log_probabilities_diag(self, X):
+        n_samples, n_features = X.shape
+        log_prob = - .5 * (n_features * np.log(2. * np.pi)
+                           + np.sum(np.log(self.covars_), 1)
+                           + np.sum((self.means_ ** 2 / self.covars_), 1)
+                           - 2. * np.dot(X, (self.means_ / self.covars_).T)
+                           + np.dot(X ** 2, (1. / self.covars_).T))
+        return log_prob
+
+    def _estimate_log_probabilities_spherical(self, X):
         n_samples, n_features = X.shape
         log_prob = - .5 * (n_features * np.log(2 * np.pi)
-                           + np.sum(np.log(self.covars_), 1)
-                           + np.sum(np.square(self.means_) / self.covars_, 1)
-                           - 2 * np.dot(X, (self.means_ / self.covars_).T)
-                           + np.dot(X ** 2, (1/self.covars_.T)))
+                           + np.log(self.covars_)
+                           + np.sum(self.means_ ** 2, 1) / self.covars_
+                           - 2 * np.dot(X, self.means_.T / self.covars_)
+                           + np.outer(np.sum(X ** 2, axis=1), 1. / self.covars_))
         return log_prob
-
-    def _estimate_log_likelihood_spherical(self, X):
-        pass
 
     # m-step functions
     def _estimate_weights(self, X, nk, xk, Sk):
@@ -615,13 +654,13 @@ class GaussianMixture(_MixtureBase):
         return Sk
 
     def _estimate_covariances_tied(self, X, nk, xk, Sk):
-        pass
+        return Sk
 
     def _estimate_covariances_diag(self, X, nk, xk, Sk):
         return Sk
 
     def _estimate_covariances_spherical(self, X, nk, xk, Sk):
-        pass
+        return Sk
 
 
 class BayesianGaussianMixture(_MixtureBase):
