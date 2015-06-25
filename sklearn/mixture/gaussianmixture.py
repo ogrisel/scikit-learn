@@ -20,55 +20,90 @@ EPS = np.finfo(np.float64).eps * 10
 
 def _check_X(X, n_components, n_features=None):
     """Check the input data X
+
+    Parameters
+    ----------
+    X : array-like, [n_samples, n_features]
+
+    n_components : int
+
+    Returns
+    -------
+    X : array, [n_samples, n_features]
     """
-    # check the input data X
     # remove 'ensure_2d=False' after #4511 is merged
     X = check_array(X, dtype=np.float64, ensure_2d=False)
     if X.ndim != 2:
-        raise ValueError("The data should have shape of "
-                         "(n_samples, n_features), but got %s dimension(s)" %
+        raise ValueError("Expected the input data X have 2 dimensions, "
+                         "but got %s dimension(s)" %
                          X.ndim)
     if X.shape[0] < n_components:
-        raise ValueError(
-            'Estimation with %s components, but got only %s samples.'
-            % (n_components, X.shape[0]))
+        raise ValueError('Expected n_samples >= n_components'
+                         'but got n_components = %d, n_samples = %d'
+                         % (n_components, X.shape[0]))
     if n_features is not None and X.shape[1] != n_features:
-        raise ValueError("The data should %s features, but got %s features"
+        raise ValueError("Expected the input data X have %d features, "
+                         "but got %d features"
                          % (n_features, X.shape[1]))
     return X
 
 
-def _check_weights(weights, n_components, n_features):
-    """Check the weights
+def _check_weights(weights, n_components):
+    """Check the 'weights'
+
+    Parameters
+    ----------
+    weights : array-like, [n_components, ]
+
+    n_components : int
+
+    Returns
+    -------
+    weights : array, [n_components, ]
     """
     # check value
     weights = check_array(weights, dtype=np.float64, ensure_2d=False)
 
     # check shape
     if weights.shape != (n_components,):
-        raise ValueError("'weights' must have shape (n_components, )")
+        raise ValueError("Expected the 'weights' have the shape of "
+                         "(n_components, ), "
+                         "but got %s" % str(weights.shape))
 
     # check range
     if (any(np.less(weights, 0)) or
             any(np.greater(weights, 1))):
-        raise ValueError("'weights' must be in the range [0, 1]")
+        raise ValueError("The 'weights' should be in the range [0, 1]")
 
     # check normalization
     if not np.allclose(np.abs(1 - np.sum(weights)), 0.0):
-        raise ValueError("'weights' must be normalized")
+        raise ValueError("The 'weights' should be normalized")
     return weights
 
 
 def _check_means(means, n_components, n_features):
-    """Check the means
+    """Check the 'means'
+
+    Parameters
+    ----------
+    means : array-like, [n_components, n_features]
+
+    n_components : int
+
+    n_features : int
+
+    Returns
+    -------
+    means : array, [n_components, n_features]
     """
     # check value
     means = check_array(means, dtype=np.float64, ensure_2d=False)
 
     # check shape
     if means.shape != (n_components, n_features):
-        raise ValueError("'means' must have shape (%s, %d)"
-                         % (n_components, n_features))
+        raise ValueError("The 'means' should have shape (%s, %d), "
+                         "but got %s"
+                         % (n_components, n_features, str(means.shape)))
     return means
 
 
@@ -132,9 +167,34 @@ def _check_covars_spherical(covars, n_components, n_features):
     return covars
 
 
-def _check_covars(n_components, n_features, covars, covariance_type):
-    """Check the covariances
+def _check_covars(covars, n_components, n_features, covariance_type):
+    """Check the 'covariances'
+
+    Parameters
+    ----------
+    covars : array-like,
+        'full' : shape of [n_components, n_features, n_features]
+        'tied' : shape of [n_features, n_features]
+        'diag' : shape of [n_components, n_features]
+        'spherical' : shape of [n_components, ]
+
+    n_components : int
+
+    n_features : int
+
+    covariance_type : string
+
+    Returns
+    -------
+    covars : array
     """
+
+    if covariance_type not in ['full', 'tied', 'diag', 'spherical']:
+        raise ValueError("Invalid value for 'covariance_type': %s "
+                         "'covariance_type' should be in "
+                         "['spherical', 'tied', 'diag', 'full']"
+                         % covariance_type)
+
     check_covars_functions = {"full": _check_covars_full,
                               "tied": _check_covars_tied,
                               "diag": _check_covars_tied,
@@ -167,11 +227,10 @@ def _sufficient_Sk_full(responsibilities, X, nk, xk, min_covar):
     n_components = xk.shape[0]
     Sk = np.empty((n_components, n_features, n_features))
     for k in range(n_components):
-        with np.errstate(under='ignore'):
-            # remove + 10 * EPS
-            diff = X - xk[k]
-            Sk[k] = np.dot(responsibilities[:, k] * diff.T, diff) / nk[k]
-            Sk[k].flat[::n_features+1] += min_covar
+        # remove + 10 * EPS
+        diff = X - xk[k]
+        Sk[k] = np.dot(responsibilities[:, k] * diff.T, diff) / nk[k]
+        Sk[k].flat[::n_features+1] += min_covar
     return Sk
 
 
@@ -250,9 +309,9 @@ def sample_inv_wishart():
 
 class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                                       BaseEstimator)):
-    def __init__(self, n_components=1, random_state=None, tol=1e-5,
+    def __init__(self, n_components=1, random_state=None, tol=1e-6,
                  min_covar=0, covariance_type='full',
-                 n_init=1, n_iter=100, params='wmc', init_params='kmeans',
+                 n_init=1, n_iter=100, params=None, init_params='kmeans',
                  weights=None, means=None, covars=None,
                  verbose=0):
         self.n_components = n_components
@@ -274,21 +333,25 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         self.covars_ = None
         self.converged_ = False
 
-        if covariance_type not in ['spherical', 'tied', 'diag', 'full']:
-            raise ValueError('Invalid value for covariance_type: %s' %
-                             covariance_type)
         if n_init < 1:
-            raise ValueError('%s estimation requires at least one run' %
-                             self.__class__.__name__)
+            raise ValueError("Invalid value for 'n_init': %d "
+                             "Estimation requires at least one run" % n_init)
 
-        if params != 'wmc':
+        if n_iter < 1:
+            # TODO may have to adjust the iteration for old GMM
+            raise ValueError("Invalid value for 'n_iter': %d "
+                             "Estimation requires at least one iteration"
+                             % n_iter)
+
+        if params is not None:
             # TODO deprecate 'params'
-            warnings.warn("All of the weights, the means and the covariances "
-                          "should be estimated, but got params = %s" % params)
+            pass
 
         if covariance_type not in ['spherical', 'tied', 'diag', 'full']:
-                raise ValueError('Invalid value for covariance_type: %s' %
-                                 covariance_type)
+                raise ValueError("Invalid value for 'covariance_type': %s "
+                                 "'covariance_type' should be in "
+                                 "['spherical', 'tied', 'diag', 'full']"
+                                 % covariance_type)
 
     # m-step methods
     @abstractmethod
@@ -366,8 +429,10 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
     def _estimate_log_probabilities_responsibilities(self, X):
         weighted_log_probabilities = self._estimate_log_probabilities(X)
         log_probabilities = logsumexp(weighted_log_probabilities, axis=1)
-        responsibilities = np.exp(weighted_log_probabilities -
-                                  log_probabilities[:, np.newaxis])
+        with np.errstate(under='ignore'):
+            # ignore underflow
+            responsibilities = np.exp(weighted_log_probabilities -
+                                      log_probabilities[:, np.newaxis])
         return log_probabilities, responsibilities
 
     def score_samples(self, X):
@@ -400,7 +465,8 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
 
             # use self.init_params to initialize
             if self.init_params == 'kmeans':
-                print_('kmeans.', end='')
+                if self.verbose > 1:
+                    print_('kmeans.', end='')
                 responsibilities = self._initialize_by_kmeans(X, rng)
             else:
                 # other initialization methods as long as
@@ -453,7 +519,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         # check weights
         if self.init_weights_ is not None:
             self.init_weights_ = _check_weights(self.init_weights_,
-                                                self.n_components, X.shape[1])
+                                                self.n_components)
         # check means
         if self.init_means_ is not None:
             self.init_means_ = _check_means(self.init_means_,
@@ -472,7 +538,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
 
         for init in range(self.n_init):
             if self.verbose > 0:
-                print_('\nInitialization %d' % (init + 1), end='')
+                print_('Initialization %d' % (init + 1), end='')
                 start_init_time = time()
 
             self._initialize(X, self.init_weights_, self.init_means_,
@@ -515,43 +581,41 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                 if self.verbose > 1:
                     print_('\tused %.5fs' % (time() - start_init_time),
                            end=' ')
-            if not self.converged_ and self.verbose > 1:
+            if not self.converged_:
+                # compute the log-likelihood of the last m-step
+                warnings.warn('Initialization %d is not converged. '
+                              'Try different init parameters, '
+                              'or increase n_init, '
+                              'or check for degenerate data.'
+                              % (init + 1), ConvergenceWarning)
                 current_log_likelihood = self.score(X)
-                print_('\tLog-likelihood %.5f' % current_log_likelihood, end='')
+                if self.verbose > 1:
+                    print_('\tLog-likelihood %.5f' % current_log_likelihood,
+                           end='')
+            else:
+                if self.verbose > 0:
+                    print_('\n\tInitialization %d is converged.' % (init + 1),
+                           end='')
+
+            if current_log_likelihood > max_log_likelihood:
+                # max_log_likelihood is always updated,
+                # since we compute the log-likelihood of the initialization
+                max_log_likelihood = current_log_likelihood
+                best_params = {'weights': self.weights_,
+                               'means': self.means_,
+                               'covars': self.covars_}
+                if self.verbose > 1:
+                    print_('\n\tBetter parameters are found.', end='')
 
             if self.verbose > 1:
                 print_('\n\tInitialization %s used %.5fs' %
                        (init + 1, time() - start_init_time), end='')
             if self.verbose > 0:
                 print_('\n')
-            if not self.converged_:
-                warnings.warn('Initialization %d is not converged. '
-                              'Try to increase the number of iterations'
-                              % (init + 1), ConvergenceWarning)
-            elif self.verbose > 0:
-                print_('\tInitialization %d is converged.\n'
-                       % (init + 1), end='')
 
-            if self.n_iter and current_log_likelihood > max_log_likelihood:
-                max_log_likelihood = current_log_likelihood
-                best_params = {'weights': self.weights_,
-                               'means': self.means_,
-                               'covars': self.covars_}
-                if self.verbose > 1:
-                    print_('\tBetter parameters are found.\n', end='')
-
-        if np.isneginf(max_log_likelihood) and self.n_iter:
-            raise RuntimeError(
-                "%s was never able to compute a valid likelihood "
-                "given initial parameters. Try different init parameters "
-                "(or increasing n_init) or check for degenerate data."
-                % self.__class__.__name__)
-
-        if self.n_iter:
-            self.covars_ = best_params['covars']
-            self.means_ = best_params['means']
-            self.weights_ = best_params['weights']
-
+        self.covars_ = best_params['covars']
+        self.means_ = best_params['means']
+        self.weights_ = best_params['weights']
         return self
 
     def predict(self, X):
@@ -664,9 +728,9 @@ class GaussianMixture(_MixtureBase):
 
 
 class BayesianGaussianMixture(_MixtureBase):
-    def __init__(self, n_components=1, random_state=None, tol=1e-5,
+    def __init__(self, n_components=1, random_state=None, tol=1e-6,
                  min_covar=0, covariance_type='full',
-                 n_init=1, n_iter=100, params='wmc', init_params='kmeans',
+                 n_init=1, n_iter=100, params=None, init_params='kmeans',
                  weights=None, means=None, covars=None,
                  alpha_0=None, m_0=None, beta_0=None, nu_0=None, W_0=None,
                  verbose=0):
@@ -699,16 +763,16 @@ class BayesianGaussianMixture(_MixtureBase):
     def _estimate_covariances_spherical(self, X, nk, xk, Sk):
         pass
 
-    def _estimate_log_likelihood_full(self, X):
+    def _estimate_log_probabilities_full(self, X):
         pass
 
-    def _estimate_log_likelihood_tied(self, X):
+    def _estimate_log_probabilities_tied(self, X):
         pass
 
-    def _estimate_log_likelihood_diag(self, X):
+    def _estimate_log_probabilities_diag(self, X):
         pass
 
-    def _estimate_log_likelihood_spherical(self, X):
+    def _estimate_log_probabilities_spherical(self, X):
         pass
 
     def _estimate_log_weights(self):
