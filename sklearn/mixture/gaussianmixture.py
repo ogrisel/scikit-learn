@@ -66,7 +66,7 @@ def _check_weights(weights, n_components):
 
     # check shape
     if weights.shape != (n_components,):
-        raise ValueError("Expected the 'weights' have the shape of "
+        raise ValueError("The 'weights' should have the shape of "
                          "(n_components, ), "
                          "but got %s" % str(weights.shape))
 
@@ -109,18 +109,20 @@ def _check_means(means, n_components, n_features):
 
 def _check_covars_full(covars, n_components, n_features):
     # the shape of covars must be k x d x d
-    covars = check_array(covars, dtype=np.float64, ensure_2d=False)
+    covars = check_array(covars, dtype=np.float64, ensure_2d=False,
+                         allow_nd=True)
 
     # check dimension
-    if (covars.ndim != 3 or covars.shape[0] != n_components or
-            covars.shape[1] != n_features or
-            covars.shape[2] != n_features):
-        raise ValueError("'full' covariances must have shape "
-                         "(n_components, n_features, n_features)")
+    if (covars.ndim != 3 or covars.shape != (n_components, n_features,
+                                             n_features)):
+        raise ValueError("'full' covariances should have shape "
+                         "(%d, %d, %d), but got %s"
+                         % (n_components, n_features, n_features,
+                            str(covars.shape)))
     for k, cov in enumerate(covars):
         if (not np.allclose(cov, cov.T) or
                 np.any(np.less_equal(linalg.eigvalsh(cov), 0.0))):
-            raise ValueError("The component %d of 'full' covars must be "
+            raise ValueError("The component %d of 'full' covars should be "
                              "symmetric, positive-definite" % k)
     return covars
 
@@ -129,14 +131,13 @@ def _check_covars_tied(covars, n_components, n_features):
     # the shape of covars must be d x d
     covars = check_array(covars, dtype=np.float64, ensure_2d=False)
 
-    if (covars.ndim != 2 or
-            covars.shape[0] != n_features or
-            covars.shape[1] != n_features):
-        raise ValueError("'tied' covariances must have shape "
-                         "(n_features, n_features)")
+    if covars.ndim != 2 or covars.shape != (n_features, n_features):
+        raise ValueError("'tied' covariances should have shape "
+                         "(%d, %d), but got %s"
+                         % (n_features, n_features, str(covars.shape)))
     if (not np.allclose(covars, covars.T) or
             np.any(np.less_equal(linalg.eigvalsh(covars), 0.0))):
-        raise ValueError("'tied' covariance must be "
+        raise ValueError("'tied' covariance should be "
                          "symmetric, positive-definite")
     return covars
 
@@ -145,13 +146,12 @@ def _check_covars_diag(covars, n_components, n_features):
     # the shape of covars must be k x d
     covars = check_array(covars, dtype=np.float64, ensure_2d=False)
 
-    if (covars.ndim != 2 or
-            covars.shape[0] != n_components or
-            covars.shape[1] != n_features):
-        raise ValueError("'diag' covariances must have shape "
-                         "(n_components, n_features)")
+    if covars.ndim != 2 or covars.shape != (n_components, n_features):
+        raise ValueError("'diag' covariances should have shape "
+                         "(%d, %d), but got %s"
+                         % (n_components, n_features, str(covars.shape)))
     if np.any(np.less_equal(covars, 0.0)):
-        raise ValueError("'diag' covariance must be positive")
+        raise ValueError("'diag' covariance should be positive")
     return covars
 
 
@@ -160,10 +160,11 @@ def _check_covars_spherical(covars, n_components, n_features):
     covars = check_array(covars, dtype=np.float64, ensure_2d=False)
 
     if covars.ndim != 1 or covars.shape[0] != n_components:
-        raise ValueError("'spherical' covariances must have shape "
-                         "(n_components, )")
+        raise ValueError("'spherical' covariances should have shape "
+                         "(%d, ), but got %s"
+                         % (n_components, str(covars.shape)))
     if np.any(np.less_equal(covars, 0.0)):
-        raise ValueError("'spherical' covariance must be positive")
+        raise ValueError("'spherical' covariance should be positive")
     return covars
 
 
@@ -197,13 +198,12 @@ def _check_covars(covars, n_components, n_features, covariance_type):
 
     check_covars_functions = {"full": _check_covars_full,
                               "tied": _check_covars_tied,
-                              "diag": _check_covars_tied,
+                              "diag": _check_covars_diag,
                               "spherical": _check_covars_spherical}
     return check_covars_functions[covariance_type](covars, n_components,
                                                    n_features)
 
-# replaced simplified equations, cov(X) = E[X^2]-E[X]^2
-# since users may not estimate all of parameters
+
 def _sufficient_Sk_full(responsibilities, X, nk, xk, min_covar):
     """Compute the covariance matrices for the 'full' case
 
@@ -223,6 +223,8 @@ def _sufficient_Sk_full(responsibilities, X, nk, xk, min_covar):
     -------
     Sk : array, shape = [n_components, n_features, n_features]
     """
+    # replace simplified equations, cov(X) = E[X^2]-E[X]^2 with
+    # the definition equation since users may not estimate all of parameters
     n_features = X.shape[1]
     n_components = xk.shape[0]
     Sk = np.empty((n_components, n_features, n_features))
@@ -232,6 +234,34 @@ def _sufficient_Sk_full(responsibilities, X, nk, xk, min_covar):
         Sk[k] = np.dot(responsibilities[:, k] * diff.T, diff) / nk[k]
         Sk[k].flat[::n_features+1] += min_covar
     return Sk
+
+
+def _sufficient_Sk_tied(responsibilities, X, nk, xk, min_covar):
+    """Compute the covariance matrices for the 'tied' case
+
+    Parameters
+    ----------
+    responsibilities : array-like, shape = [n_samples, n_components]
+
+    X : array-like, shape = [n_samples, n_features]
+
+    nk: array-like, shape = [n_components, ]
+
+    xk : array-like, shape = [n_components, n_features]
+
+    min_covar : float
+
+    Returns
+    -------
+    Sk : array, shape = [n_components, n_features]
+    """
+    # TODO replace the simplified equation for GMM
+    avg_X2 = np.dot(X.T, X)
+    avg_means2 = np.dot(nk * xk.T, xk)
+    covars = avg_X2 - avg_means2
+    covars /= X.shape[0]
+    covars.flat[::len(covars) + 1] += min_covar
+    return covars
 
 
 def _sufficient_Sk_diag(responsibilities, X, nk, xk, min_covar):
@@ -260,20 +290,51 @@ def _sufficient_Sk_diag(responsibilities, X, nk, xk, min_covar):
 
 
 def _sufficient_Sk_spherical(responsibilities, X, nk, xk, min_covar):
+    """Compute the covariance matrices for the 'spherical' case
+
+    Parameters
+    ----------
+    responsibilities : array-like, shape = [n_samples, n_components]
+
+    X : array-like, shape = [n_samples, n_features]
+
+    nk: array-like, shape = [n_components, ]
+
+    xk : array-like, shape = [n_components, n_features]
+
+    min_covar : float
+
+    Returns
+    -------
+    Sk : array, shape = [n_components, ]
+    """
     covars = _sufficient_Sk_diag(responsibilities, X, nk, xk, min_covar)
     return covars.mean(axis=1)
 
 
-def _sufficient_Sk_tied(responsibilities, X, nk, xk, min_covar):
-    avg_X2 = np.dot(X.T, X)
-    avg_means2 = np.dot(nk * xk.T, xk)
-    covars = avg_X2 - avg_means2
-    covars *= 1. / X.shape[0]
-    covars.flat[::len(covars) + 1] += min_covar
-    return covars
-
-
 def _sufficient_Sk(responsibilities, X, nk, xk, min_covar, covariance_type):
+    """Compute the covariance matrices
+
+    Parameters
+    ----------
+    responsibilities : array-like, shape = [n_samples, n_components]
+
+    X : array-like, shape = [n_samples, n_features]
+
+    nk: array-like, shape = [n_components, ]
+
+    xk : array-like, shape = [n_components, n_features]
+
+    min_covar : float
+
+    Returns
+    -------
+    Sk : array,
+        full : shape = [n_components, n_features, n_features]
+        tied : shape = [n_components, n_features]
+        diag : shape = [n_components, n_features]
+        spherical : shape = [n_components, ]
+    """
     # TODO we could use some methods in sklearn.covariance
     # TODO degenerate cases
     sufficient_sk_functions = {"full": _sufficient_Sk_full,
