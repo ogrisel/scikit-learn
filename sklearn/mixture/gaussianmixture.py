@@ -346,6 +346,30 @@ def _sufficient_Sk(responsibilities, X, nk, xk, min_covar, covariance_type):
 
 
 def _sufficient_statistics(responsibilities, X, min_covar, covariance_type):
+    """Compute the sufficient statistics
+
+    Parameters
+    ----------
+    responsibilities : array-like, shape = [n_samples, n_components]
+
+    X : array-like, shape = [n_samples, n_features]
+
+    min_covar : float
+
+    covariance_type : string
+
+    Returns
+    -------
+    nk: array-like, shape = [n_components, ]
+
+    xk : array-like, shape = [n_components, n_features]
+
+    Sk : array,
+        full : shape = [n_components, n_features, n_features]
+        tied : shape = [n_components, n_features]
+        diag : shape = [n_components, n_features]
+        spherical : shape = [n_components, ]
+    """
     # compute three sufficient statistics
     nk = responsibilities.sum(axis=0)
     # remove + 10 * EPS
@@ -370,9 +394,92 @@ def sample_inv_wishart():
 
 class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                                       BaseEstimator)):
-    def __init__(self, n_components=1, random_state=None, tol=1e-6,
-                 min_covar=0, covariance_type='full',
-                 n_init=1, n_iter=100, params=None, init_params='kmeans',
+    """Gaussian Mixture Model
+
+    Representation of a Gaussian mixture model probability distribution.
+    This class allows for easy evaluation of, sampling from, and
+    maximum-likelihood estimation of the parameters of a GMM distribution.
+
+    Parameters
+    ----------
+    n_components : int, optional
+        Number of mixture components. Defaults to 1.
+
+    covariance_type : string, optional
+        String describing the type of covariance parameters to
+        use.  Must be one of 'spherical', 'tied', 'diag', 'full'.
+        Defaults to 'diag'.
+
+    random_state: RandomState or an int seed
+        A random number generator instance. Defaults to None.
+
+    min_covar : float, optional
+        Floor on the diagonal of the covariance matrix to prevent
+        overfitting.  Defaults to 1e-3.
+
+    tol : float, optional
+        Convergence threshold. EM iterations will stop when average
+        gain in log-likelihood is below this threshold.  Defaults to 1e-6.
+
+    n_iter : int, optional
+        Number of EM iterations to perform.
+
+    n_init : int, optional
+        Number of initializations to perform. The best results is kept.
+
+    params : string, optional
+        Controls which parameters are updated in the training
+        process.  Can contain any combination of 'w' for weights,
+        'm' for means, and 'c' for covars.  Defaults to None.
+
+    init_params : string, optional
+        Controls how parameters are initialized unless the parameters are
+        provided by users. It should be one of "kmeans", "random", None.
+        Defaults to None. If it is not None, the variable responsibilities are
+        initialized by the chosen method, which are used to further initialize
+        weights, means, and covariances.
+
+    weights : array-like, optional, shape (`n_components`, )
+        User-provided initial weights. Defaults to None. If it None, weights
+        are initialized by `init_params`.
+
+    means: array-like, optional, shape (`n_components`, `n_features`)
+        User-provided initial means. Defaults to None. If it None, means
+        are initialized by `init_params`.
+
+    covars: array-like, optional
+        User-provided iitial covariances. Defaults to None. If it None, covars
+        are initialized by `init_params`.
+
+    verbose : int, default: 0
+        Enable verbose output. If 1 then it always prints the current
+        initialization and iteration step. If greater than 1 then
+        it prints additionally the log probability and the time needed
+        for each step.
+
+    Attributes
+    ----------
+    weights_ : array, shape (`n_components`,)
+        This attribute stores the mixing weights for each mixture component.
+
+    means_ : array, shape (`n_components`, `n_features`)
+        Mean parameters for each mixture component.
+
+    covars_ : array
+        Covariance parameters for each mixture component.  The shape
+        depends on `covariance_type`::
+
+            (n_components, )                       if 'spherical',
+            (n_features, n_features)               if 'tied',
+            (n_components, n_features)             if 'diag',
+            (n_components, n_features, n_features) if 'full'
+
+    converged_ : bool
+        True when convergence was reached in fit(), False otherwise.
+    """
+    def __init__(self, n_components=1, covariance_type='full',
+                 random_state=None, tol=1e-6, min_covar=0,
+                 n_iter=100, n_init=1, params=None, init_params='kmeans',
                  weights=None, means=None, covars=None,
                  verbose=0):
         self.n_components = n_components
@@ -475,7 +582,20 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
     def _estimate_log_probabilities_spherical(self, X):
         pass
 
-    def _estimate_log_probabilities(self, X):
+    def _estimate_weighted_log_probabilities(self, X):
+        """Compute the weighted log probabilities for each sample in X with
+        respect to the model.
+
+        Parameters
+        ----------
+
+        X : array-like, shape [n_samples, n_features]
+
+        Returns
+        -------
+        weighted_log_probabilities : [n_samples, n_components]
+
+        """
         estimate_log_probabilities_functions = {
             "full": self._estimate_log_probabilities_full,
             "tied": self._estimate_log_probabilities_tied,
@@ -488,7 +608,22 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         return weighted_log_probabilities
 
     def _estimate_log_probabilities_responsibilities(self, X):
-        weighted_log_probabilities = self._estimate_log_probabilities(X)
+        """Compute the weighted log probabilities and responsibilities for
+        each sample in X with respect to the model.
+
+        Parameters
+        ----------
+
+        X : array-like, shape [n_samples, n_features]
+
+        Returns
+        -------
+        log_probabilities : [n_samples, ]
+            weighted log probabilities
+
+        responsibilities : [n_samples, n_components]
+        """
+        weighted_log_probabilities = self._estimate_weighted_log_probabilities(X)
         log_probabilities = logsumexp(weighted_log_probabilities, axis=1)
         with np.errstate(under='ignore'):
             # ignore underflow
@@ -497,12 +632,25 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         return log_probabilities, responsibilities
 
     def score_samples(self, X):
+        """Compute the weighted log probabilities for
+        each sample in X with respect to the model.
+
+        Parameters
+        ----------
+
+        X : array-like, shape [n_samples, n_features]
+
+        Returns
+        -------
+        log_probabilities : [n_samples, ]
+            weighted log probabilities
+        """
         check_is_fitted(self, 'weights_')
         check_is_fitted(self, 'means_')
         check_is_fitted(self, 'covars_')
         X = _check_X(X, self.n_components, self.means_.shape[1])
 
-        weighted_log_likelihood = self._estimate_log_probabilities(X)
+        weighted_log_likelihood = self._estimate_weighted_log_probabilities(X)
         log_probabilities = logsumexp(weighted_log_likelihood, axis=1)
         return log_probabilities
 
@@ -513,8 +661,8 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         responsibilities[range(X.shape[0]), labels] = 1
         return responsibilities
 
-    def _initialize(self, X, init_weights_, init_means_, init_covars_,
-                    random_state=None):
+    def _initialize(self, X, init_weights_=None, init_means_=None,
+                    init_covars_=None, random_state=None):
         if (init_weights_ is None or init_means_ is None or
            init_covars_ is None):
             if random_state is None:
@@ -529,7 +677,10 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                 if self.verbose > 1:
                     print_('kmeans.', end='')
                 responsibilities = self._initialize_by_kmeans(X, rng)
-            else:
+                nk, xk, Sk = _sufficient_statistics(responsibilities, X,
+                                                    self.min_covar,
+                                                    self.covariance_type)
+            elif self.init_params == 'random':
                 # other initialization methods as long as
                 # they return responsibilities
                 print_('random initialization.', end='')
@@ -538,39 +689,42 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                 responsibilities = (responsibilities /
                                     responsibilities.sum(axis=1)
                                     [:, np.newaxis])
-
-            nk, xk, Sk = _sufficient_statistics(responsibilities, X,
-                                                self.min_covar,
-                                                self.covariance_type)
-            if init_weights_ is None:
-                self.weights_ = self._estimate_weights(responsibilities,
-                                                       nk, xk, Sk)
-                if self.verbose > 1:
-                    print_('\n\tWeights are initialized.', end='')
+                nk, xk, Sk = _sufficient_statistics(responsibilities, X,
+                                                    self.min_covar,
+                                                    self.covariance_type)
             else:
-                self.weights_ = init_weights_
-                if self.verbose > 1:
-                    print_('\n\tWeights are provided.', end='')
+                raise ValueError("Unimplemented initialization methods %s"
+                                 % self.init_params)
 
-            if init_means_ is None:
-                self.means_ = self._estimate_means(responsibilities,
+        if init_weights_ is None:
+            self.weights_ = self._estimate_weights(responsibilities,
                                                    nk, xk, Sk)
-                if self.verbose > 1:
-                    print_('\n\tMeans are initialized.', end='')
-            else:
-                self.means_ = init_means_
-                if self.verbose > 1:
-                    print_('\n\tMeans are provided.', end='')
+            if self.verbose > 1:
+                print_('\n\tWeights are initialized.', end='')
+        else:
+            self.weights_ = init_weights_
+            if self.verbose > 1:
+                print_('\n\tWeights are provided.', end='')
 
-            if init_covars_ is None:
-                self.covars_ = self._estimate_covariances(responsibilities,
-                                                          nk, xk, Sk)
-                if self.verbose > 1:
-                    print_('\n\tCovariances are initialized.', end='')
-            else:
-                self.covars_ = init_covars_
-                if self.verbose > 1:
-                    print_('\n\tCovariances are provided.', end='')
+        if init_means_ is None:
+            self.means_ = self._estimate_means(responsibilities,
+                                               nk, xk, Sk)
+            if self.verbose > 1:
+                print_('\n\tMeans are initialized.', end='')
+        else:
+            self.means_ = init_means_
+            if self.verbose > 1:
+                print_('\n\tMeans are provided.', end='')
+
+        if init_covars_ is None:
+            self.covars_ = self._estimate_covariances(responsibilities,
+                                                      nk, xk, Sk)
+            if self.verbose > 1:
+                print_('\n\tCovariances are initialized.', end='')
+        else:
+            self.covars_ = init_covars_
+            if self.verbose > 1:
+                print_('\n\tCovariances are provided.', end='')
 
     def fit(self, X, y=None):
         # check the parameters
@@ -684,7 +838,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         check_is_fitted(self, 'means_')
         check_is_fitted(self, 'covars_')
         X = _check_X(X, self.n_components, self.means_.shape[1])
-        return self._estimate_log_probabilities(X).argmax(axis=1)
+        return self._estimate_weighted_log_probabilities(X).argmax(axis=1)
 
     def fit_predict(self, X, y=None):
         self.fit(X)
@@ -746,8 +900,8 @@ class GaussianMixture(_MixtureBase):
                                              lower=True).T
             log_prob[:, k] = np.sum(np.square(cv_sol), axis=1)
         log_prob = - .5 * (n_features * np.log(2 * np.pi)
-                            + cv_log_det
-                            + log_prob)
+                           + cv_log_det
+                           + log_prob)
         return log_prob
 
     def _estimate_log_probabilities_diag(self, X):
@@ -762,7 +916,7 @@ class GaussianMixture(_MixtureBase):
     def _estimate_log_probabilities_spherical(self, X):
         n_samples, n_features = X.shape
         log_prob = - .5 * (n_features * np.log(2 * np.pi)
-                           + np.log(self.covars_)
+                           + n_features * np.log(self.covars_)
                            + np.sum(self.means_ ** 2, 1) / self.covars_
                            - 2 * np.dot(X, self.means_.T / self.covars_)
                            + np.outer(np.sum(X ** 2, axis=1), 1. / self.covars_))
@@ -789,16 +943,15 @@ class GaussianMixture(_MixtureBase):
 
 
 class BayesianGaussianMixture(_MixtureBase):
-    def __init__(self, n_components=1, random_state=None, tol=1e-6,
-                 min_covar=0, covariance_type='full',
-                 n_init=1, n_iter=100, params=None, init_params='kmeans',
+    def __init__(self, n_components=1, covariance_type='full',
+                 random_state=None, tol=1e-6, min_covar=0,
+                 n_iter=100, n_init=1, params=None, init_params='kmeans',
                  weights=None, means=None, covars=None,
                  alpha_0=None, m_0=None, beta_0=None, nu_0=None, W_0=None,
                  verbose=0):
-
         super(BayesianGaussianMixture, self).__init__(
-            n_components, random_state, tol,
-            min_covar, covariance_type, n_init, n_iter, params, init_params,
+            n_components, covariance_type, random_state, tol, min_covar,
+            n_iter, n_init, params, init_params,
             weights, means, covars, verbose)
         self.alpha_0 = alpha_0
         self.m_0 = m_0

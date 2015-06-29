@@ -1,10 +1,9 @@
 import numpy as np
+from scipy import stats
 
-from sklearn.cross_validation import train_test_split
 from sklearn.datasets.samples_generator import make_spd_matrix
 from sklearn.utils.testing import assert_array_almost_equal
 from sklearn.utils.testing import assert_array_equal
-from sklearn.utils.testing import assert_raises
 from sklearn.utils.testing import assert_raise_message
 from sklearn.utils.testing import assert_almost_equal
 from sklearn.utils.testing import assert_equal
@@ -249,10 +248,9 @@ def test__check_covars():
 
 def test__sufficient_Sk_full():
     # compare the EmpiricalCovariance.covariance fitted on X*sqrt(resp)
-    # with _sufficient_sk_full
+    # with _sufficient_sk_full, n_components=1
     n_samples = RandData.n_samples
     n_features = RandData.n_features
-    n_components = RandData.n_components
 
     # special case 1, assuming data is "centered"
     X = rng.rand(n_samples, n_features)
@@ -320,12 +318,12 @@ def test__sufficient_Sk_diag():
         assert_almost_equal(ecov.error_norm(cov_diag, norm='frobenius'), 0)
         assert_almost_equal(ecov.error_norm(cov_diag, norm='spectral'), 0)
 
+
 def test__sufficient_Sk_spherical():
     # computing spherical covariance equals to the variance of one-dimension
-    # data after flattening
+    # data after flattening, n_components=1
     n_samples = RandData.n_samples
     n_features = RandData.n_features
-    n_components = 1
 
     X = rng.rand(n_samples, n_features)
     X = X - X.mean()
@@ -336,3 +334,112 @@ def test__sufficient_Sk_spherical():
     covars_pred_spherical2 = np.dot(X.flatten().T, X.flatten()) / (n_features
                                                                    * n_samples)
     assert_almost_equal(covars_pred_spherical, covars_pred_spherical2)
+
+
+def _naive_lmvnpdf_diag(X, means, covars):
+    resp = np.empty((len(X), len(means)))
+    stds = np.sqrt(covars)
+    for i, (mean, std) in enumerate(zip(means, stds)):
+        resp[:, i] = np.log(stats.norm.pdf(X, mean, std)).sum(axis=1)
+    return resp
+
+
+def test_GaussianMixture_log_probabilities():
+    # test aginst with _naive_lmvnpdf_diag
+    n_samples = RandData.n_samples
+    n_features = RandData.n_features
+    n_components = RandData.n_components
+
+    weights = RandData.weights
+    means = RandData.means
+    covars_diag = rng.rand(n_components, n_features)
+    X = rng.rand(n_samples, n_features)
+    resp_naive = _naive_lmvnpdf_diag(X, means, covars_diag)
+
+    # full covariances
+    covars_full = np.array([np.diag(x) for x in covars_diag])
+    g = mixture.GaussianMixture(n_components=n_components,
+                                weights=weights,
+                                means=means, covars=covars_full,
+                                random_state=rng, covariance_type='full')
+    g._initialize(X, weights, means, covars_full, rng)
+    resp = g._estimate_log_probabilities_full(X)
+    assert_array_almost_equal(resp, resp_naive)
+
+    # diag covariances
+    g = mixture.GaussianMixture(n_components=n_components,
+                                weights=weights,
+                                means=means, covars=covars_diag,
+                                random_state=rng, covariance_type='diag')
+    g._initialize(X, weights, means, covars_diag, rng)
+    resp = g._estimate_log_probabilities_diag(X)
+    assert_array_almost_equal(resp, resp_naive)
+
+    # tied
+    covars_tied = covars_full.mean(axis=0)
+    g = mixture.GaussianMixture(n_components=n_components,
+                                weights=weights,
+                                means=means, covars=covars_tied,
+                                random_state=rng, covariance_type='tied')
+    g._initialize(X, weights, means, covars_tied, rng)
+    resp_naive = _naive_lmvnpdf_diag(X, means, [np.diag(covars_tied)] *
+                                     n_components)
+    resp = g._estimate_log_probabilities_tied(X)
+    assert_array_almost_equal(resp, resp_naive)
+
+    # spherical
+    covars_spherical = covars_diag.mean(axis=1)
+    g = mixture.GaussianMixture(n_components=n_components,
+                                weights=weights,
+                                means=means, covars=covars_tied,
+                                random_state=rng, covariance_type='spherical')
+    g._initialize(X, weights, means, covars_spherical, rng)
+    resp_naive = _naive_lmvnpdf_diag(X, means, [[k] * n_features for k in
+                                                covars_spherical])
+    resp = g._estimate_log_probabilities_spherical(X)
+    assert_array_almost_equal(resp, resp_naive)
+
+# skip tests on weighted_log_probabilities, log_weights
+
+def test_GaussianMixture__estimate_log_probabilities_responsibilities():
+    # test whether responsibilities are normalized
+    n_samples = RandData.n_samples
+    n_features = RandData.n_features
+    n_components = RandData.n_components
+
+    X = rng.rand(n_samples, n_features)
+    for cov_type in COVARIANCE_TYPE:
+        weights = RandData.weights
+        means = RandData.means
+        covariances = RandData.covariances[cov_type]
+        g = mixture.GaussianMixture(n_components=n_components,
+                                    covariance_type=cov_type)
+        g._initialize(X, weights, means, covariances, rng)
+        _, resp = g._estimate_log_probabilities_responsibilities(X)
+        assert_array_almost_equal(resp.sum(axis=1), np.ones(n_samples))
+
+
+def test_GaussianMixture_score_samples():
+    n_samples = RandData.n_samples
+    n_features = RandData.n_features
+    n_components = RandData.n_components
+
+    X = rng.rand(n_samples, n_features)
+    for cov_type in COVARIANCE_TYPE:
+        X = RandData.X[cov_type].copy()
+        Y = RandData.Y
+        maxX = np.max(X)
+        for k in range(n_components):
+            X[np.where(Y == k), :] += maxX * k
+        g = mixture.GaussianMixture(n_components=n_components,
+                                    covariance_type=cov_type)
+        g._initialize(X, RandData.weights, RandData.means,
+                      RandData.covariances[cov_type])
+        log_prob, resp = g._estimate_log_probabilities_responsibilities(X)
+        assert_array_equal(resp.argmax(axis=1), Y)
+
+
+def test_GaussianMixture_fit():
+    # convergence
+    pass
+
