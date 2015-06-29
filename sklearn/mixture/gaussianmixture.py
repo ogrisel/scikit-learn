@@ -589,11 +589,11 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         Parameters
         ----------
 
-        X : array-like, shape [n_samples, n_features]
+        X : array-like, shape = [n_samples, n_features]
 
         Returns
         -------
-        weighted_log_probabilities : [n_samples, n_components]
+        weighted_log_probabilities : shape = [n_samples, n_components]
 
         """
         estimate_log_probabilities_functions = {
@@ -614,14 +614,14 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         Parameters
         ----------
 
-        X : array-like, shape [n_samples, n_features]
+        X : array-like, shape = [n_samples, n_features]
 
         Returns
         -------
-        log_probabilities : [n_samples, ]
+        log_probabilities : shape = [n_samples, ]
             weighted log probabilities
 
-        responsibilities : [n_samples, n_components]
+        responsibilities : shape = [n_samples, n_components]
         """
         weighted_log_probabilities = self._estimate_weighted_log_probabilities(X)
         log_probabilities = logsumexp(weighted_log_probabilities, axis=1)
@@ -638,11 +638,11 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         Parameters
         ----------
 
-        X : array-like, shape [n_samples, n_features]
+        X : array-like, shape = [n_samples, n_features]
 
         Returns
         -------
-        log_probabilities : [n_samples, ]
+        log_probabilities : shape = [n_samples, ]
             weighted log probabilities
         """
         check_is_fitted(self, 'weights_')
@@ -654,21 +654,50 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         log_probabilities = logsumexp(weighted_log_likelihood, axis=1)
         return log_probabilities
 
-    def _initialize_by_kmeans(self, X, random_state=None):
+    def _initialize_by_kmeans(self, X):
+        """Compute the responsibilities for each sample in X using
+        kmeans clustering
+
+        Parameters
+        ----------
+
+        X : array-like, shape = [n_samples, n_features]
+
+        Returns
+        -------
+        responsibilities : shape = [n_samples, n_components]
+        """
         labels = cluster.KMeans(n_clusters=self.n_components,
-                                random_state=random_state).fit(X).labels_
+                                random_state=self.random_state_).fit(X).labels_
         responsibilities = np.zeros((X.shape[0], self.n_components))
         responsibilities[range(X.shape[0]), labels] = 1
         return responsibilities
 
-    def _initialize(self, X, init_weights_=None, init_means_=None,
-                    init_covars_=None, random_state=None):
-        if (init_weights_ is None or init_means_ is None or
-           init_covars_ is None):
-            if random_state is None:
-                random_state = self.random_state_
-            rng = check_random_state(random_state)
+    def _initialize(self, X, init_weights=None, init_means=None,
+                    init_covars=None):
+        """Initialize the model parameters. If the initial parameters are
+        not given, the model parameters are initialized by the method specified
+        by `self.init_params`.
 
+        Parameters
+        ----------
+
+        X : array-like, shape = [n_samples, n_features]
+
+        init_weights : array-like, shape = [n_components, ]
+            Initial weights. Defaults to None.
+
+        init_means : array-like, shape = [n_components, n_features]
+            Initial means. Defaults to None
+
+        init_covars : array-like,
+            full : shape = [n_components, n_features, n_features]
+            tied : shape = [n_components, n_features]
+            diag : shape = [n_components, n_features]
+            spherical : shape = [n_components, ]
+        """
+        if (init_weights is None or init_means is None or
+           init_covars is None):
             if self.verbose > 1:
                 print_('\n\tInitializing parameters by ', end='')
 
@@ -676,16 +705,17 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
             if self.init_params == 'kmeans':
                 if self.verbose > 1:
                     print_('kmeans.', end='')
-                responsibilities = self._initialize_by_kmeans(X, rng)
+                responsibilities = self._initialize_by_kmeans(X)
                 nk, xk, Sk = _sufficient_statistics(responsibilities, X,
                                                     self.min_covar,
                                                     self.covariance_type)
             elif self.init_params == 'random':
                 # other initialization methods as long as
                 # they return responsibilities
-                print_('random initialization.', end='')
-                responsibilities = rng.rand(X.shape[0],
-                                            self.n_components)
+                if self.verbose > 1:
+                    print_('random initialization.', end='')
+                responsibilities = self.random_state_.rand(X.shape[0],
+                                                           self.n_components)
                 responsibilities = (responsibilities /
                                     responsibilities.sum(axis=1)
                                     [:, np.newaxis])
@@ -693,36 +723,36 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                                                     self.min_covar,
                                                     self.covariance_type)
             else:
-                raise ValueError("Unimplemented initialization methods %s"
+                raise ValueError("Unimplemented initialization method %s"
                                  % self.init_params)
 
-        if init_weights_ is None:
+        if init_weights is None:
             self.weights_ = self._estimate_weights(responsibilities,
                                                    nk, xk, Sk)
             if self.verbose > 1:
                 print_('\n\tWeights are initialized.', end='')
         else:
-            self.weights_ = init_weights_
+            self.weights_ = init_weights
             if self.verbose > 1:
                 print_('\n\tWeights are provided.', end='')
 
-        if init_means_ is None:
+        if init_means is None:
             self.means_ = self._estimate_means(responsibilities,
                                                nk, xk, Sk)
             if self.verbose > 1:
                 print_('\n\tMeans are initialized.', end='')
         else:
-            self.means_ = init_means_
+            self.means_ = init_means
             if self.verbose > 1:
                 print_('\n\tMeans are provided.', end='')
 
-        if init_covars_ is None:
+        if init_covars is None:
             self.covars_ = self._estimate_covariances(responsibilities,
                                                       nk, xk, Sk)
             if self.verbose > 1:
                 print_('\n\tCovariances are initialized.', end='')
         else:
-            self.covars_ = init_covars_
+            self.covars_ = init_covars
             if self.verbose > 1:
                 print_('\n\tCovariances are provided.', end='')
 
@@ -757,7 +787,7 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                 start_init_time = time()
 
             self._initialize(X, self.init_weights_, self.init_means_,
-                             self.init_covars_, self.random_state_)
+                             self.init_covars_)
 
             current_log_likelihood = -np.infty
             if self.verbose > 1:
@@ -834,6 +864,16 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         return self
 
     def predict(self, X):
+        """Predict the labels for the data samples in X using trained model
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+
+        Returns
+        -------
+        C : array, shape = [n_samples,] component labels
+        """
         check_is_fitted(self, 'weights_')
         check_is_fitted(self, 'means_')
         check_is_fitted(self, 'covars_')
@@ -841,11 +881,34 @@ class _MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         return self._estimate_weighted_log_probabilities(X).argmax(axis=1)
 
     def fit_predict(self, X, y=None):
+        """Fit and predict the labels for the data samples in X
+        using trained model
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+
+        Returns
+        -------
+        C : array, shape = [n_samples,] component labels
+        """
         self.fit(X)
-        self.predict(X)
-        return self
+        return self.predict(X)
 
     def predict_proba(self, X):
+        """Predict posterior probability of data under each Gaussian component
+        in the model.
+
+        Parameters
+        ----------
+        X : array-like, shape = [n_samples, n_features]
+
+        Returns
+        -------
+        responsibilities : array-like, shape = [n_samples, n_components]
+            Returns the probability of the sample for each Gaussian component
+            in the model.
+        """
         check_is_fitted(self, 'weights_')
         check_is_fitted(self, 'means_')
         check_is_fitted(self, 'covars_')
