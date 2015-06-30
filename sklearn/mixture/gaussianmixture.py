@@ -15,9 +15,6 @@ from sklearn.utils import ConvergenceWarning
 from sklearn.externals.six.moves import zip
 from sklearn.externals.six import print_
 
-EPS = np.finfo(np.float64).eps * 10
-
-
 def _check_X(X, n_components, n_features=None):
     """Check the input data X
 
@@ -73,11 +70,14 @@ def _check_weights(weights, n_components):
     # check range
     if (any(np.less(weights, 0)) or
             any(np.greater(weights, 1))):
-        raise ValueError("The 'weights' should be in the range [0, 1]")
+        raise ValueError("The 'weights' should be in the range [0, 1], "
+                         "but got max value %.5f, min value %.5f"
+                         % (np.min(weights), np.max(weights)))
 
     # check normalization
     if not np.allclose(np.abs(1 - np.sum(weights)), 0.0):
-        raise ValueError("The 'weights' should be normalized")
+        raise ValueError("The 'weights' should be normalized, "
+                         "but got sum(weights) = %.5f" % np.sum(weights))
     return weights
 
 
@@ -1003,63 +1003,3 @@ class GaussianMixture(_MixtureBase):
 
     def _estimate_covariances_spherical(self, X, nk, xk, Sk):
         return Sk
-
-
-class BayesianGaussianMixture(_MixtureBase):
-    def __init__(self, n_components=1, covariance_type='full',
-                 random_state=None, tol=1e-6, min_covar=0,
-                 n_iter=100, n_init=1, params=None, init_params='kmeans',
-                 weights=None, means=None, covars=None,
-                 alpha_0=None, m_0=None, beta_0=None, nu_0=None, W_0=None,
-                 verbose=0):
-        super(BayesianGaussianMixture, self).__init__(
-            n_components, covariance_type, random_state, tol, min_covar,
-            n_iter, n_init, params, init_params,
-            weights, means, covars, verbose)
-        self.alpha_0 = alpha_0
-        self.m_0 = m_0
-        self.beta_0 = beta_0
-        self.nu_0 = nu_0
-        self.W_0 = W_0
-
-    def _estimate_weights(self, X, nk, xk, Sk):
-        pass
-
-    def _estimate_means(self, X, nk, xk, Sk):
-        pass
-
-    def _estimate_covariances_full(self, X, nk, xk, Sk):
-        pass
-
-    def _estimate_covariances_tied(self, X, nk, xk, Sk):
-        pass
-
-    def _estimate_covariances_diag(self, X, nk, xk, Sk):
-        pass
-
-    def _estimate_covariances_spherical(self, X, nk, xk, Sk):
-        pass
-
-    def _estimate_log_probabilities_full(self, X):
-        pass
-
-    def _estimate_log_probabilities_tied(self, X):
-        pass
-
-    def _estimate_log_probabilities_diag(self, X):
-        pass
-
-    def _estimate_log_probabilities_spherical(self, X):
-        pass
-
-    def _estimate_log_weights(self):
-        pass
-
-
-class DirichletProcessGaussianMixture(BayesianGaussianMixture):
-
-    def _estimate_weights(self, X, nk, xk, Sk):
-        pass
-
-    def _estimate_log_weights(self):
-        pass

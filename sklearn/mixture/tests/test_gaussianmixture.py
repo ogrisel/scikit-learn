@@ -136,13 +136,16 @@ def test__check_weights():
 
     weights_bad = rng.rand(n_components) + 1
     assert_raise_message(ValueError,
-                         "The 'weights' should be in the range [0, 1]",
+                         "The 'weights' should be in the range [0, 1], "
+                         "but got max value %.5f, min value %.5f"
+                         % (np.min(weights_bad), np.max(weights_bad)),
                          _check_weights, weights_bad, n_components)
 
     weights_bad = rng.rand(n_components)
     weights_bad = weights_bad/(weights_bad.sum() + 1)
     assert_raise_message(ValueError,
-                         "The 'weights' should be normalized",
+                         "The 'weights' should be normalized, "
+                         "but got sum(weights) = %.5f" % np.sum(weights_bad),
                          _check_weights, weights_bad, n_components)
 
     weights = RandData.weights
@@ -531,8 +534,6 @@ def test_GaussianMixture_fit_predict():
                                      covariance_type=cov_type)
         Y_pred1 = g1.fit(X).predict(X)
         Y_pred2 = g2.fit_predict(X)
-        print Y_pred1
-        print Y_pred2
         assert_almost_equal(adjusted_rand_score(Y_pred1, Y_pred2), 1.0)
 
 
