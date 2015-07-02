@@ -93,7 +93,7 @@ def test_GaussianMixture_parameters():
                          covariance_type=covariance_type)
 
 
-def test__check_X():
+def test_check_X():
     from sklearn.mixture.gaussianmixture import _check_X
     n_samples = RandData.n_samples
     n_components = RandData.n_components
@@ -123,130 +123,133 @@ def test__check_X():
     assert_array_equal(X, _check_X(X, n_components, n_features))
 
 
-def test__check_weights():
+def test_check_weights():
     from sklearn.mixture.gaussianmixture import _check_weights
     n_components = RandData.n_components
 
     weights_bad = rng.rand(n_components, 1)
+
     assert_raise_message(ValueError,
-                         "The 'weights' should have the shape of "
-                         "(n_components, ), "
-                         "but got %s" % str(weights_bad.shape),
-                         _check_weights, weights_bad, n_components)
+                         "The parameter 'weights' should have the shape of "
+                         "(%d,), "
+                         "but got %s" % (n_components, str(weights_bad.shape)),
+                         _check_weights, weights_bad, (n_components, ))
 
     weights_bad = rng.rand(n_components) + 1
     assert_raise_message(ValueError,
-                         "The 'weights' should be in the range [0, 1], "
-                         "but got max value %.5f, min value %.5f"
+                         "The parameter 'weights' should be in the range "
+                         "[0, 1], but got max value %.5f, min value %.5f"
                          % (np.min(weights_bad), np.max(weights_bad)),
-                         _check_weights, weights_bad, n_components)
+                         _check_weights, weights_bad, (n_components, ))
 
     weights_bad = rng.rand(n_components)
     weights_bad = weights_bad/(weights_bad.sum() + 1)
     assert_raise_message(ValueError,
-                         "The 'weights' should be normalized, "
+                         "The parameter 'weights' should be normalized, "
                          "but got sum(weights) = %.5f" % np.sum(weights_bad),
-                         _check_weights, weights_bad, n_components)
+                         _check_weights, weights_bad, (n_components, ))
 
     weights = RandData.weights
-    assert_array_equal(weights, _check_weights(weights, n_components))
+    assert_array_equal(weights, _check_weights(weights, (n_components, )))
 
 
-def test__check_means():
+def test_check_means():
     from sklearn.mixture.gaussianmixture import _check_means
     n_components = RandData.n_components
     n_features = RandData.n_features
 
     means_bad = rng.rand(n_components + 1, n_features)
     assert_raise_message(ValueError,
-                         "The 'means' should have shape (%s, %d), "
-                         "but got %s"
+                         "The parameter 'means' should have the shape of "
+                         "(%s, %d), but got %s"
                          % (n_components, n_features, str(means_bad.shape)),
-                         _check_means, means_bad, n_components, n_features)
+                         _check_means, means_bad, (n_components, n_features))
 
     means = RandData.means
-    assert_array_equal(means, _check_means(means, n_components, n_features))
+    assert_array_equal(means, _check_means(means, (n_components, n_features)))
 
 
-def test__check_covars():
-    from sklearn.mixture.gaussianmixture import _check_covars
+def test_check_covars():
+    from sklearn.mixture.gaussianmixture import (_check_covars,
+                                                 _define_parameter_shape)
+    # TODO integrate testing
     n_components = RandData.n_components
     n_features = RandData.n_features
 
-    covars_type_bad = 'bad type'
-    covars_any = rng.rand(n_components)
-    assert_raise_message(ValueError, "Invalid value for 'covariance_type': %s "
-                         "'covariance_type' should be in "
-                         "['spherical', 'tied', 'diag', 'full']"
-                         % covars_type_bad,
-                         _check_covars, covars_any, n_components, n_features,
-                         covars_type_bad)
     # full
     covars_bad = rng.rand(n_components + 1, n_features, n_features)
-    assert_raise_message(ValueError, "'full' covariances should have shape "
-                         "(%d, %d, %d), but got %s"
-                         % (n_components, n_features, n_features,
-                            str(covars_bad.shape)),
-                         _check_covars, covars_bad, n_components, n_features,
-                         'full')
+    desired_shape = _define_parameter_shape(n_components, n_features, 'full')
+    desired_shape = desired_shape['covariances']
+    assert_raise_message(
+        ValueError,
+        "The parameter 'full covariance' should have the "
+        "shape of (%d, %d, %d), but got %s"
+        % (n_components, n_features, n_features, str(covars_bad.shape)),
+        _check_covars, covars_bad, desired_shape, 'full')
     covars_bad = rng.rand(n_components, n_features, n_features)
     covars_bad[0] = np.eye(n_features)
     covars_bad[0, 0, 0] = -1
-    assert_raise_message(ValueError, "The component %d of 'full' covars "
-                                     "should be symmetric, positive-definite"
-                         % 0, _check_covars, covars_bad, n_components,
-                         n_features, 'full')
+    assert_raise_message(
+        ValueError,
+        "The component %d of 'full covariance' "
+        "should be symmetric, positive-definite"
+        % 0, _check_covars, covars_bad, desired_shape, 'full')
     covars = RandData.covariances['full']
-    assert_array_equal(covars, _check_covars(covars, n_components,
-                                             n_features, 'full'))
+    assert_array_equal(covars, _check_covars(covars, desired_shape, 'full'))
 
     # tied
     covars_bad = rng.rand(n_features + 1, n_features + 1)
-    assert_raise_message(ValueError, "'tied' covariances should have shape "
-                         "(%d, %d), but got %s"
-                         % (n_features, n_features, str(covars_bad.shape)),
-                         _check_covars, covars_bad, n_components, n_features,
-                         'tied')
+    desired_shape = _define_parameter_shape(n_components, n_features, 'tied')
+    desired_shape = desired_shape['covariances']
+    assert_raise_message(
+        ValueError,
+        "The parameter 'tied covariance' should have the shape of "
+        "(%d, %d), but got %s"
+        % (n_features, n_features, str(covars_bad.shape)),
+        _check_covars, covars_bad, desired_shape, 'tied')
     covars_bad = np.eye(n_features)
     covars_bad[0, 0] = -1
-    assert_raise_message(ValueError, "'tied' covariance should be "
+    assert_raise_message(ValueError, "'tied covariance' should be "
                          "symmetric, positive-definite",
-                         _check_covars, covars_bad, n_components, n_features,
-                         'tied')
+                         _check_covars, covars_bad, desired_shape, 'tied')
     covars = RandData.covariances['tied']
-    assert_array_equal(covars, _check_covars(covars, n_components,
-                                             n_features, 'tied'))
+    assert_array_equal(covars, _check_covars(covars, desired_shape, 'tied'))
+
     # diag
     covars_bad = rng.rand(n_components + 1, n_features)
-    assert_raise_message(ValueError, "'diag' covariances should have shape "
-                         "(%d, %d), but got %s"
-                         % (n_components, n_features, str(covars_bad.shape)),
-                         _check_covars, covars_bad, n_components, n_features,
-                         'diag')
+    desired_shape = _define_parameter_shape(n_components, n_features, 'diag')
+    desired_shape = desired_shape['covariances']
+    assert_raise_message(
+        ValueError,
+        "The parameter 'diag covariance' should have the shape of "
+        "(%d, %d), but got %s"
+        % (n_components, n_features, str(covars_bad.shape)),
+        _check_covars, covars_bad, desired_shape, 'diag')
     covars_bad = np.ones((n_components, n_features)) * -1
-    assert_raise_message(ValueError, "'diag' covariance should be positive",
-                         _check_covars, covars_bad, n_components, n_features,
-                         'diag')
+    assert_raise_message(ValueError, "'diag covariance' should be positive",
+                         _check_covars, covars_bad, desired_shape, 'diag')
     covars = RandData.covariances['diag']
-    assert_array_equal(covars, _check_covars(covars, n_components,
-                                             n_features, 'diag'))
+    assert_array_equal(covars, _check_covars(covars, desired_shape, 'diag'))
 
     # spherical
     covars_bad = rng.rand(n_components + 1)
-    assert_raise_message(ValueError, "'spherical' covariances should have "
-                                     "shape (%d, ), but got %s"
-                         % (n_components, str(covars_bad.shape)),
-                         _check_covars, covars_bad, n_components, n_features,
-                         'spherical')
+    desired_shape = _define_parameter_shape(n_components, n_features,
+                                           'spherical')
+    desired_shape = desired_shape['covariances']
+    assert_raise_message(
+        ValueError,
+        "The parameter 'spherical covariance' should have the "
+        "shape of (%d,), but got %s"
+        % (n_components, str(covars_bad.shape)),
+        _check_covars, covars_bad, desired_shape, 'spherical')
     covars_bad = np.ones(n_components)
     covars_bad[0] = -1
-    assert_raise_message(ValueError, "'spherical' covariance should be "
+    assert_raise_message(ValueError, "'spherical covariance' should be "
                                      "positive",
-                         _check_covars, covars_bad, n_components, n_features,
-                         'spherical')
+                         _check_covars, covars_bad, desired_shape, 'spherical')
     covars = RandData.covariances['spherical']
-    assert_array_equal(covars, _check_covars(covars, n_components,
-                                             n_features, 'spherical'))
+    assert_array_equal(covars, _check_covars(covars, desired_shape,
+                                             'spherical'))
 
 
 def test__sufficient_Sk_full():
@@ -300,7 +303,7 @@ def test__sufficient_Sk_tied():
     assert_almost_equal(ecov.error_norm(covars_pred_tied, norm='spectral'), 0)
 
 
-def test__sufficient_Sk_diag():
+def test_sufficient_Sk_diag():
     # test against 'full' case
     n_samples = RandData.n_samples
     n_features = RandData.n_features
@@ -322,7 +325,7 @@ def test__sufficient_Sk_diag():
         assert_almost_equal(ecov.error_norm(cov_diag, norm='spectral'), 0)
 
 
-def test__sufficient_Sk_spherical():
+def test_sufficient_Sk_spherical():
     # computing spherical covariance equals to the variance of one-dimension
     # data after flattening, n_components=1
     n_samples = RandData.n_samples
@@ -339,12 +342,12 @@ def test__sufficient_Sk_spherical():
     assert_almost_equal(covars_pred_spherical, covars_pred_spherical2)
 
 
-def _naive_lmvnpdf_diag(X, means, covars):
+def _naive_lmvnpdf_diag(X, weights, means, covars):
     resp = np.empty((len(X), len(means)))
     stds = np.sqrt(covars)
     for i, (mean, std) in enumerate(zip(means, stds)):
         resp[:, i] = stats.norm.logpdf(X, mean, std).sum(axis=1)
-    return resp
+    return resp + np.log(weights)
 
 
 def test_GaussianMixture_log_probabilities():
@@ -357,7 +360,7 @@ def test_GaussianMixture_log_probabilities():
     means = RandData.means
     covars_diag = rng.rand(n_components, n_features)
     X = rng.rand(n_samples, n_features)
-    resp_naive = _naive_lmvnpdf_diag(X, means, covars_diag)
+    log_prob_naive = _naive_lmvnpdf_diag(X, weights, means, covars_diag)
 
     # full covariances
     covars_full = np.array([np.diag(x) for x in covars_diag])
@@ -365,18 +368,18 @@ def test_GaussianMixture_log_probabilities():
                                 weights=weights,
                                 means=means, covars=covars_full,
                                 random_state=rng, covariance_type='full')
-    g._initialize(X, weights, means, covars_full)
-    resp = g._estimate_log_probabilities_full(X)
-    assert_array_almost_equal(resp, resp_naive)
+    g._initialize(X)
+    log_prob = g._estimate_log_rho_full(X)
+    assert_array_almost_equal(log_prob, log_prob_naive)
 
     # diag covariances
     g = mixture.GaussianMixture(n_components=n_components,
                                 weights=weights,
                                 means=means, covars=covars_diag,
                                 random_state=rng, covariance_type='diag')
-    g._initialize(X, weights, means, covars_diag)
-    resp = g._estimate_log_probabilities_diag(X)
-    assert_array_almost_equal(resp, resp_naive)
+    g._initialize(X)
+    log_prob = g._estimate_log_rho_diag(X)
+    assert_array_almost_equal(log_prob, log_prob_naive)
 
     # tied
     covars_tied = covars_full.mean(axis=0)
@@ -384,23 +387,24 @@ def test_GaussianMixture_log_probabilities():
                                 weights=weights,
                                 means=means, covars=covars_tied,
                                 random_state=rng, covariance_type='tied')
-    g._initialize(X, weights, means, covars_tied)
-    resp_naive = _naive_lmvnpdf_diag(X, means, [np.diag(covars_tied)] *
-                                     n_components)
-    resp = g._estimate_log_probabilities_tied(X)
-    assert_array_almost_equal(resp, resp_naive)
+    g._initialize(X)
+    log_prob_naive = _naive_lmvnpdf_diag(X, weights, means,
+                                         [np.diag(covars_tied)] * n_components)
+    log_prob = g._estimate_log_rho_tied(X)
+    assert_array_almost_equal(log_prob, log_prob_naive)
 
     # spherical
     covars_spherical = covars_diag.mean(axis=1)
     g = mixture.GaussianMixture(n_components=n_components,
                                 weights=weights,
-                                means=means, covars=covars_tied,
+                                means=means, covars=covars_spherical,
                                 random_state=rng, covariance_type='spherical')
-    g._initialize(X, weights, means, covars_spherical)
-    resp_naive = _naive_lmvnpdf_diag(X, means, [[k] * n_features for k in
-                                                covars_spherical])
-    resp = g._estimate_log_probabilities_spherical(X)
-    assert_array_almost_equal(resp, resp_naive)
+    g._initialize(X)
+    log_prob_naive = _naive_lmvnpdf_diag(X, weights, means,
+                                         [[k] * n_features for k in
+                                          covars_spherical])
+    log_prob = g._estimate_log_rho_spherical(X)
+    assert_array_almost_equal(log_prob, log_prob_naive)
 
 # skip tests on weighted_log_probabilities, log_weights
 
@@ -417,8 +421,10 @@ def test_GaussianMixture__estimate_log_probabilities_responsibilities():
         covariances = RandData.covariances[cov_type]
         g = mixture.GaussianMixture(n_components=n_components,
                                     random_state=rng,
+                                    weights=weights,
+                                    means=means, covars=covariances,
                                     covariance_type=cov_type)
-        g._initialize(X, weights, means, covariances)
+        g._initialize(X)
         _, resp = g._estimate_log_probabilities_responsibilities(X)
         assert_array_almost_equal(resp.sum(axis=1), np.ones(n_samples))
 
@@ -429,9 +435,11 @@ def test_GaussianMixture_predict_predict_proba():
         Y = RandData.Y
         g = mixture.GaussianMixture(n_components=RandData.n_components,
                                     random_state=rng,
+                                    weights=RandData.weights,
+                                    means=RandData.means,
+                                    covars=RandData.covariances[cov_type],
                                     covariance_type=cov_type)
-        g._initialize(X, RandData.weights, RandData.means,
-                      RandData.covariances[cov_type])
+        g._initialize(X)
         Y_pred = g.predict(X)
         Y_pred_proba = g.predict_proba(X).argmax(axis=1)
         assert_array_equal(Y_pred, Y_pred_proba)
@@ -519,22 +527,6 @@ def test_GaussianMixture_fit_convergence_warning():
                              'or increase n_init, '
                              'or check for degenerate data.'
                              % n_iter, g.fit, X)
-
-
-def test_GaussianMixture_fit_predict():
-    n_components = RandData.n_components
-    for cov_type in COVARIANCE_TYPE:
-        X = RandData.X[cov_type]
-        g1 = mixture.GaussianMixture(n_components=n_components, n_init=1,
-                                     n_iter=100, min_covar=1, random_state=rng,
-                                     covariance_type=cov_type)
-
-        g2 = mixture.GaussianMixture(n_components=n_components, n_init=1,
-                                     n_iter=100, min_covar=1, random_state=rng,
-                                     covariance_type=cov_type)
-        Y_pred1 = g1.fit(X).predict(X)
-        Y_pred2 = g2.fit_predict(X)
-        assert_almost_equal(adjusted_rand_score(Y_pred1, Y_pred2), 1.0)
 
 
 def test_GaussianMixture_verbose():

@@ -453,19 +453,19 @@ class DensityMixin(object):
     """Mixin class for all density estimators in scikit-learn."""
     _estimator_type = "DensityEstimator"
 
-    def score(self, X, y = None):
+    def score(self, X, y=None):
         """Returns the log likelihood under the model on the given data X.
 
         Parameters
         ----------
-        X : array-like, shape = (n_samples, n_features)
+        X : array-like, shape = [n_samples, n_features]
 
         Returns
         -------
         score: float
-            sum of log probability of samples
+            the mean of the log probabilities of the input data samples in X
         """
-        return np.sum(self.score_samples(X))
+        return np.mean(self.score_samples(X))
 
 
 ###############################################################################
