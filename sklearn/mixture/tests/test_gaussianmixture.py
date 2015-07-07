@@ -464,7 +464,6 @@ def test_GaussianMixture_fit():
 
         arg_idx1 = g.means_[:, 0].argsort()
         arg_idx2 = RandData.means[:, 0].argsort()
-        print cov_type
         assert_allclose(g.means_[arg_idx1], RandData.means[arg_idx2],
                         rtol=0.1, atol=1e-2)
 

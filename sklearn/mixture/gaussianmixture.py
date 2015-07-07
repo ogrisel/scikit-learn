@@ -28,6 +28,7 @@ def _define_parameter_shape(n_components, n_features, covariance_type):
 
 
 def check_shape(param, param_shape, name):
+    param = np.array(param)
     if param.shape != param_shape:
         raise ValueError("The parameter '%s' should have the shape of %s, "
                          "but got %s" % (name, param_shape, param.shape))
@@ -420,7 +421,7 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         pass
 
     @abstractmethod
-    def _m_step(self, responsibilities, nk, xk, Sk):
+    def _m_step(self, X, nk, xk, Sk):
         pass
 
     @abstractmethod
@@ -430,17 +431,12 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
 
         Parameters
         ----------
-
         X : array-like, shape = (n_samples, n_features)
 
         Returns
         -------
         weighted_log_probabilities : shape = (n_samples, n_components)
         """
-        pass
-
-    @abstractmethod
-    def _estimate_responsibilities(self, X):
         pass
 
     @abstractmethod
@@ -454,6 +450,33 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
     @abstractmethod
     def _set_parameters(self, params):
         pass
+
+    def _estimate_log_probabilities_responsibilities(self, X):
+        """Compute the weighted log probabilities and responsibilities for
+        each sample in X with respect to the model.
+
+        Parameters
+        ----------
+        X : array-like, shape = (n_samples, n_features)
+
+        Returns
+        -------
+        log_probabilities : shape = (n_samples,)
+            weighted log probabilities
+
+        responsibilities : shape = (n_samples, n_components)
+        """
+        weighted_log_probabilities = self._estimate_weighted_log_probabilities(X)
+        log_probabilities = logsumexp(weighted_log_probabilities, axis=1)
+        with np.errstate(under='ignore'):
+            # ignore underflow
+            responsibilities = np.exp(weighted_log_probabilities -
+                                      log_probabilities[:, np.newaxis])
+        return log_probabilities, responsibilities
+
+    def _estimate_responsibilities(self, X):
+        _, resp = self._estimate_log_probabilities_responsibilities(X)
+        return resp
 
     def score_samples(self, X):
         """Compute the weighted log probabilities for
@@ -470,7 +493,7 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
             weighted log probabilities
         """
         self._check_is_fitted()
-        X = _check_X(X, self.n_components, self.means_.shape[1])
+        X = _check_X(X, self.n_components, self.n_features)
 
         weighted_log_likelihood = self._estimate_weighted_log_probabilities(X)
         log_probabilities = logsumexp(weighted_log_likelihood, axis=1)
@@ -645,7 +668,7 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         C : array, shape = (n_samples,) component labels
         """
         self._check_is_fitted()
-        X = _check_X(X, self.n_components, self.means_.shape[1])
+        X = _check_X(X, self.n_components, self.n_features)
         return self._estimate_weighted_log_probabilities(X).argmax(axis=1)
 
     def predict_proba(self, X):
@@ -663,7 +686,7 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
             in the model.
         """
         self._check_is_fitted()
-        X = _check_X(X, self.n_components, self.means_.shape[1])
+        X = _check_X(X, self.n_components, self.n_features)
         return self._estimate_responsibilities(X)
 
     def sample(self):
@@ -838,15 +861,15 @@ class GaussianMixture(MixtureBase):
         for k, (mu, cov) in enumerate(zip(self.means_,  self.covars_)):
             try:
                 cov_chol = linalg.cholesky(cov, lower=True)
-            except:
+            except linalg.LinAlgError:
                 raise ValueError("'covars' must be symmetric, "
                                  "positive-definite")
             cv_log_det = 2. * np.sum(np.log(np.diagonal(cov_chol)))
             cv_sol = linalg.solve_triangular(cov_chol, (X - mu).T,
                                              lower=True).T
-            log_prob[:, k] = - .5 * (n_features * np.log(2 * np.pi)
-                                     + cv_log_det
-                                     + np.sum(np.square(cv_sol), axis=1))
+            log_prob[:, k] = - .5 * (cv_log_det +
+                                     np.sum(np.square(cv_sol), axis=1))
+        log_prob -= .5 * (n_features * np.log(2 * np.pi))
         return log_prob + self._estimate_log_weights()
 
     def _estimate_log_rho_tied(self, X):
@@ -854,7 +877,7 @@ class GaussianMixture(MixtureBase):
         log_prob = np.empty((n_samples, self.n_components))
         try:
             cov_chol = linalg.cholesky(self.covars_, lower=True)
-        except:
+        except linalg.LinAlgError:
             raise ValueError("'covars' must be symmetric, positive-definite")
         cv_log_det = 2. * np.sum(np.log(np.diagonal(cov_chol)))
         for k, mu in enumerate(self.means_):
@@ -898,34 +921,6 @@ class GaussianMixture(MixtureBase):
         weighted_log_prob = estimate_log_rho_functions[self.covariance_type](X)
         return weighted_log_prob
 
-    def _estimate_responsibilities(self, X):
-        _, resp = self._estimate_log_probabilities_responsibilities(X)
-        return resp
-
-    def _estimate_log_probabilities_responsibilities(self, X):
-        """Compute the weighted log probabilities and responsibilities for
-        each sample in X with respect to the model.
-
-        Parameters
-        ----------
-
-        X : array-like, shape = (n_samples, n_features)
-
-        Returns
-        -------
-        log_probabilities : shape = (n_samples,)
-            weighted log probabilities
-
-        responsibilities : shape = (n_samples, n_components)
-        """
-        weighted_log_probabilities = self._estimate_weighted_log_probabilities(X)
-        log_probabilities = logsumexp(weighted_log_probabilities, axis=1)
-        with np.errstate(under='ignore'):
-            # ignore underflow
-            responsibilities = np.exp(weighted_log_probabilities -
-                                      log_probabilities[:, np.newaxis])
-        return log_probabilities, responsibilities
-
     def _e_step(self, X):
         log_prob, resp = self._estimate_log_probabilities_responsibilities(X)
         return np.sum(log_prob), resp
@@ -949,7 +944,7 @@ class GaussianMixture(MixtureBase):
     def _estimate_covariances_spherical(self, X, nk, xk, Sk):
         return Sk
 
-    def _estimate_covariances(self, responsibilities, nk, xk, Sk):
+    def _estimate_covariances(self, X, nk, xk, Sk):
         estimate_covariances_functions = {
             "full": self._estimate_covariance_full,
             "tied": self._estimate_covariance_tied,
@@ -957,12 +952,12 @@ class GaussianMixture(MixtureBase):
             "spherical": self._estimate_covariances_spherical
         }
         return estimate_covariances_functions[self.covariance_type](
-            responsibilities, nk, xk, Sk)
+            X, nk, xk, Sk)
 
-    def _m_step(self, responsibilities, nk, xk, Sk):
-        self.weights_ = self._estimate_weights(responsibilities, nk, xk, Sk)
-        self.means_ = self._estimate_means(responsibilities, nk, xk, Sk)
-        self.covars_ = self._estimate_covariances(responsibilities, nk, xk, Sk)
+    def _m_step(self, X, nk, xk, Sk):
+        self.weights_ = self._estimate_weights(X, nk, xk, Sk)
+        self.means_ = self._estimate_means(X, nk, xk, Sk)
+        self.covars_ = self._estimate_covariances(X, nk, xk, Sk)
 
     def _check_is_fitted(self):
         check_is_fitted(self, 'weights_')
