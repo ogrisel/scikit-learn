@@ -466,17 +466,12 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
 
         responsibilities : shape = (n_samples, n_components)
         """
-        weighted_log_probabilities = self._estimate_weighted_log_probabilities(X)
-        log_probabilities = logsumexp(weighted_log_probabilities, axis=1)
+        log_prob_comp = self._estimate_weighted_log_probabilities(X)
+        log_prob = logsumexp(log_prob_comp, axis=1)
         with np.errstate(under='ignore'):
             # ignore underflow
-            responsibilities = np.exp(weighted_log_probabilities -
-                                      log_probabilities[:, np.newaxis])
-        return log_probabilities, responsibilities
-
-    def _estimate_responsibilities(self, X):
-        _, resp = self._estimate_log_probabilities_responsibilities(X)
-        return resp
+            resp = np.exp(log_prob_comp - log_prob[:, np.newaxis])
+        return log_prob_comp, log_prob, resp
 
     def score_samples(self, X):
         """Compute the weighted log probabilities for
@@ -629,7 +624,7 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
                               'or increase n_init, '
                               'or check for degenerate data.'
                               % (init + 1), ConvergenceWarning)
-                current_log_likelihood = self.score(X)
+                current_log_likelihood, _ = self._e_step(X)
                 if self.verbose > 1:
                     print_('\tLog-likelihood/lower bound %.5f' %
                            current_log_likelihood,
@@ -687,7 +682,8 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin,
         """
         self._check_is_fitted()
         X = _check_X(X, self.n_components, self.n_features)
-        return self._estimate_responsibilities(X)
+        _, _, resp = self._estimate_log_probabilities_responsibilities(X)
+        return resp
 
     def sample(self):
         pass
@@ -824,32 +820,20 @@ class GaussianMixture(MixtureBase):
         if self.weights_init is None:
             self.weights_ = self._estimate_weights(
                 responsibilities, nk, xk, Sk)
-            if self.verbose > 1:
-                print_('\n\tWeights are initialized.', end='')
         else:
             self.weights_ = self.weights_init
-            if self.verbose > 1:
-                print_('\n\tWeights are provided.', end='')
 
         if self.means_init is None:
-            self.means_ = self._estimate_means(responsibilities,
-                                               nk, xk, Sk)
-            if self.verbose > 1:
-                print_('\n\tMeans are initialized.', end='')
+            self.means_ = self._estimate_means(
+                responsibilities, nk, xk, Sk)
         else:
             self.means_ = self.means_init
-            if self.verbose > 1:
-                print_('\n\tMeans are provided.', end='')
 
         if self.covars_init is None:
-            self.covars_ = self._estimate_covariances(responsibilities,
-                                                      nk, xk, Sk)
-            if self.verbose > 1:
-                print_('\n\tCovariances are initialized.', end='')
+            self.covars_ = self._estimate_covariances(
+                responsibilities, nk, xk, Sk)
         else:
             self.covars_ = self.covars_init
-            if self.verbose > 1:
-                print_('\n\tCovariances are provided.', end='')
 
     # e-step functions
     def _estimate_log_weights(self):
@@ -922,7 +906,7 @@ class GaussianMixture(MixtureBase):
         return weighted_log_prob
 
     def _e_step(self, X):
-        log_prob, resp = self._estimate_log_probabilities_responsibilities(X)
+        _, log_prob, resp = self._estimate_log_probabilities_responsibilities(X)
         return np.sum(log_prob), resp
 
     # m-step functions

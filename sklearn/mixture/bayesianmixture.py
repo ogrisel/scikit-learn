@@ -154,6 +154,25 @@ def _check_lambda_prior(lambda_nu, lambda_W, desired_shape_a,
         lambda_nu, lambda_W, desired_shape_a, desired_shape_b)
 
 
+def _dirichlet_log_C(alpha):
+    """The log of the normalization term of Dirichlet distribution
+    """
+    return gammaln(np.sum(alpha)) - np.sum(gammaln(alpha))
+
+def _wishart_log_B(n_dim, nu, inv_W_chol):
+    """The log of the normalization term of Wishart distribution
+    """
+    log_det_W = - 2 * np.sum(np.log(np.diag(inv_W_chol)))
+    temp1 = - nu * .5 * log_det_W
+    temp2 = nu * n_dim * .5 * np.log(2)
+    temp3 = n_dim * (n_dim - 1) * .25 * np.log(np.pi)
+    temp4 = np.sum(gammaln((nu + 1 - np.arange(1, n_dim + 1)) * .5))
+    return temp1 - temp2 - temp3 - temp4
+
+def _wishart_entropy(n_dim, nu, inv_W_chol, log_W):
+    return - np.log(_wishart_log_B(n_dim, nu, inv_W_chol)) - \
+           .5 * (nu - n_dim - 1) * log_W + .5 * nu * n_dim
+
 class BayesianGaussianMixture(MixtureBase):
     def __init__(self, n_components=1, precision_type='full',
                  random_state=None, tol=1e-6, min_covar=0,
@@ -194,48 +213,29 @@ class BayesianGaussianMixture(MixtureBase):
         if self.weight_alpha_prior is None:
             # TODO discuss default value
             self.weight_alpha_prior = 1e-3 * np.array(self.n_components)
-            if self.verbose > 1:
-                print_('\n\talpha_prior are initialized.', end='')
-        else:
-            if self.verbose > 1:
-                print_('\n\talpha_prior are provided.', end='')
 
         self.weight_alpha_ = self._estimate_weights(X, nk, xk, Sk)
-        if self.verbose > 1:
-            print_('\talpha are initialized.', end='')
+
+        # for lower bound
+        self.log_C_alpha_prior = _dirichlet_log_C(np.ones(self.n_components) *
+                                                  self.weight_alpha_prior)
 
     def _initialize_mu(self, X, nk, xk, Sk):
         if self.mu_beta_prior is None:
             self.mu_beta_prior = 1
             # TODO discuss default value
-            if self.verbose > 1:
-                print_('\n\tmu_beta_prior are initialized.', end='')
-        else:
-            if self.verbose > 1:
-                print_('\n\tmu_beta_prior are provided.', end='')
 
         if self.mu_m_prior is None:
             self.mu_m_prior = X.mean(axis=0).reshape(1, -1)
             # TODO discuss default value
-            if self.verbose > 1:
-                print_('\n\tmu_m_prior are initialized.', end='')
-        else:
-            if self.verbose > 1:
-                print_('\n\tmu_m_prior are provided.', end='')
 
         self.mu_beta_, self.mu_m_ = self._estimate_means(X, nk, xk, Sk)
-        if self.verbose > 1:
-            print_('\tmu are initialized.', end='')
+        self.log_beta_prior = self.n_features * np.log(self.mu_beta_prior / (2 * np.pi))
 
     def _initialize_lambda(self, X, nk, xk, Sk):
         if self.lambda_nu_prior is None:
             self.lambda_nu_prior = self.n_features
             # TODO discuss default value
-            if self.verbose > 1:
-                print_('\n\tlambda_nu_prior are initialized.', end='')
-        else:
-            if self.verbose > 1:
-                print_('\n\tlambda_nu_prior are provided.', end='')
 
         if self.lambda_W_prior is None:
             self.lambda_inv_W_prior = np.cov(X.T, bias=1) * self.n_features
@@ -245,21 +245,17 @@ class BayesianGaussianMixture(MixtureBase):
             except linalg.LinAlgError:
                 raise ValueError("lambda_W_prior must be symmetric, "
                                  "positive-definite. Check data distribution")
-            if self.verbose > 1:
-                print_('\n\tlambda_W_prior are initialized.', end='')
         else:
             try:
                 self.lambda_inv_W_prior = np.linalg.inv(self.lambda_W_prior)
             except linalg.LinAlgError:
                 raise ValueError("lambda_W_prior must be symmetric, "
                                  "positive-definite.")
-            if self.verbose > 1:
-                print_('\n\tlambda_W_prior are provided.', end='')
 
         self.lambda_nu_, self.lambda_inv_W_ = self._estimate_lambda(
             X, nk, xk, Sk)
-        if self.verbose > 1:
-            print_('\tlambda are initialized.', end='')
+        self.log_B_W_nu_prior = _wishart_log_B(
+            self.n_features, self.lambda_nu_prior, self.lambda_W_prior)
 
     def _initialize_parameters(self, X, responsibilities, nk, xk, Sk):
         self._initialize_weight(X, nk, xk, Sk)
@@ -315,9 +311,10 @@ class BayesianGaussianMixture(MixtureBase):
         return estimate_lambda_functions[self.covariance_type](X, nk, xk, Sk)
 
     def _e_step(self, X):
-        log_prob, resp = self._estimate_log_probabilities_responsibilities(X)
-        lower_bound = self._lower_bound()
-        return np.sum(log_prob), resp
+        log_prob_comp, log_prob, resp = \
+            self._estimate_log_probabilities_responsibilities(X)
+        lower_bound = self._lower_bound(log_prob_comp, resp)
+        return lower_bound, resp
 
     def _m_step(self, X, nk, xk, Sk):
         self.weight_alpha_ = self._estimate_weights(X, nk, xk, Sk)
@@ -327,49 +324,62 @@ class BayesianGaussianMixture(MixtureBase):
 
     # e step
     def _estimate_weighted_log_probabilities(self, X):
-        estimate_log_rho_functions = {
-            "full": self._estimate_log_rho_full,
-            "tied": self._estimate_log_rho_tied,
-            "diag": self._estimate_log_rho_diag,
-            "spherical": self._estimate_log_rho_spherical
+        # save ln_weights for computing lower bound
+        log_weights = self._estimate_log_weights()
+        _estimate_log_X = {
+            "full": self._estimate_log_X_full,
+            "tied": self._estimate_log_X_tied,
+            "diag": self._estimate_log_X_diag,
+            "spherical": self._estimate_log_X_spherical
         }
-        weighted_log_prob = estimate_log_rho_functions[self.covariance_type](X)
-        return weighted_log_prob
+        # save ln_lambda, inv_W_chol for computing lower bound
+        log_X = _estimate_log_X[self.precision_type](X)
+        return log_weights + log_X
 
     def _estimate_log_weights(self):
-        return (digamma(self.weight_alpha_) -
+        # first item in Equation 3.8
+        log_weights = (digamma(self.weight_alpha_) -
                 digamma(np.sum(self.weight_alpha_)))
+        self.log_weights = log_weights
+        return log_weights
 
-    def _estimate_log_rho_full(self, X):
-        n_samples, n_features = X.shape
+    def _estimate_log_X_full(self, X):
+        # second item in Equation 3.8
+        n_samples = X.shape[0]
+        n_features = self.n_features
         ln_W_digamma = np.arange(1, self.n_features + 1)
-        log_prob = np.empty((n_samples, self.n_components))
+        log_X = np.empty((n_samples, self.n_components))
+        log_lambda = np.empty((self.n_components, ))
+        inv_W_chol = np.empty(self.lambda_inv_W_.shape)
         for k, (beta, m, nu, inv_W) in enumerate(
                 zip(self.mu_beta_, self.mu_m_,
                     self.lambda_nu_, self.lambda_inv_W_)):
             try:
-                W_chol = linalg.cholesky(inv_W, lower=True)
+                inv_W_chol[k] = linalg.cholesky(inv_W, lower=True)
             except linalg.LinAlgError:
                 raise ValueError("'lambda_inv_W_' must be symmetric, "
                                  "positive-definite")
-            ln_W_det = np.sum(np.log(np.diagonal(W_chol)))
-            ln_W = (np.sum(digamma(.5 * (nu + 1 - ln_W_digamma))) +
-                    n_features * np.log(2) + ln_W_det)
+            ln_inv_W_det = 2. * np.sum(np.log(np.diagonal(inv_W_chol[k])))
+            log_lambda[k] = (np.sum(digamma(.5 * (nu + 1 - ln_W_digamma))) +
+                             n_features * np.log(2) - ln_inv_W_det)
 
-            W_sol = linalg.solve_triangular(W_chol, (X - m).T, lower=True).T
+            W_sol = linalg.solve_triangular(inv_W_chol[k], (X - m).T,
+                                            lower=True).T
             mahala_dist = np.sum(np.square(W_sol), axis=1)
-            log_prob[:, k] = - .5 * (- ln_W +
-                                     n_features / beta + nu * mahala_dist)
-        log_prob -= .5 * (n_features * np.log(2 * np.pi))
-        return log_prob + self._estimate_log_weights()
+            log_X[:, k] = - .5 * (- log_lambda[k] +
+                                  n_features / beta + nu * mahala_dist)
+        log_X -= .5 * (n_features * np.log(2 * np.pi))
+        self.inv_W_chol = inv_W_chol
+        self.log_lambda = log_lambda
+        return log_X
 
-    def _estimate_log_rho_tied(self, X):
+    def _estimate_log_X_tied(self, X):
         pass
 
-    def _estimate_log_rho_diag(self, X):
+    def _estimate_log_X_diag(self, X):
         pass
 
-    def _estimate_log_rho_spherical(self, X):
+    def _estimate_log_X_spherical(self, X):
         pass
 
     def _check_is_fitted(self):
@@ -388,31 +398,74 @@ class BayesianGaussianMixture(MixtureBase):
          self.lambda_inv_W_) = params
 
     # lower bound methods
-    def _lower_bound(self):
-        pass
+    def _lower_bound(self, log_prob_comp, resp):
+        log_p_XZ = self._estimate_p_XZ(log_prob_comp, resp)
+        log_p_weight = self._estimate_p_weight()
+        log_p_mu_lambda = self._estimate_p_mu_lambda()
+        log_q_z = self._estimate_q_Z(resp)
+        log_q_weight = self._estimate_q_weight()
+        log_q_mu_lambda = self._estimate_q_mu_lambda()
+        print 'lower bound'
+        print log_p_XZ
+        print log_p_weight
+        print log_p_mu_lambda
+        print log_q_z
+        print log_q_weight
+        print log_q_mu_lambda
+        print 'lower bound'
+        return log_p_XZ + log_p_weight + log_p_mu_lambda + log_q_z + log_q_weight + log_q_mu_lambda
 
-    def _lb_p_X(self, X):
-        # Equation 7.5, but we reuse weighted_log_prob
+    def _estimate_p_XZ(self, log_prob_comp, resp):
+        return np.sum(log_prob_comp * resp)
 
-        pass
+    def _estimate_p_weight(self):
+        return self.log_C_alpha_prior + \
+               (self.weight_alpha_prior - 1) * np.sum(self.log_weights)
 
-    def _lb_p_Z(self):
-        pass
+    def _estimate_p_mu_lambda(self):
+        temp1 = self.log_beta_prior + self.log_lambda - \
+            self.n_features * self.mu_beta_prior / self.mu_beta_
+        mk_sol = np.empty(self.n_components)
+        for k in range(self.n_components):
+            sol = linalg.solve_triangular(
+                self.inv_W_chol[k],
+                (self.mu_m_[k] - self.mu_m_prior).T, lower=True).T
+            mk_sol[k] = np.sum(np.square(sol), axis=1)
+        temp2 = self.mu_beta_prior * self.lambda_nu_ * mk_sol
+        temp_mu = .5 * np.sum(temp1 + temp2)
 
-    def _lb_p_pi(self):
-        pass
+        temp3 = self.n_components * self.log_B_W_nu_prior + \
+                .5 * (self.lambda_nu_prior - self.n_features - 1) * np.sum(self.log_lambda)
 
-    def _lb_p_mu_lambda(self):
-        pass
+        W0inv_Wk_tr = np.empty(self.n_components)
+        for k in range(self.n_components):
+            # another way to compute
+            # sol = linalg.solve_triangular(
+            #     self.inv_W_chol[k], self.lambda_inv_W_prior.T, lower=True)
+            # W0inv_Wk_tr[k] = np.trace(linalg.solve_triangular(
+            #     self.inv_W_chol[k], sol, lower=True, trans=1).T)
+            inv_chol_sol = linalg.inv(self.inv_W_chol[k])
+            W0inv_Wk_tr[k] = np.sum(self.lambda_inv_W_prior.T * np.dot(inv_chol_sol.T, inv_chol_sol))
+        temp4 = -.5 * np.sum(self.lambda_nu_ * W0inv_Wk_tr)
+        return temp_mu + temp3 + temp4
 
-    def _lb_q_Z(self):
-        pass
+    def _estimate_q_Z(self, resp):
+        # TODO underflow
+        return np.sum(resp * np.log(resp))
 
-    def _lb_q_pi(self):
-        pass
+    def _estimate_q_weight(self):
+        return np.sum((self.weight_alpha_ - 1) * self.log_weights) + \
+               _dirichlet_log_C(self.weight_alpha_)
 
-    def _lb_q_mu_lambda(self):
-        pass
+    def _estimate_q_mu_lambda(self):
+        wishart_entropy = np.empty(self.n_components)
+        for k in range(self.n_components):
+            wishart_entropy[k] = _wishart_entropy(
+                self.n_features, self.lambda_nu_[k], self.lambda_inv_W_[k],
+                self.log_lambda[k])
+        return np.sum(.5 * self.log_lambda +
+                      .5 * self.n_features * np.log(self.mu_beta_ / (2 * np.pi))
+                      - self.n_features * .5 - wishart_entropy)
 
 
 class DirichletProcessGaussianMixture(BayesianGaussianMixture):
