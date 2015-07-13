@@ -10,7 +10,7 @@ from ..utils.validation import check_is_fitted
 from ..utils.extmath import logsumexp
 from sklearn.externals.six.moves import zip
 from sklearn.externals.six import print_
-from .gaussianmixture import MixtureBase, check_shape
+from .base import MixtureBase, check_shape
 
 
 def _define_prior_shape(n_components, n_features, precision_type):

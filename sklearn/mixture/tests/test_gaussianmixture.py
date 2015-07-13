@@ -13,7 +13,7 @@ from sklearn.utils.testing import assert_warns_message
 from sklearn.utils import ConvergenceWarning
 
 from sklearn import mixture
-from sklearn.mixture.gaussianmixture import _sufficient_Sk
+from sklearn.mixture.base import _sufficient_Sk
 from sklearn.covariance import EmpiricalCovariance
 from sklearn.metrics.cluster import adjusted_rand_score
 from sklearn.externals.six.moves import cStringIO as StringIO
@@ -94,7 +94,7 @@ def test_GaussianMixture_parameters():
 
 
 def test_check_X():
-    from sklearn.mixture.gaussianmixture import _check_X
+    from sklearn.mixture.base import _check_X
     n_samples = RandData.n_samples
     n_components = RandData.n_components
     n_features = RandData.n_features
@@ -124,7 +124,7 @@ def test_check_X():
 
 
 def test_check_weights():
-    from sklearn.mixture.gaussianmixture import _check_weights
+    from sklearn.mixture.base import _check_weights
     n_components = RandData.n_components
 
     weights_bad = rng.rand(n_components, 1)
@@ -154,7 +154,7 @@ def test_check_weights():
 
 
 def test_check_means():
-    from sklearn.mixture.gaussianmixture import _check_means
+    from sklearn.mixture.base import _check_means
     n_components = RandData.n_components
     n_features = RandData.n_features
 
@@ -170,7 +170,7 @@ def test_check_means():
 
 
 def test_check_covars():
-    from sklearn.mixture.gaussianmixture import (_check_covars,
+    from sklearn.mixture.base import (_check_covars,
                                                  _define_parameter_shape)
     # TODO integrate testing
     n_components = RandData.n_components
