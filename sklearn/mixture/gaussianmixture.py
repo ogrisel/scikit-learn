@@ -608,11 +608,12 @@ class GaussianMixture(MixtureBase):
 
     def _estimate_log_prob(self, X):
         return _estimate_log_Gaussian_prob(X, self.means_, self.covars_,
-                                       self.covariance_type)
+                                           self.covariance_type)
 
     def _e_step(self, X):
         log_prob_norm, _, resp = self._estimate_log_prob_resp(X)
-        return np.sum(log_prob_norm), resp
+        self._log_likelihood = np.sum(log_prob_norm)
+        return self._log_likelihood, resp
 
     def _check_is_fitted(self):
         check_is_fitted(self, 'weights_')

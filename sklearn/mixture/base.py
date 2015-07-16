@@ -12,6 +12,8 @@ from ..utils.extmath import logsumexp
 from sklearn.utils import ConvergenceWarning
 from sklearn.externals.six import print_
 
+EPS = np.finfo(float).eps
+
 
 def check_shape(param, param_shape, name):
     """Check the shape of the parameter"""
@@ -181,6 +183,7 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)):
         with np.errstate(under='ignore'):
             # ignore underflow
             resp = np.exp(log_prob - log_prob_norm[:, np.newaxis])
+        resp += 10*EPS
         return log_prob_norm, log_prob, resp
 
     @abstractmethod
@@ -273,6 +276,12 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)):
 
         max_log_likelihood = -np.infty
         best_params = self._get_parameters()
+
+        #######################
+        # for debug
+        self._log_snapshot = []
+        #######################
+
         for init in range(self.n_init):
             self._initialize(X)
             current_log_likelihood = -np.infty
@@ -283,6 +292,10 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)):
 
                 # e step
                 current_log_likelihood, resp = self._e_step(X)
+
+                #######################
+                self._snapshot(X)
+                #######################
 
                 change = abs(current_log_likelihood - prev_log_likelihood)
                 if change < self.tol:
@@ -383,4 +396,7 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)):
         pass
 
     def bic(self, X):
+        pass
+
+    def _snapshot(self, X):
         pass

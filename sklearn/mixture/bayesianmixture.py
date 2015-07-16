@@ -6,11 +6,13 @@ from time import time
 
 from ..utils import check_array
 from ..utils.validation import check_is_fitted
-from ..utils.extmath import logsumexp
 from sklearn.externals.six import print_
 from .base import MixtureBase, check_shape
 from .gaussianmixture import estimate_Gaussian_suffstat_Sk
 from .gaussianmixture import estimate_Gaussian_suffstat_xk
+
+
+EPS = np.finfo(float).eps
 
 
 def _define_prior_shape(n_features, precision_type):
@@ -27,29 +29,6 @@ def _define_prior_shape(n_features, precision_type):
                    'lambda_nu_prior': (),
                    'lambda_W_prior': lambda_W_prior_shape[precision_type]}
     return param_shape
-
-
-def _check_weight_prior(weight_alpha_prior,
-                        desired_shape):
-    """Check weight_alpha_prior,
-    the prior parameter  of the weight Dirichlet distribution
-
-    Parameters
-    ----------
-    weight_alpha_prior : float
-
-    desired_shape : tuple
-
-    Returns
-    -------
-    weight_alpha_prior : float
-    """
-    # check shape
-    check_shape(weight_alpha_prior, desired_shape, 'alpha')
-    if weight_alpha_prior <= 0:
-        raise ValueError("The parameter 'weight_alpha_prior' should be "
-                         "greater than 0, but got %.5f" % weight_alpha_prior)
-    return weight_alpha_prior
 
 
 def _check_mu_prior(mu_m_prior, mu_beta_prior,
@@ -239,7 +218,7 @@ def _log_wishart_norm(n_dim, nu, inv_W_chol):
 def _wishart_entropy(n_dim, nu, inv_W_chol, log_lambda):
     """The entropy of the Wishart distribution
     """
-    return - np.log(_log_wishart_norm(n_dim, nu, inv_W_chol)) - \
+    return - _log_wishart_norm(n_dim, nu, inv_W_chol) - \
            .5 * (nu - n_dim - 1) * log_lambda + .5 * nu * n_dim
 
 
@@ -369,11 +348,33 @@ class BayesianGaussianMixture(MixtureBase):
                                  "['spherical', 'tied', 'diag', 'full']"
                                  % precision_type)
 
+    def _check_weight_prior(self, weight_alpha_prior,
+                            desired_shape):
+        """Check weight_alpha_prior,
+        the prior parameter  of the weight Dirichlet distribution
+
+        Parameters
+        ----------
+        weight_alpha_prior : float
+
+        desired_shape : tuple
+
+        Returns
+        -------
+        weight_alpha_prior : float
+        """
+        # check shape
+        check_shape(weight_alpha_prior, desired_shape, 'alpha')
+        if weight_alpha_prior <= 0:
+            raise ValueError("The parameter 'weight_alpha_prior' should be "
+                             "greater than 0, but got %.5f" % weight_alpha_prior)
+        return weight_alpha_prior
+
     def _check_initial_parameters(self):
         param_shape = _define_prior_shape(self.n_features, self.precision_type)
         if self.weight_alpha_prior is not None:
-            _check_weight_prior(self.weight_alpha_prior,
-                                param_shape['weight_alpha_prior'])
+            self._check_weight_prior(self.weight_alpha_prior,
+                                     param_shape['weight_alpha_prior'])
 
         if self.mu_beta_prior is not None and self.mu_m_prior is not None:
             _check_mu_prior(self.mu_m_prior, self.mu_beta_prior,
@@ -406,7 +407,7 @@ class BayesianGaussianMixture(MixtureBase):
                                            self.covariance_type)
         return nk, xk, Sk
 
-    def _initialize_alpha(self, nk):
+    def _initialize_weight(self, nk):
         """Initialize the prior parameter of weight Dirichlet distribution
         """
         if self.weight_alpha_prior is None:
@@ -452,16 +453,18 @@ class BayesianGaussianMixture(MixtureBase):
 
         self.lambda_nu_, self.lambda_inv_W_ = self._estimate_lambda(nk, xk, Sk)
 
+    def _initialize_weight_prior(self):
+        self._log_dirichlet_norm_alpha_prior = \
+            _log_dirichlet_norm(np.ones(self.n_components) *
+                                self.weight_alpha_prior)
+
     def _initialize_parameters(self, X, resp):
         nk, xk, Sk = self._estimate_suffstat(X, resp)
-        self._initialize_alpha(nk)
+        self._initialize_weight(nk)
         self._initialize_mu(X, nk, xk)
         self._initialize_lambda(X, nk, xk, Sk)
 
-        self._log_dirichlet_norm_alpha_prior = \
-            _log_dirichlet_norm(np.ones(self.n_components) *
-                                        self.weight_alpha_prior)
-
+        self._initialize_weight_prior()
         self._log_gaussian_norm_beta_prior = \
             .5 * self.n_features * np.log(self.mu_beta_prior / (2 * np.pi))
 
@@ -471,18 +474,12 @@ class BayesianGaussianMixture(MixtureBase):
 
     # m step
     def _estimate_weights(self, nk):
-        print 'alpha'
-        print self.weight_alpha_prior + nk
         return self.weight_alpha_prior + nk
 
     def _estimate_mu(self, nk, xk):
         mu_beta_ = self.mu_beta_prior + nk
         mu_m_ = (self.mu_beta_prior * self.mu_m_prior +
-                      nk[:, np.newaxis] * xk) / mu_beta_[:, np.newaxis]
-        print 'mu_beta'
-        print mu_beta_
-        print 'mu_m'
-        print mu_m_
+                 nk[:, np.newaxis] * xk) / mu_beta_[:, np.newaxis]
         return mu_beta_, mu_m_
 
     def _estimate_lambda_full(self, nk, xk, Sk):
@@ -495,8 +492,6 @@ class BayesianGaussianMixture(MixtureBase):
                 self.lambda_inv_W_prior + nk[k] * Sk[k] +
                 (nk[k] * self.mu_beta_prior / self.mu_beta_[k]) *
                 np.outer(diff, diff))
-            print 'Wishart Mean'
-            print np.linalg.inv(lambda_inv_W_[k]) * lambda_nu_[k]
         return lambda_nu_, lambda_inv_W_
 
     def _estimate_lambda_tied(self, nk, xk, Sk):
@@ -526,8 +521,8 @@ class BayesianGaussianMixture(MixtureBase):
     # e step
     def _e_step(self, X):
         _, log_prob, resp = self._estimate_log_prob_resp(X)
-        lower_bound = self._lower_bound(log_prob, resp)
-        return lower_bound, resp
+        self._lower_bound = self._estimate_lower_bound(log_prob, resp)
+        return self._lower_bound, resp
 
     def _estimate_log_weights(self):
         """Equation 3.42
@@ -605,21 +600,13 @@ class BayesianGaussianMixture(MixtureBase):
          self.lambda_inv_W_) = params
 
     # lower bound methods
-    def _lower_bound(self, log_prob_comp, resp):
-        log_p_XZ = self._estimate_p_XZ(log_prob_comp, resp)
+    def _estimate_lower_bound(self, log_prob, resp):
+        log_p_XZ = self._estimate_p_XZ(log_prob, resp)
         log_p_weight = self._estimate_p_weight()
         log_p_mu_lambda = self._estimate_p_mu_lambda()
         log_q_z = self._estimate_q_Z(resp)
-        log_q_weight = self._estimate_q_pi()
+        log_q_weight = self._estimate_q_weight()
         log_q_mu_lambda = self._estimate_q_mu_lambda()
-        print 'lower bound'
-        print log_p_XZ
-        print log_p_weight
-        print log_p_mu_lambda
-        print log_q_z
-        print log_q_weight
-        print log_q_mu_lambda
-        print 'lower bound'
         return log_p_XZ + log_p_weight + log_p_mu_lambda + log_q_z + log_q_weight + log_q_mu_lambda
 
     def _estimate_p_XZ(self, log_prob, resp):
@@ -668,14 +655,14 @@ class BayesianGaussianMixture(MixtureBase):
     def _estimate_q_Z(self, resp):
         """Equation 7.10
         """
-        # TODO underflow
+        resp = resp[resp > 10 * EPS]
         return np.sum(resp * np.log(resp))
 
-    def _estimate_q_pi(self):
+    def _estimate_q_weight(self):
         """Equation 7.11
         """
         return np.sum((self.weight_alpha_ - 1) * self._log_pi) + \
-               _log_dirichlet_norm(self.weight_alpha_)
+            _log_dirichlet_norm(self.weight_alpha_)
 
     def _estimate_q_mu_lambda(self):
         wishart_entropy = np.empty(self.n_components)
@@ -700,13 +687,14 @@ class BayesianGaussianMixture(MixtureBase):
         -------
         self
         """
-        self._fit(X)
+        return self._fit(X)
 
+    def _snapshot(self, X):
+        """ for debug
+        """
+        log_alpha = self.weight_alpha_ / np.sum(self.weight_alpha_)
+        log_m = self.mu_m_
+        log_covar = self.lambda_inv_W_ / self.lambda_nu_[:, np.newaxis, np.newaxis]
+        self._log_snapshot.append((log_alpha, log_m, log_covar,
+                                   self.predict(X), self._lower_bound))
 
-class DirichletProcessGaussianMixture(BayesianGaussianMixture):
-
-    def _estimate_weights(self, nk):
-        pass
-
-    def _estimate_log_weights(self):
-        pass
