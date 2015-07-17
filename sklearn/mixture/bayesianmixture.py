@@ -404,7 +404,7 @@ class BayesianGaussianMixture(MixtureBase):
         nk = resp.sum(axis=0)
         xk = estimate_Gaussian_suffstat_xk(resp, X, nk)
         Sk = estimate_Gaussian_suffstat_Sk(resp, X, nk, xk, self.reg_covar,
-                                           self.covariance_type)
+                                           self.precision_type)
         return nk, xk, Sk
 
     def _initialize_weight(self, nk):
@@ -495,7 +495,12 @@ class BayesianGaussianMixture(MixtureBase):
         return lambda_nu_, lambda_inv_W_
 
     def _estimate_lambda_tied(self, nk, xk, Sk):
-        pass
+        lambda_nu_ = self.lambda_nu_prior + nk.sum()/self.n_components
+        lambda_inv_W_ = self.lambda_inv_W_prior + Sk * nk.sum() / self.n_components
+        diff = xk - self.mu_m_prior
+        lambda_inv_W_ += self.mu_beta_prior / self.n_components * (
+            np.dot((nk / self.mu_beta_) * diff.T, diff))
+        return lambda_nu_, lambda_inv_W_
 
     def _estimate_lambda_diag(self, nk, xk, Sk):
         pass
@@ -516,7 +521,8 @@ class BayesianGaussianMixture(MixtureBase):
         nk, xk, Sk = self._estimate_suffstat(X, resp)
         self.weight_alpha_ = self._estimate_weights(nk)
         self.mu_beta_, self.mu_m_ = self._estimate_mu(nk, xk)
-        self.lambda_nu_, self.lambda_inv_W_ = self._estimate_lambda(nk, xk, Sk)
+        self.lambda_nu_, self.lambda_inv_W_ = self._estimate_lambda(
+            nk, xk, Sk)
 
     # e step
     def _e_step(self, X):
@@ -558,9 +564,9 @@ class BayesianGaussianMixture(MixtureBase):
                 raise ValueError("'lambda_inv_W_' must be symmetric, "
                                  "positive-definite")
             log_inv_W_det = 2. * np.sum(np.log(np.diagonal(inv_W_chol[k])))
-            log_lambda[k] = (np.sum(digamma(.5 * (self.lambda_nu_[k] + 1 -
-                                                  ln_W_digamma))) +
-                             n_features * np.log(2) - log_inv_W_det)
+            log_lambda[k] = np.sum(digamma(.5 * (self.lambda_nu_[k] + 1 -
+                                                 ln_W_digamma))) + \
+                            n_features * np.log(2) - log_inv_W_det
 
             W_sol = linalg.solve_triangular(inv_W_chol[k], (X - self.mu_m_[k]).T,
                                             lower=True).T
@@ -576,7 +582,28 @@ class BayesianGaussianMixture(MixtureBase):
         return log_prob
 
     def _estimate_log_BGuassian_prob_tied(self, X):
-        pass
+        n_samples = X.shape[0]
+        n_features = self.n_features
+        ln_W_digamma = np.arange(1, self.n_features + 1)
+        log_prob = np.empty((n_samples, self.n_components))
+        try:
+            inv_W_chol = linalg.cholesky(self.lambda_inv_W_, lower=True)
+        except linalg.LinAlgError:
+            raise ValueError("'lambda_inv_W_' must be symmetric, "
+                             "positive-definite")
+        log_inv_W_det = 2 * np.sum(np.log(np.diagonal(inv_W_chol)))
+        log_lambda = np.sum(digamma(.5 * (self.lambda_nu_ + 1 - ln_W_digamma))) + \
+                     n_features * np.log(2) - log_inv_W_det
+        for k in range(self.n_components):
+            W_sol = linalg.solve_triangular(inv_W_chol, (X - self.mu_m_[k]).T,
+                                            lower=True).T
+            mahala_dist = np.sum(np.square(W_sol), axis=1)
+            log_prob[:, k] = -.5 * (- log_lambda + n_features / self.mu_beta_[k] +
+                                    self.lambda_nu_ * mahala_dist)
+        log_prob -= .5 * n_features * np.log(2 * np.pi)
+        self._inv_W_chol = inv_W_chol
+        self._log_lambda = log_lambda
+        return log_prob
 
     def _estimate_log_BGuassian_prob_diag(self, X):
         pass
@@ -607,7 +634,8 @@ class BayesianGaussianMixture(MixtureBase):
         log_q_z = self._estimate_q_Z(resp)
         log_q_weight = self._estimate_q_weight()
         log_q_mu_lambda = self._estimate_q_mu_lambda()
-        return log_p_XZ + log_p_weight + log_p_mu_lambda + log_q_z + log_q_weight + log_q_mu_lambda
+        return log_p_XZ + log_p_weight + log_p_mu_lambda + log_q_z + \
+            log_q_weight + log_q_mu_lambda
 
     def _estimate_p_XZ(self, log_prob, resp):
         """Equation 7.5, 7.6
@@ -621,6 +649,12 @@ class BayesianGaussianMixture(MixtureBase):
             (self.weight_alpha_prior - 1) * np.sum(self._log_pi)
 
     def _estimate_p_mu_lambda(self):
+        if self.precision_type == 'full':
+            return self._estimate_p_mu_lambda_full()
+        elif self.precision_type == 'tied':
+            return self._estimate_p_mu_lambda_tied()
+
+    def _estimate_p_mu_lambda_full(self):
         """Equation 7.9
         """
         temp1 = self._log_lambda - \
@@ -652,6 +686,29 @@ class BayesianGaussianMixture(MixtureBase):
         temp4 = -.5 * np.sum(self.lambda_nu_ * trace_W0inv_Wk)
         return temp_mu + temp3 + temp4
 
+    def _estimate_p_mu_lambda_tied(self):
+        temp1 = self.n_components * self.mu_beta_prior / self.mu_beta_
+        mk_sol = np.empty(self.n_components)
+        for k in range(self.n_components):
+            sol = linalg.solve_triangular(
+                self._inv_W_chol,
+                (self.mu_m_[k] - self.mu_m_prior).T, lower=True).T
+            mk_sol[k] = np.sum(np.square(sol))
+        temp2 = self.mu_beta_prior * self.lambda_nu_ * mk_sol
+        temp_mu = .5 * (self.n_components * self._log_lambda +
+                        np.sum(temp1 + temp2)) + \
+                  self._log_gaussian_norm_beta_prior
+
+        temp3 = self.n_components * self._log_wishart_norm_W_nu_prior + \
+            .5 * (self.lambda_nu_prior - self.n_features - 1) * \
+            self.n_components * self._log_lambda
+
+        chol_sol = linalg.inv(self._inv_W_chol)
+        trace_W0inv_W = np.sum(self.lambda_inv_W_prior.T *
+                               np.dot(chol_sol.T, chol_sol))
+        temp4 = -.5 * self.n_components * self.lambda_nu_ * trace_W0inv_W
+        return temp_mu + temp3 + temp4
+
     def _estimate_q_Z(self, resp):
         """Equation 7.10
         """
@@ -665,6 +722,12 @@ class BayesianGaussianMixture(MixtureBase):
             _log_dirichlet_norm(self.weight_alpha_)
 
     def _estimate_q_mu_lambda(self):
+        if self.precision_type == 'full':
+            return self._estimate_q_mu_lambda_full()
+        elif self.precision_type == 'tied':
+            return self._estimate_q_mu_lambda_tied()
+
+    def _estimate_q_mu_lambda_full(self):
         wishart_entropy = np.empty(self.n_components)
         for k in range(self.n_components):
             wishart_entropy[k] = _wishart_entropy(
@@ -672,7 +735,18 @@ class BayesianGaussianMixture(MixtureBase):
                 self._log_lambda[k])
         return np.sum(.5 * self._log_lambda +
                       .5 * self.n_features * np.log(self.mu_beta_ / (2 * np.pi))
-                      - self.n_features * .5 - wishart_entropy)
+                      - .5 * self.n_features
+                      - wishart_entropy)
+
+    def _estimate_q_mu_lambda_tied(self):
+        wishart_entropy = _wishart_entropy(self.n_features, self.lambda_nu_,
+                                           self.lambda_inv_W_, self._log_lambda)
+        return (.5 * self.n_components * self._log_lambda
+                + np.sum(.5 * self.n_features * np.log(self.mu_beta_ / (2 * np.pi)))
+                - .5 * self.n_components * self.n_features
+                - self.n_components * wishart_entropy
+                )
+
 
     def fit(self, X, y=None):
         """Estimate model parameters with the VB algorithm.
@@ -694,7 +768,10 @@ class BayesianGaussianMixture(MixtureBase):
         """
         log_alpha = self.weight_alpha_ / np.sum(self.weight_alpha_)
         log_m = self.mu_m_
-        log_covar = self.lambda_inv_W_ / self.lambda_nu_[:, np.newaxis, np.newaxis]
+        if self.precision_type == 'full':
+            log_covar = self.lambda_inv_W_ / self.lambda_nu_[:, np.newaxis, np.newaxis]
+        elif self.precision_type == 'tied':
+            log_covar = self.lambda_inv_W_ / self.lambda_nu_
         self._log_snapshot.append((log_alpha, log_m, log_covar,
                                    self.predict(X), self._lower_bound))
 
