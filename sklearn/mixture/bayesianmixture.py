@@ -207,19 +207,37 @@ def _log_dirichlet_norm(alpha):
 def _log_wishart_norm(n_dim, nu, inv_W_chol):
     """The log of the normalization term of Wishart distribution
     """
-    log_det_W = 2 * np.sum(np.log(np.diag(inv_W_chol)))
-    temp1 = - nu * .5 * log_det_W
+    log_det_inv_W = 2 * np.sum(np.log(np.diag(inv_W_chol)))
+    temp1 = nu * .5 * log_det_inv_W
     temp2 = nu * n_dim * .5 * np.log(2)
     temp3 = n_dim * (n_dim - 1) * .25 * np.log(np.pi)
-    temp4 = np.sum(gammaln((nu + 1 - np.arange(1, n_dim + 1)) * .5))
+    temp4 = np.sum(gammaln(.5 * (nu + 1 - np.arange(1, n_dim + 1))))
     return temp1 - temp2 - temp3 - temp4
+
+def _log_gamma_norm_spherical(a, inv_b):
+    """Compute one log of normalization of gamma distribution"""
+    return a * np.log(inv_b) - gammaln(a)
+
+
+def _log_gamma_norm_diag(a, inv_b):
+    """Compute n_features log of normalization of gamma distribution"""
+    return a * np.sum(np.log(inv_b)) - len(inv_b) * gammaln(a)
 
 
 def _wishart_entropy(n_dim, nu, inv_W_chol, log_lambda):
     """The entropy of the Wishart distribution
     """
     return - _log_wishart_norm(n_dim, nu, inv_W_chol) - \
-           .5 * (nu - n_dim - 1) * log_lambda + .5 * nu * n_dim
+        .5 * (nu - n_dim - 1) * log_lambda + .5 * nu * n_dim
+
+
+def _gamma_entropy_spherical(a, inv_b):
+    return gammaln(a) - (a - 1) * digamma(a) - np.log(inv_b) + a
+
+
+def _gamma_entropy_diag(a, inv_b):
+    return (gammaln(a) - (a-1) * digamma(a) + a) * len(inv_b) - \
+           np.sum(np.log(inv_b))
 
 
 class BayesianGaussianMixture(MixtureBase):
@@ -430,8 +448,14 @@ class BayesianGaussianMixture(MixtureBase):
 
     def _initialize_lambda(self, X, nk, xk, Sk):
         """Initialize the prior parameter of precision Wishart or Gamma
-         distribution
+         distribution.
         """
+        if self.precision_type in ['full', 'tied']:
+            self._initialize_lambda_full_tied(X, nk, xk, Sk)
+        elif self.precision_type in ['diag', 'tied']:
+            self._initialize_lambda_diag_spherical(X, nk, xk, Sk)
+
+    def _initialize_lambda_full_tied(self, X, nk, xk, Sk):
         if self.lambda_nu_prior is None:
             self.lambda_nu_prior = self.n_features
             # TODO discuss default value
@@ -453,6 +477,27 @@ class BayesianGaussianMixture(MixtureBase):
 
         self.lambda_nu_, self.lambda_inv_W_ = self._estimate_lambda(nk, xk, Sk)
 
+    def _initialize_lambda_diag_spherical(self, X, nk, xk, Sk):
+        """Gamma distribution"""
+        if self.lambda_nu_prior is None:
+            self.lambda_nu_prior = .5
+            # TODO discuss default value
+
+        if self.lambda_W_prior is None:
+            self.lambda_inv_W_prior = .5 * np.diag(np.cov(X.T, bias=1))
+            if self.precision_type == 'spherical':
+                self.lambda_inv_W_prior = self.lambda_inv_W_prior.mean()
+            if any(self.lambda_inv_W_prior <= 0):
+                raise ValueError("lambda_W_prior must be greater than 0")
+            self.lambda_W_prior = 1./self.lambda_inv_W_prior
+        else:
+            if self.lambda_W_prior <= 0:
+                raise ValueError("lambda_W_prior must be greater than 0")
+            self.lambda_inv_W_prior = 1 / self.lambda_W_prior
+
+        self.lambda_nu_, self.lambda_inv_W_ = self._estimate_lambda(nk, xk, Sk)
+
+
     def _initialize_weight_prior(self):
         self._log_dirichlet_norm_alpha_prior = \
             _log_dirichlet_norm(np.ones(self.n_components) *
@@ -468,9 +513,18 @@ class BayesianGaussianMixture(MixtureBase):
         self._log_gaussian_norm_beta_prior = \
             .5 * self.n_features * np.log(self.mu_beta_prior / (2 * np.pi))
 
-        self._log_wishart_norm_W_nu_prior = \
-            _log_wishart_norm(self.n_features, self.lambda_nu_prior,
-                              self.lambda_W_prior)
+        if self.precision_type in ['full', 'tied']:
+            self._log_wishart_norm_W_nu_prior = \
+                _log_wishart_norm(self.n_features, self.lambda_nu_prior,
+                                  self.lambda_inv_W_prior)
+        elif self.precision_type == 'diag':
+            # lambda_inv_W_prior has n_feature Gamma distribution
+            self._log_gamma_norm_W_nu_prior = \
+                _log_gamma_norm_diag(self.lambda_nu_prior, self.lambda_inv_W_prior)
+            # lambda_inv_W_prior has only 1 Gamma distribution
+        elif self.precision_type == 'spherical':
+                _log_gamma_norm_spherical(self.lambda_nu_prior, self.lambda_inv_W_prior)
+
 
     # m step
     def _estimate_weights(self, nk):
@@ -503,7 +557,14 @@ class BayesianGaussianMixture(MixtureBase):
         return lambda_nu_, lambda_inv_W_
 
     def _estimate_lambda_diag(self, nk, xk, Sk):
-        pass
+        lambda_nu_ = self.lambda_nu_prior + .5 * nk
+        diff = xk - self.mu_beta_prior
+        lambda_inv_W_ = self.lambda_inv_W_prior + .5 * (
+            nk[:, np.newaxis] * Sk +
+            (nk * self.mu_beta_prior / self.mu_beta_)[:, np.newaxis] *
+            np.square(diff))
+        return lambda_nu_, lambda_inv_W_
+
 
     def _estimate_lambda_spherical(self, nk, xk, Sk):
         pass
@@ -606,7 +667,21 @@ class BayesianGaussianMixture(MixtureBase):
         return log_prob
 
     def _estimate_log_BGuassian_prob_diag(self, X):
-        pass
+        n_features = self.n_features
+
+        log_lambda = n_features * digamma(self.lambda_nu_) - \
+                     np.sum(np.log(self.lambda_inv_W_), axis=1)
+        log_prob = -.5 * (
+            -log_lambda +
+            (n_features / self.mu_beta_ +
+             self.lambda_nu_ * (np.sum((self.mu_m_ ** 2 / self.lambda_inv_W_), 1)
+                                - 2 * np.dot(X, (self.mu_m_ / self.lambda_inv_W_).T)
+                                + np.dot(X ** 2, (1. / self.lambda_inv_W_).T))))
+        log_prob -= .5 * n_features * np.log(2 * np.pi)
+        self._inv_W_chol = None
+        self._log_lambda = log_lambda
+        return log_prob
+
 
     def _estimate_log_BGuassian_prob_spherical(self, X):
         pass
@@ -634,6 +709,8 @@ class BayesianGaussianMixture(MixtureBase):
         log_q_z = self._estimate_q_Z(resp)
         log_q_weight = self._estimate_q_weight()
         log_q_mu_lambda = self._estimate_q_mu_lambda()
+        print log_p_XZ, log_p_weight, log_p_mu_lambda, log_q_z, \
+            log_q_weight, log_q_mu_lambda
         return log_p_XZ + log_p_weight + log_p_mu_lambda + log_q_z + \
             log_q_weight + log_q_mu_lambda
 
@@ -653,6 +730,8 @@ class BayesianGaussianMixture(MixtureBase):
             return self._estimate_p_mu_lambda_full()
         elif self.precision_type == 'tied':
             return self._estimate_p_mu_lambda_tied()
+        elif self.precision_type == 'diag':
+            return self._estimate_p_mu_lambda_diag()
 
     def _estimate_p_mu_lambda_full(self):
         """Equation 7.9
@@ -709,6 +788,20 @@ class BayesianGaussianMixture(MixtureBase):
         temp4 = -.5 * self.n_components * self.lambda_nu_ * trace_W0inv_W
         return temp_mu + temp3 + temp4
 
+    def _estimate_p_mu_lambda_diag(self):
+        temp1 = self._log_lambda - \
+            self.n_features * self.mu_beta_prior / self.mu_beta_
+        diff = self.mu_m_ - self.mu_m_prior
+        temp2 = self.mu_beta_prior * self.lambda_nu_ * \
+            np.sum(np.square(diff) / self.lambda_inv_W_, axis=1)
+        temp_mu = .5 * np.sum(temp1 - temp2) + \
+            self._log_gaussian_norm_beta_prior
+
+        temp3 = self.n_components * self._log_gamma_norm_W_nu_prior + \
+            (self.lambda_nu_prior - 1) * np.sum(self._log_lambda)
+        temp4 = np.sum(- self.lambda_nu_ * np.sum(self.lambda_inv_W_prior / self.lambda_inv_W_, axis=1))
+        return temp_mu + temp3 + temp4
+
     def _estimate_q_Z(self, resp):
         """Equation 7.10
         """
@@ -726,6 +819,8 @@ class BayesianGaussianMixture(MixtureBase):
             return self._estimate_q_mu_lambda_full()
         elif self.precision_type == 'tied':
             return self._estimate_q_mu_lambda_tied()
+        elif self.precision_type == 'diag':
+            return self._estimate_q_mu_lambda_diag()
 
     def _estimate_q_mu_lambda_full(self):
         wishart_entropy = np.empty(self.n_components)
@@ -747,6 +842,14 @@ class BayesianGaussianMixture(MixtureBase):
                 - self.n_components * wishart_entropy
                 )
 
+    def _estimate_q_mu_lambda_diag(self):
+        return np.sum(
+            .5 * self._log_lambda +
+            .5 * self.n_features * np.log(self.mu_beta_ / (2 * np.pi)) -
+            .5 * self.n_features -
+            _log_gamma_norm_diag(self.lambda_nu_, self.lambda_inv_W_)
+        )
+
 
     def fit(self, X, y=None):
         """Estimate model parameters with the VB algorithm.
@@ -766,12 +869,14 @@ class BayesianGaussianMixture(MixtureBase):
     def _snapshot(self, X):
         """ for debug
         """
-        log_alpha = self.weight_alpha_ / np.sum(self.weight_alpha_)
-        log_m = self.mu_m_
+        alpha = self.weight_alpha_ / np.sum(self.weight_alpha_)
+        m = self.mu_m_
         if self.precision_type == 'full':
-            log_covar = self.lambda_inv_W_ / self.lambda_nu_[:, np.newaxis, np.newaxis]
+            covar = self.lambda_inv_W_ / self.lambda_nu_[:, np.newaxis, np.newaxis]
         elif self.precision_type == 'tied':
-            log_covar = self.lambda_inv_W_ / self.lambda_nu_
-        self._log_snapshot.append((log_alpha, log_m, log_covar,
+            covar = self.lambda_inv_W_ / self.lambda_nu_
+        elif self.precision_type == 'diag':
+            covar = self.lambda_inv_W_ / self.lambda_nu_[:, np.newaxis]
+        self._log_snapshot.append((alpha, m, covar,
                                    self.predict(X), self._lower_bound))
 

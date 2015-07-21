@@ -121,9 +121,14 @@ class DirichletProcessGaussianMixture(BayesianGaussianMixture):
         """
         tmp1 = self.weight_gamma_a_ / (self.weight_gamma_a_ + self.weight_gamma_b_)
         tmp2 = self.weight_gamma_b_ / (self.weight_gamma_a_ + self.weight_gamma_b_)
-        log_pi = tmp1 * np.hstack((1, np.cumprod(tmp2[:-1])))
+        pi = tmp1 * np.hstack((1, np.cumprod(tmp2[:-1])))
 
-        log_m = self.mu_m_
-        log_covar = self.lambda_inv_W_ / self.lambda_nu_[:, np.newaxis, np.newaxis]
-        self._log_snapshot.append((log_pi, log_m, log_covar,
+        m = self.mu_m_
+        if self.precision_type == 'full':
+            covar = self.lambda_inv_W_ / self.lambda_nu_[:, np.newaxis, np.newaxis]
+        elif self.precision_type == 'tied':
+            covar = self.lambda_inv_W_ / self.lambda_nu_
+        elif self.precision_type == 'diag':
+            covar = self.lambda_inv_W_ / self.lambda_nu_[:, np.newaxis]
+        self._log_snapshot.append((pi, m, covar,
                                    self.predict(X), self._lower_bound))
