@@ -61,7 +61,7 @@ class DirichletProcessGaussianMixture(BayesianGaussianMixture):
         return weight_gamma_prior
 
     def _initialize_weight(self, nk):
-        """Initialize the prior parameter of weight Dirichlet distribution
+        """Initialize the prior parameter of weight gamma distribution
         """
         if self.weight_gamma_prior is None:
             # TODO discuss default value
@@ -88,25 +88,35 @@ class DirichletProcessGaussianMixture(BayesianGaussianMixture):
         digamma_sum = digamma(self.weight_gamma_a_ + self.weight_gamma_b_)
         digamma_a = digamma(self.weight_gamma_a_)
         digamma_b = digamma(self.weight_gamma_b_)
-        self._log_pi_a = np.sum(digamma_a - digamma_sum)
-        self._log_pi_b = np.sum(digamma_b - digamma_sum)
-        return digamma_a - digamma_sum + np.hstack((0, np.cumsum(digamma_b - digamma_sum)[:-1]))
+        self._log_pi_a = digamma_a - digamma_sum
+        self._log_pi_b = digamma_b - digamma_sum
+        return digamma_a - digamma_sum + \
+            np.hstack((0, np.cumsum(digamma_b - digamma_sum)[:-1]))
 
     def _estimate_p_weight(self):
         """Equation 9.31
         """
+        # c = np.arange(self.n_components - 1, 0, -1)
+        # tmp = self._log_beta_norm_gamma_prior + \
+        #     (self.weight_gamma_prior - 1)*self._log_pi_a
         return self.n_components * self._log_beta_norm_gamma_prior + \
-               (self.weight_gamma_prior - 1) * self._log_pi_b
+            (self.weight_gamma_prior - 1) * np.sum(self._log_pi_b) \
+            # + np.sum(c * tmp[:-1])
 
     def _estimate_q_weight(self):
         """Equation 9.32
         """
-        log_norm = 0
+        log_norm = np.empty(self.n_components)
         for k in range(self.n_components):
-            log_norm += _log_beta_norm(self.weight_gamma_a_[k],
-                                       self.weight_gamma_b_[k])
-        return log_norm + np.sum((self.weight_gamma_a_ - 1) * self._log_pi_a +
-                                 (self.weight_gamma_b_ - 1) * self._log_pi_b)
+            log_norm[k] = _log_beta_norm(self.weight_gamma_a_[k],
+                                         self.weight_gamma_b_[k])
+        c = np.arange(self.n_components-1, 0, -1)
+
+        tmp1 = log_norm + (self.weight_gamma_a_ - 1) * self._log_pi_a + \
+            (self.weight_gamma_b_ - 1) * self._log_pi_b
+        # tmp2 = log_norm + (self.weight_gamma_b_ - 1) * self._log_pi_a + \
+        #     (self.weight_gamma_a_ - 1) * self._log_pi_b
+        return np.sum(tmp1) # + np.sum(c * tmp2[:-1])
 
     def _check_is_fitted(self):
         check_is_fitted(self, 'weight_gamma_a_')
