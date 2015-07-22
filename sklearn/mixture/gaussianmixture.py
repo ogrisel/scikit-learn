@@ -337,9 +337,7 @@ def _estimate_log_Gaussian_prob_tied(X, means, covars):
         cv_sol = linalg.solve_triangular(cov_chol, (X - mu).T,
                                          lower=True).T
         log_prob[:, k] = np.sum(np.square(cv_sol), axis=1)
-    log_prob = - .5 * (n_features * np.log(2. * np.pi)
-                       + cv_log_det
-                       + log_prob)
+    log_prob = - .5 * (n_features * np.log(2. * np.pi) + cv_log_det + log_prob)
     return log_prob
 
 
