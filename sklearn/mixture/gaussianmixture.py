@@ -9,20 +9,22 @@ from .base import MixtureBase, check_shape, _check_weights
 
 
 def _define_parameter_shape(n_components, n_features, covariance_type):
-    """Define the shape of the parameters
-    """
+    """Define the shape of the parameters"""
     cov_shape = {'full': (n_components, n_features, n_features),
                  'tied': (n_features, n_features),
                  'diag': (n_components, n_features),
-                 'spherical': (n_components, )}
-    param_shape = {'weights': (n_components, ),
+                 'spherical': (n_components,)}
+    param_shape = {'weights': (n_components,),
                    'means': (n_components, n_features),
                    'covariances': cov_shape[covariance_type]}
     return param_shape
 
 
 def _check_means(means, desired_shape):
-    """Check the 'means'
+    """Validated the user provided 'means'
+
+    'means' are the location of the components of the mixture in feature
+    space.
 
     Parameters
     ----------
@@ -37,7 +39,8 @@ def _check_means(means, desired_shape):
     means : array, (n_components, n_features)
     """
     # check value
-    means = check_array(means, dtype=np.float64, ensure_2d=False)
+    means = check_array(means, dtype=[np.float64, np.float32],
+                        ensure_2d=False)
 
     # check shape
     check_shape(means, desired_shape, 'means')
@@ -540,8 +543,7 @@ class GaussianMixture(MixtureBase):
                                  % covariance_type)
 
     def _estimate_suffstat(self, X, resp):
-        """Compute the sufficient statistics for Gaussian distribution
-        """
+        """Compute the sufficient statistics for Gaussian distribution"""
         nk = resp.sum(axis=0)
         xk = estimate_Gaussian_suffstat_xk(resp, X, nk)
         Sk = estimate_Gaussian_suffstat_Sk(resp, X, nk, xk, self.reg_covar,
@@ -549,8 +551,7 @@ class GaussianMixture(MixtureBase):
         return nk, xk, Sk
 
     def _check_initial_parameters(self):
-        """Check the initial value of parameters
-        """
+        """Check the initial value of parameters"""
         param_shape = _define_parameter_shape(
             self.n_components, self.n_features, self.covariance_type)
 

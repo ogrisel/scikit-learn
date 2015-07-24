@@ -1,6 +1,5 @@
 import warnings
 import numpy as np
-from time import time
 from abc import ABCMeta, abstractmethod
 
 from ..externals import six
@@ -10,9 +9,6 @@ from .. import cluster
 from ..utils import check_random_state, check_array
 from ..utils.extmath import logsumexp
 from sklearn.utils import ConvergenceWarning
-from sklearn.externals.six import print_
-
-EPS = np.finfo(float).eps
 
 
 def check_shape(param, param_shape, name):
@@ -24,7 +20,9 @@ def check_shape(param, param_shape, name):
 
 
 def _check_X(X, n_components=None, n_features=None):
-    """Check the input data X
+    """Validate the input data X
+
+    Raise informative messages otherwise.
 
     Parameters
     ----------
@@ -36,7 +34,7 @@ def _check_X(X, n_components=None, n_features=None):
     -------
     X : array, (n_samples, n_features)
     """
-    X = check_array(X, dtype=np.float64, ensure_2d=False)
+    X = check_array(X, dtype=[np.float64, np.float32], ensure_2d=False)
     if X.ndim != 2:
         raise ValueError("Expected the input data X have 2 dimensions, "
                          "but got %s dimension(s)" %
@@ -51,8 +49,12 @@ def _check_X(X, n_components=None, n_features=None):
                          % (n_features, X.shape[1]))
     return X
 
+
 def _check_weights(weights, desired_shape):
-    """Check the 'weights'
+    """Check the user provided 'weights'
+
+    Weights are the average responsibities for each component of the
+    mixture.
 
     Parameters
     ----------
@@ -65,7 +67,8 @@ def _check_weights(weights, desired_shape):
     weights : array, (n_components,)
     """
     # check value
-    weights = check_array(weights, dtype=np.float64, ensure_2d=False)
+    weights = check_array(weights, dtype=[np.float64, np.float32],
+                          ensure_2d=False)
 
     # check shape
     check_shape(weights, desired_shape, 'weights')
@@ -161,8 +164,10 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)):
         pass
 
     def _estimate_log_prob_resp(self, X):
-        """Compute the weighted log probabilities and responsibilities for
-        each sample in X with respect to the model.
+        """Weighted log probabilities and responsibilities
+
+        Compute the weighted log probabilities and responsibilities for
+        each sample in X with respect to current state of the model.
 
         Parameters
         ----------
@@ -183,7 +188,7 @@ class MixtureBase(six.with_metaclass(ABCMeta, DensityMixin, BaseEstimator)):
         with np.errstate(under='ignore'):
             # ignore underflow
             resp = np.exp(log_prob - log_prob_norm[:, np.newaxis])
-        resp += 10*EPS
+        resp += 10 * np.finfo(X.dtype).eps
         return log_prob_norm, log_prob, resp
 
     @abstractmethod
