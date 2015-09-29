@@ -451,9 +451,12 @@ class LinearRegression(LinearModel, RegressorMixin):
 
 
 def _pre_fit(X, y, Xy, precompute, normalize, fit_intercept, copy,
-             Xy_precompute_order=None):
+             precompute_order=None):
     """Aux function used at beginning of fit in linear models"""
     n_samples, n_features = X.shape
+    Y = y[:, np.newaxis] if y.ndim == 1 else y
+    n_targets = Y.shape[1]
+
     if sparse.isspmatrix(X):
         precompute = False
         X, y, X_mean, y_mean, X_std = sparse_center_data(
@@ -478,17 +481,23 @@ def _pre_fit(X, y, Xy, precompute, normalize, fit_intercept, copy,
         precompute = (n_samples > n_features)
 
     if precompute is True:
-        precompute = np.dot(X.T, X)
-        if Xy_precompute_order == 'F':
-            precompute = np.dot(X.T, X).T
+        # the out buffer of np.dot is always C ordered, hence the little dance
+        # to accomodate for F ordered Gram matrix:
+        precompute = np.empty(shape=(n_features, n_features), dtype=X.dtype,
+                              order=precompute_order)
+        if precompute_order == 'F':
+            np.dot(X.T, X, out=precompute.T)
+        else:
+            np.dot(X.T, X, out=precompute)
 
     if not hasattr(precompute, '__array__'):
         Xy = None  # cannot use Xy if precompute is not Gram
 
     if hasattr(precompute, '__array__') and Xy is None:
-        if Xy_precompute_order == 'F':
-            Xy = np.dot(y.T, X).T
-        else:
-            Xy = np.dot(X.T, y)
+        # Make sure that Xy is always F contiguous even if X or y are not
+        # contiguous: the goal is to make it fast to extract the data for a
+        # specific target.
+        Xy = np.empty(shape=(n_features, n_targets), dtype=X.dtype, order='F')
+        np.dot(Y.T, X, out=Xy.T)
 
-    return X, y, X_mean, y_mean, X_std, precompute, Xy
+    return X, Y, X_mean, y_mean, X_std, precompute, Xy

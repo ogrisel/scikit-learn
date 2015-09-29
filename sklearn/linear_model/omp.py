@@ -633,9 +633,6 @@ class OrthogonalMatchingPursuit(LinearModel, RegressorMixin):
             _pre_fit(X, y, None, self.precompute, self.normalize,
                      self.fit_intercept, copy=True)
 
-        if y.ndim == 1:
-            y = y[:, np.newaxis]
-
         if self.n_nonzero_coefs is None and self.tol is None:
             # default for n_nonzero_coefs is 0.1 * n_features
             # but at least one.
