@@ -21,15 +21,15 @@ if not pr_url:
     print("OK: not a pull request")
     sys.exit(0)
 
-compare_url = os.environ.get('CIRCLE_COMPARE_URL')
-if not compare_url:
-    print("SKIP: undefined CIRCLE_COMPARE_URL variable")
+commit = os.environ.get('CIRCLE_SHA1')
+if not commit:
+    print("SKIP: undefined CIRCLE_SHA1 variable")
     sys.exit(0)
 
-git_range = compare_url.rsplit('/', 1)[-1]
-if '...' not in git_range:
-    print("SKIP: invalid git range: %s" % git_range)
-    sys.exit(0)
+# Hardcode the assumption that this is a PR to origin/master of this repo
+# as apparently there is way to reliably get the target of a PR with circle
+# ci
+git_range = "origin/master...%s" % commit
 
 filenames = check_output("git diff --name-only".split() + [git_range])
 filenames = filenames.decode('utf-8').split()
