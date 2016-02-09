@@ -14,6 +14,7 @@ dependencies:
         echo "SHA1: ${CIRCLE_SHA1}"
         echo "COMPARE_URL: ${CIRCLE_COMPARE_URL}"
         echo "PR_NUMBER: ${CIRCLE_PR_NUMBER}"
+        echo "PULL_REQUEST: ${CI_PULL_REQUEST}"
         # deactivate circleci virtualenv and setup miniconda env.
         deactivate
         sudo apt-get update
