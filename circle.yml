@@ -10,6 +10,10 @@ dependencies:
   # Various dependencies
   pre:
     - |
+        echo "BRANCH: ${CIRCLE_BRANCH}"
+        echo "SHA1: ${CIRCLE_SHA1}"
+        echo "COMPARE_URL: ${CIRCLE_COMPARE_URL}"
+        echo "PR_NUMBER: ${CIRCLE_PR_NUMBER}"
         # deactivate circleci virtualenv and setup miniconda env.
         deactivate
         sudo apt-get update
@@ -47,17 +51,17 @@ test:
   # Grep error on the documentation
   override:
     - cat ~/log.txt && if grep -q "Traceback (most recent call last):" ~/log.txt; then false; else true; fi
-deployment:
-  push:
-    branch: master
-    commands:
-      - bash continuous_integration/push_doc.sh
+#deployment:
+#  push:
+#    branch: master
+#    commands:
+#      - bash continuous_integration/push_doc.sh
 general:
   # Open the doc to the API
   artifacts:
     - "doc/_build/html"
     - "~/log.txt"
   # Restrict the build to the branch master only
-  branches:
-    only:
-       - master
+#  branches:
+#    only:
+#       - master
