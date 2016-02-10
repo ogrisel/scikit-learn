@@ -24,10 +24,9 @@ mkdir -p download
 cd download
 echo "Cached in $HOME/download :"
 ls -l
-echo
 if [[ ! -f miniconda.sh ]]
 then
-   wget http://repo.continuum.io/miniconda/Miniconda-3.6.0-Linux-x86_64.sh \
+   wget http://repo.continuum.io/miniconda/Miniconda3-3.16.0-Linux-x86_64.sh \
    -O miniconda.sh
 fi
 chmod +x miniconda.sh && ./miniconda.sh -b -p $HOME/miniconda
@@ -38,7 +37,7 @@ popd
 
 # Configure the conda environment and put it in the path using the
 # provided versions
-conda create -n testenv --yes --quiet python=3 numpy scipy \
+conda create -n testenv --yes --quiet python numpy scipy \
   cython nose coverage matplotlib=1.4.0 sphinx pillow
 source /home/ubuntu/miniconda/envs/testenv/bin/activate testenv
 
