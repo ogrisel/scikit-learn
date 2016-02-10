@@ -19,10 +19,8 @@ dependencies:
 
         # deactivate circleci virtualenv and setup miniconda env.
         deactivate
-        sudo apt-get update
-        sudo apt-get install libatlas-dev libatlas3gf-base build-essential
-        # Use the miniconda installer for faster download / install of conda
-        # itself
+
+        # Install dependencies with miniconda
         pushd .
         cd
         mkdir -p download
@@ -31,7 +29,7 @@ dependencies:
         ls -l
         echo
         if [[ ! -f miniconda.sh ]]
-           then
+        then
            wget http://repo.continuum.io/miniconda/Miniconda-3.6.0-Linux-x86_64.sh \
            -O miniconda.sh
         fi
@@ -47,12 +45,14 @@ dependencies:
           cython nose coverage matplotlib=1.4.0 sphinx pillow
         source /home/ubuntu/miniconda/envs/testenv/bin/activate testenv
 
-        # The pipefail is requested to propagate exit code
+        # Build and install scikit-learn in dev mode
         python setup.py develop
+
+        # The pipefail is requested to propagate exit code
+        set -o pipefail && cd doc && make html 2>&1 | tee ~/log.txt
 test:
   # Grep error on the documentation
   override:
-    - set -o pipefail && cd doc && make html 2>&1 | tee ~/log.txt
     - cat ~/log.txt && if grep -q "Traceback (most recent call last):" ~/log.txt; then false; else true; fi
 #deployment:
 #  push:
