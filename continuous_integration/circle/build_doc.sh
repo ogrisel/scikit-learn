@@ -38,7 +38,7 @@ popd
 # Configure the conda environment and put it in the path using the
 # provided versions
 conda create -n testenv --yes --quiet python numpy scipy \
-  cython nose coverage matplotlib=1.4.0 sphinx pillow
+  cython nose coverage matplotlib sphinx pillow
 source /home/ubuntu/miniconda/envs/testenv/bin/activate testenv
 
 # Build and install scikit-learn in dev mode
