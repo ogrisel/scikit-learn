@@ -13,7 +13,9 @@ if [[ $BUILD_DOC == "SKIP:"* ]]; then
 fi
 
 # deactivate circleci virtualenv and setup a miniconda env instead
-deactivate
+if [[ `type -t deactivate` ]]; then
+  deactivate
+fi
 
 # Install dependencies with miniconda
 pushd .
