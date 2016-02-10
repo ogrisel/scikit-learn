@@ -57,7 +57,7 @@ except CalledProcessError:
 filenames = filenames.decode('utf-8').split()
 for filename in filenames:
     if filename.startswith(u'doc/') or filename.startswith(u'examples/'):
-        exit("detected doc impacting file at %s" % filename)
+        exit("detected doc impacting file modified by PR at %s" % filename)
 
 # This PR does not seem to have any documentation related file changed.
 msg = "no doc impacting files detected:\n" + u"\n".join(filenames)
