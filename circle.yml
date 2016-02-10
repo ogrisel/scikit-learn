@@ -21,7 +21,7 @@ dependencies:
         export BUILD_DOC=`python continuous_integration/circle_check_build_doc.py`
         echo -e $BUILD_DOC
         if [[ $BUILD_DOC == "SKIP:"* ]]; then
-            touch ~/log.txt
+            touch ~/log.txt  # the "test" segment needs that file
             exit 0
         fi
 
