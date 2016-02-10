@@ -26,7 +26,7 @@ echo "Cached in $HOME/download :"
 ls -l
 if [[ ! -f miniconda.sh ]]
 then
-   wget http://repo.continuum.io/miniconda/Miniconda3-3.16.0-Linux-x86_64.sh \
+   wget https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh \
    -O miniconda.sh
 fi
 chmod +x miniconda.sh && ./miniconda.sh -b -p $HOME/miniconda
