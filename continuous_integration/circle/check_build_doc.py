@@ -1,7 +1,7 @@
 """Check whether we or not we should build the documentation
 
 If the last commit message has a "[doc: skip]" marker, do not build
-the doc. On the contrary if a "[doc: force]" marker is found, build the doc
+the doc. On the contrary if a "[doc: build]" marker is found, build the doc
 instead of relying on the subsequent rules.
 
 We always build the documentation for jobs that are not related to a specific
@@ -34,9 +34,9 @@ except CalledProcessError:
     exit("failed to introspect commit message for %s" % commit)
 
 if "[doc: skip]" in commit_msg:
-    exit("[doc: skip] tag found", skip=True)
-elif "[doc: force]" in commit_msg:
-    exit("[force: doc] tag found")
+    exit("[doc: skip] marker found", skip=True)
+elif "[doc: build]" in commit_msg:
+    exit("[doc: build] marker found")
 
 # Check whether this commit is part of a pull request or not
 pr_url = os.environ.get('CI_PULL_REQUEST')
