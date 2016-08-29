@@ -22,23 +22,29 @@ smoother spatial appearance.
 """
 print(__doc__)
 
+from time import time
+import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.datasets import fetch_mldata
 from sklearn.neural_network import MLPClassifier
 
 mnist = fetch_mldata("MNIST original")
 # rescale the data, use the traditional train/test split
-X, y = mnist.data / 255., mnist.target
+X, y = mnist.data.astype(np.float32), mnist.target
+X /= 255
 X_train, X_test = X[:60000], X[60000:]
 y_train, y_test = y[:60000], y[60000:]
 
 # mlp = MLPClassifier(hidden_layer_sizes=(100, 100), max_iter=400, alpha=1e-4,
 #                     algorithm='sgd', verbose=10, tol=1e-4, random_state=1)
-mlp = MLPClassifier(hidden_layer_sizes=(50,), max_iter=10, alpha=1e-4,
+mlp = MLPClassifier(hidden_layer_sizes=(200, 200), max_iter=10, alpha=1e-4,
                     algorithm='sgd', verbose=10, tol=1e-4, random_state=1,
                     learning_rate_init=.1)
 
+t0 = time()
 mlp.fit(X_train, y_train)
+fit_duration = time() - t0
+print("Trained with %d epochs in %0.3fs" % (mlp.n_iter_, fit_duration))
 print("Training set score: %f" % mlp.score(X_train, y_train))
 print("Test set score: %f" % mlp.score(X_test, y_test))
 

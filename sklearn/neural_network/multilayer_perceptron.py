@@ -254,7 +254,7 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
 
         return loss, coef_grads, intercept_grads
 
-    def _initialize(self, y, layer_units):
+    def _initialize(self, y, layer_units, dtype):
         # set all attributes, allocate weights etc for first call
         # Initialize parameters
         self.n_iter_ = 0
@@ -284,7 +284,7 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
             rng = check_random_state(self.random_state)
             coef_init, intercept_init = self._init_coef(layer_units[i],
                                                         layer_units[i + 1],
-                                                        rng)
+                                                        rng, dtype)
             self.coefs_.append(coef_init)
             self.intercepts_.append(intercept_init)
 
@@ -297,7 +297,7 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
             else:
                 self.best_loss_ = np.inf
 
-    def _init_coef(self, fan_in, fan_out, rng):
+    def _init_coef(self, fan_in, fan_out, rng, dtype):
         if self.activation == 'logistic':
             # Use the initialization method recommended by
             # Glorot et al.
@@ -311,11 +311,14 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
             raise ValueError("Unknown activation function %s" %
                              self.activation)
 
-        coef_init = rng.uniform(-init_bound, init_bound, (fan_in, fan_out))
-        intercept_init = rng.uniform(-init_bound, init_bound, fan_out)
+        coef_init = rng.uniform(-init_bound, init_bound,
+                                (fan_in, fan_out)).astype(dtype)
+        intercept_init = rng.uniform(-init_bound, init_bound,
+                                     fan_out).astype(dtype)
         return coef_init, intercept_init
 
     def _fit(self, X, y, incremental=False):
+        dtype = X.dtype
         # Make sure self.hidden_layer_sizes is a list
         hidden_layer_sizes = self.hidden_layer_sizes
         if not hasattr(hidden_layer_sizes, "__iter__"):
@@ -343,30 +346,31 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
         if not hasattr(self, 'coefs_') or (not self.warm_start and not
                                            incremental):
             # First time training the model
-            self._initialize(y, layer_units)
+            self._initialize(y, layer_units, dtype)
 
         # l-bfgs does not support mini-batches
         if self.algorithm == 'l-bfgs':
             batch_size = n_samples
         elif self.batch_size == 'auto':
-            batch_size = min(200, n_samples)
+            batch_size = min(256, n_samples)
         else:
             if self.batch_size < 1 or self.batch_size > n_samples:
-                warnings.warn("Got `batch_size` less than 1 or larger than "
-                              "sample size. It is going to be clipped")
+                warnings.warn("Got batch_size=%d less than 1 or larger than "
+                              "sample size=%d." % (self.batch_size, n_samples))
             batch_size = np.clip(self.batch_size, 1, n_samples)
+            print(batch_size)
 
         # Initialize lists
-        activations = [X]
-        activations.extend(np.empty((batch_size, n_fan_out))
+        activations = [None]
+        activations.extend(np.empty((batch_size, n_fan_out), dtype=dtype)
                            for n_fan_out in layer_units[1:])
         deltas = [np.empty_like(a_layer) for a_layer in activations]
 
-        coef_grads = [np.empty((n_fan_in_, n_fan_out_)) for n_fan_in_,
-                      n_fan_out_ in zip(layer_units[:-1],
-                                        layer_units[1:])]
+        coef_grads = [np.empty((n_fan_in_, n_fan_out_), dtype=dtype)
+                      for n_fan_in_, n_fan_out_ in zip(layer_units[:-1],
+                                                       layer_units[1:])]
 
-        intercept_grads = [np.empty(n_fan_out_) for n_fan_out_ in
+        intercept_grads = [np.empty(n_fan_out_, dtype=dtype) for n_fan_out_ in
                            layer_units[1:]]
 
         # Run the Stochastic optimization algorithm
@@ -448,8 +452,7 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
             start = end
 
         # Run LBFGS
-        packed_coef_inter = _pack(self.coefs_,
-                                  self.intercepts_)
+        packed_coef_inter = _pack(self.coefs_, self.intercepts_)
 
         if self.verbose is True or self.verbose >= 1:
             iprint = 1
@@ -497,7 +500,7 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
         n_samples = X.shape[0]
 
         if self.batch_size == 'auto':
-            batch_size = min(200, n_samples)
+            batch_size = min(256, n_samples)
         else:
             batch_size = np.clip(self.batch_size, 1, n_samples)
 
@@ -506,7 +509,7 @@ class BaseMultilayerPerceptron(six.with_metaclass(ABCMeta, BaseEstimator)):
                 X, y = shuffle(X, y, random_state=rng)
                 accumulated_loss = 0.0
                 for batch_slice in gen_batches(n_samples, batch_size):
-                    activations[0] = X[batch_slice]
+                    activations[0][:] = X[batch_slice]
                     batch_loss, coef_grads, intercept_grads = self._backprop(
                         X[batch_slice], y[batch_slice], activations, deltas,
                         coef_grads, intercept_grads)
@@ -723,7 +726,7 @@ class MLPClassifier(BaseMultilayerPerceptron, ClassifierMixin):
     batch_size : int, optional, default 'auto'
         Size of minibatches for stochastic optimizers.
         If the algorithm is 'l-bfgs', the classifier will not use minibatch.
-        When set to "auto", `batch_size=min(200, n_samples)`
+        When set to "auto", `batch_size=min(256, n_samples)`
 
     learning_rate : {'constant', 'invscaling', 'adaptive'}, default 'constant'
         Learning rate schedule for weight updates.
