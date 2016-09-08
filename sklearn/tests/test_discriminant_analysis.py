@@ -1,3 +1,4 @@
+from __future__ import division
 import sys
 import numpy as np
 from nose import SkipTest
@@ -356,3 +357,47 @@ def test_covariance():
 
     c_s = _cov(x, 'auto')
     assert_almost_equal(c_s, c_s.T)
+
+
+def test_lda_log_odds():
+    # Check that the predicted log probability ratios match the theory on a
+    # toy 1D dataset with 3 classes
+    X = [[0], [1], [2], [3], [4], [5]]
+    y = [0, 0, 1, 1, 2, 2]
+
+    # TODO: test for other solvers as well
+    lda = LinearDiscriminantAnalysis(solver='svd', store_covariance=True)
+    lda.fit(X, y)
+    assert_equal(lda.score(X, y), 1.0)
+
+    # Per-class priors:
+    pi_0, pi_1 = 2 / 6, 2 / 6
+
+    # Per-class centroids:
+    mu_0, mu_1, mu_2 = 0.5, 2.5, 4.5
+    assert_array_almost_equal(lda.means_, [[mu_0], [mu_1], [mu_2]])
+
+    # Common intra-class variance for all classes
+    var = ((0 - mu_0) ** 2 + (1 - mu_0) ** 2 +
+           (2 - mu_1) ** 2 + (3 - mu_1) ** 2 +
+           (4 - mu_2) ** 2 + (5 - mu_2) ** 2) / (6 - 3)
+    assert_almost_equal(lda.covariance_, var)
+
+    def log_p_0_over_p_1(x):
+        # Equation (4.9) of Chapter 4. Linear Methods for Classification
+        # of the Elements of Statistical Learning, 2nd Edition
+        return (np.log(pi_0 / pi_1)
+                - 1 / 2 * (mu_0 - mu_1) * (mu_0 + mu_1) / var
+                + x * (mu_0 - mu_1) / var)
+
+    for x in np.linspace(-1, 6, 100):
+        expected_log_odds_0_1 = log_p_0_over_p_1(x)
+        proba = lda.predict_proba([[x]])
+        assert_array_almost_equal(proba.sum(axis=1), [1])
+        log_odds_0_1 = np.log(proba[0, 0] / proba[0, 1])
+
+        assert_almost_equal(log_odds_0_1, expected_log_odds_0_1,
+                            err_msg='x=%0.f' % x)
+
+
+# end of file
