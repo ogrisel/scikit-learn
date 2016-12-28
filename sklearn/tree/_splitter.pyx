@@ -342,10 +342,17 @@ cdef class BestSplitter(BaseDenseSplitter):
         cdef SIZE_t n_total_constants = n_known_constants
         cdef DTYPE_t current_feature_value
         cdef SIZE_t partition_end
+        cdef int presort = self.presort
 
         _init_split(&best, end)
 
-        if self.presort == 1:
+        # Enable local re-sorting when the range of active samples is a very
+        # small fraction of the total dataset: in this case, scanning the
+        # per-feature pre-sorted indices is more expensive than resorting.
+        if (end - start) < 0.1 * self.n_total_samples:
+            presort = 0
+
+        if presort:
             for p in range(start, end):
                 sample_mask[samples[p]] = 1
 
@@ -400,11 +407,11 @@ cdef class BestSplitter(BaseDenseSplitter):
                 # presorting, or by copying the values into an array and
                 # sorting the array in a manner which utilizes the cache more
                 # effectively.
-                if self.presort == 1:
+                if presort:
                     p = start
                     feature_idx_offset = self.X_idx_sorted_stride * current.feature
 
-                    for i in range(self.n_total_samples): 
+                    for i in range(self.n_total_samples):
                         j = X_idx_sorted[i + feature_idx_offset]
                         if sample_mask[j] == 1:
                             samples[p] = j
@@ -492,7 +499,7 @@ cdef class BestSplitter(BaseDenseSplitter):
                                              &best.impurity_right)
 
         # Reset sample mask
-        if self.presort == 1:
+        if presort:
             for p in range(start, end):
                 sample_mask[samples[p]] = 0
 
