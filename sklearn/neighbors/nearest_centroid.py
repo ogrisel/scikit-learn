@@ -14,6 +14,9 @@ from scipy import sparse as sp
 from ..base import BaseEstimator, ClassifierMixin
 from ..utils.validation import check_arrays, atleast2d_or_csr
 from ..metrics.pairwise import pairwise_distances
+from ..externals import six
+
+xrange = six.moves.xrange
 
 
 class NearestCentroid(BaseEstimator, ClassifierMixin):

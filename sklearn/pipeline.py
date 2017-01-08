@@ -78,7 +78,7 @@ class Pipeline(BaseEstimator):
         if len(self.named_steps) != len(steps):
             raise ValueError("Names provided are not unique: %s" % names)
 
-        self.steps = zip(names, estimators)     # shallow copy of steps
+        self.steps = list(zip(names, estimators))     # shallow copy of steps
         transforms = estimators[:-1]
         estimator = estimators[-1]
 

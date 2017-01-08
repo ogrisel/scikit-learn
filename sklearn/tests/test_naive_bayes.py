@@ -3,7 +3,6 @@ from io import BytesIO
 import numpy as np
 import scipy.sparse
 
-from cStringIO import StringIO
 from numpy.testing import assert_almost_equal
 from numpy.testing import assert_array_equal
 from numpy.testing import assert_array_almost_equal
@@ -11,6 +10,9 @@ from numpy.testing import assert_equal
 from nose.tools import assert_raises
 
 from sklearn.naive_bayes import GaussianNB, BernoulliNB, MultinomialNB
+from sklearn.externals import six
+
+StringIO = six.moves.cStringIO
 
 # Data is just 6 separable points in the plane
 X = np.array([[-2, -1], [-1, -1], [-1, -2], [1, 1], [1, 2], [2, 1]])
