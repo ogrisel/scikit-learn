@@ -6,14 +6,15 @@
 Compare the effect of different scalers on data with outliers
 =============================================================
 
-The feature 0 and feature 5 of California housing dataset are outside of the
-typical range [0, 1] and contain large outliers. These two characteristics lead
-to difficulties to visualize the data and, more importantly, they can degrade
-the fitting procedure of most of machine learning algorithms.
+The feature 0 (median income in a block) and feature 5 (number of households)
+of the California housing dataset have very different scales and contain large
+outliers. These two characteristics lead to difficulties to visualize the data
+and, more importantly, they can degrade the fitting procedure of most of
+machine learning algorithms.
 
 Indeed many estimators assume that each feature takes values spread around or
-close to zero and more importantly that all features vary on comparable
-scales. In particular metric-based and gradient-based estimators often assume
+close to zero and more importantly that all features vary on comparable scales.
+In particular metric-based and gradient-based estimators often assume
 approximately standardized data (centered features with unit variances). A
 notable exception are decision tree-based estimators that are robust to
 arbitrary scaling of the data.
@@ -24,9 +25,9 @@ data within a pre-defined range.
 Scalers are linear (or more exactly affine) transformations and differ from
 each other in the way to estimate the parameters used to shift and scale each
 feature. ``QuantileTransformer`` provides a non-linear transformation in which
-distances between marginal outliers and inliers are shrunk. Unlike the
-previous transformations, normalization refers to a per sample transformation
-instead of a per feature transformation.
+distances between marginal outliers and inliers are shrunk. Unlike the previous
+transformations, normalization refers to a per sample transformation instead of
+a per feature transformation.
 
 """
 
@@ -70,20 +71,21 @@ distributions = OrderedDict((
     ('Unscaled data', X),
     ('Data after standard scaling',
         StandardScaler().fit_transform(X)),
-    ('Data after robust scaling',
-        RobustScaler(quantile_range=(25, 75)).fit_transform(X)),
     ('Data after min-max scaling',
         MinMaxScaler().fit_transform(X)),
     ('Data after max-abs scaling',
         MaxAbsScaler().fit_transform(X)),
-    ('Data after sample-wise L2 normalizing',
-        Normalizer().fit_transform(X)),
+    ('Data after robust scaling',
+        RobustScaler(quantile_range=(25, 75)).fit_transform(X)),
     ('Data after quantile transformation (uniform pdf)',
         QuantileTransformer(output_distribution='uniform')
         .fit_transform(X)),
     ('Data after quantile transformation (gaussian pdf)',
         QuantileTransformer(output_distribution='normal')
-        .fit_transform(X))))
+        .fit_transform(X)),
+    ('Data after sample-wise L2 normalizing',
+        Normalizer().fit_transform(X)),
+))
 
 y = minmax_scale(y_full)  # To make colors corresponding to the target),
 
@@ -128,12 +130,12 @@ def create_axes(figsize=(24, 24)):
 
 
 def plot_distribution(axes, X, y, hist_nbins=50, title="",
-                      X_label="", y_label=""):
+                      x0_label="", x1_label=""):
     ax, hist_X1, hist_X0 = axes
 
     ax.set_title(title)
-    ax.set_xlabel(X_label)
-    ax.set_ylabel(y_label)
+    ax.set_xlabel(x0_label)
+    ax.set_ylabel(x1_label)
 
     # The scatter plot
     colors = cm.plasma_r(y)
@@ -169,7 +171,7 @@ def plot_distribution(axes, X, y, hist_nbins=50, title="",
 
 
 def make_plot(item_idx):
-    _, X = distributions.items()[item_idx]
+    _, X = list(distributions.items())[item_idx]
     ax_zoom_out, ax_zoom_in, ax_colorbar = create_axes()
     axarr = (ax_zoom_out, ax_zoom_in)
     plot_distribution(axarr[0], X, y, hist_nbins=200,
@@ -193,10 +195,10 @@ def make_plot(item_idx):
                               label='Color mapping for values of y')
 
 
-###############################################################################
+##############################################################################
 # A large majority of the samples in the original data set are compacted to a
-# specific range, [0, 6] for the 1st feature and [0, 10] for the second
-# feature. However, as shown on the right figure, there is some marginal
+# specific range, [0, 6] for the median income and [0, 10] for the number of
+# households. However, as shown on the right figure, there is some marginal
 # outliers which might alterate the learning procedure of the some machine
 # learning algorithms. Therefore, depending of the application, a specific
 # pre-processing is beneficial. In the following, we present some insights and
@@ -214,21 +216,11 @@ make_plot(0)
 make_plot(1)
 
 ###############################################################################
-# Unlike, the ``StandardScaler``, the statistics (i.e. median, 1st and 3rd
-# quartiles) computed to scale the data set will not be influenced by marginal
-# outliers. Consequently, the range of the feature values is larger than in the
-# previous example, as shown in the zoomed-in figure. Note that the outliers
-# remain far from the inliers.
-
-make_plot(2)
-
-
-###############################################################################
 # The ``MinMaxScaler`` rescales the data set such that all feature values are
 # in the range [0, 1] as shown in the right figure below. However, this scaling
 # compress all inliers in the narrow range [0, 0.005].
 
-make_plot(3)
+make_plot(2)
 
 ###############################################################################
 # The ``MaxAbsScaler`` differs from the previous scaler such that the absolute
@@ -236,13 +228,16 @@ make_plot(3)
 # there is no observable difference since the feature values are originally
 # positive.
 
-make_plot(4)
+make_plot(3)
 
 ###############################################################################
-# The ``Normalizer`` rescales each sample will scale to a unit norm. It can be
-# seen on both figures below where all samples are mapped to the unit circle.
+# Unlike, the ``StandardScaler``, the statistics (i.e. median, 1st and 3rd
+# quartiles) computed to scale the data set will not be influenced by marginal
+# outliers. Consequently, the range of the feature values is larger than in the
+# previous example, as shown in the zoomed-in figure. Note that the outliers
+# remain far from the inliers.
 
-make_plot(5)
+make_plot(4)
 
 ###############################################################################
 # The ``QuantileNormalizer`` applies a non-linear transformation such that the
@@ -250,12 +245,18 @@ make_plot(5)
 # distribution. In this case, all the data will be mapped in the range [0, 1],
 # even the outliers which cannot be distinguished anymore from the inliers.
 
-make_plot(6)
+make_plot(5)
 
 ###############################################################################
 # The ``QuantileNormalizer`` has an additional ``output_distribution``
 # parameter allowing to match a Gaussian distribution instead of a normal
 # distribution.
+
+make_plot(6)
+
+###############################################################################
+# The ``Normalizer`` rescales each sample will scale to a unit norm. It can be
+# seen on both figures below where all samples are mapped to the unit circle.
 
 make_plot(7)
 plt.show()
