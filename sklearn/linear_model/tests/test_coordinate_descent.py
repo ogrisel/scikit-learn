@@ -31,7 +31,28 @@ from sklearn.linear_model.coordinate_descent import Lasso, \
 from sklearn.linear_model import LassoLarsCV, lars_path
 from sklearn.utils import check_array
 from sklearn.linear_model.cd_fast import _compute_enet_duality_gap
-from sklearn.linear_model.cd_fast import enet_coordinate_descent
+
+
+def reference_duality_gap(X, y, w, alpha, beta):
+    """Slow numpy based formula for the duality gap of elasticnet
+
+    We use the dual formulation of the Lasso problem. The elasticnet
+    problem is cast as a Lasso problem by a change of the design matrix.
+
+    See derivation at: XXX
+    """
+    r = y - np.dot(X, w)
+    primal = (0.5 * (r ** 2).sum()
+              + alpha * np.abs(w).sum()
+              + 0.5 * beta * (w ** 2).sum())
+    # choose the dual solution with a scale to ensure that it lies in
+    # the realizable set:
+    scale = max(alpha, np.abs(np.dot(X.T, r) - beta * w).max())
+    theta_tilde = np.concatenate([r, -np.sqrt(beta) * w]) / scale
+    y_tilde = np.concatenate([y, np.zeros_like(w)])
+    dual = 0.5 * ((y ** 2).sum()
+                  - alpha ** 2 * ((theta_tilde - y_tilde / alpha) ** 2).sum())
+    return primal - dual
 
 
 def test_lasso_zero():
@@ -816,51 +837,56 @@ def test_enet_l1_ratio():
     assert_array_almost_equal(est.coef_, est_desired.coef_, decimal=5)
 
 
-def test_enet_duality_gap():
+def test_enet_duality_gap(dtype=np.float32):
     n_samples = 100
     n_features = 1000
+    positive = False  # TODO: add test for positive=True
     rng = np.random.RandomState(42)
     kwargs = {}
     if sp_version >= (0, 13):
         kwargs['random_state'] = 42
     X_csc = sparse.random(n_samples, n_features, density=0.3, **kwargs).tocsc()
-    X_csc = X_csc.astype(np.float32)
+    X_csc = X_csc.astype(dtype)
     X = np.asfortranarray(X_csc.toarray())
 
-    def duality_gap(X, y, w, alpha, beta):
-        """Slow numpy based formula for the duality gap of elasticnet"""
-        R = y - np.dot(X, w)
-        primal = (0.5 * (R ** 2).sum()
-                  + alpha * np.abs(w).sum()
-                  + 0.5 * beta * (w ** 2).sum())
-        # realizable dual solution
-        theta = R / max(alpha, np.abs(np.dot(X.T, R)).max())
-        dual = 0.5 * ((y ** 2).sum()
-                      - alpha ** 2 * ((y / alpha - theta) ** 2).sum()
-                      - alpha ** 2 * beta * ((w ** 2).sum()))
-        return primal - dual
+    w_true = rng.randn(n_features).astype(dtype)
+    if positive:
+        w_true[w_true < 0] = 0
+    y = np.dot(X, w_true)
+    y_sqnorm = np.linalg.norm(y) ** 2
 
-    for positive in [False, True]:
-        w_true = rng.randn(n_features).astype(np.float32)
-        if positive:
-            w_true[w_true < 0] = 0
-        y = np.dot(X, w_true)
-        print((y ** 2).sum())
+    reg = 1e-5
+    l1_ratio = 0.6
+    l1_reg = reg * l1_ratio * n_samples
+    l2_reg = reg * (1.0 - l1_ratio) * n_samples
+    tol = 1e-2
+    w = rng.normal(loc=0, scale=1e-4, size=n_features).astype(dtype)
 
-        alpha = 1e-3
-        beta = 1e-3
-        w = w_true + rng.randn(n_features) * 1e-3
-        w = w.astype(w_true.dtype)
+    expected_gap_init = reference_duality_gap(X, y, w, l1_reg, l2_reg)
+    gap_init = _compute_enet_duality_gap(w, l1_reg, l2_reg, positive, X, y)
+    assert gap_init > 10 * tol * y_sqnorm
+    assert_almost_equal(gap_init / expected_gap_init, 1)
 
-        w_fit, gap_fit, _, _ = enet_coordinate_descent(
-            w, alpha, beta, X, y, 10000, 1e-10, rng,
-            random=0, positive=positive, screening=5)
-        print(gap_fit)
+    enet_dense = ElasticNet(alpha=reg, l1_ratio=l1_ratio, tol=tol,
+                            positive=positive, fit_intercept=False)
+    enet_dense.fit(X, y)
+    w_fit_dense, gap_fit_dense = enet_dense.coef_, enet_dense.dual_gap_
+    assert 0 < gap_fit_dense < tol * y_sqnorm
 
-        # Compute the gap on a regularized problem
+    enet_sparse = ElasticNet(alpha=reg, l1_ratio=l1_ratio, tol=tol,
+                             positive=positive, fit_intercept=False)
+    enet_sparse.fit(X_csc, y)
+    w_fit_sparse, gap_fit_sparse = enet_dense.coef_, enet_dense.dual_gap_
+    assert 0 < gap_fit_sparse < tol * y_sqnorm
+    assert_almost_equal(gap_fit_dense / gap_fit_sparse, 1, decimal=4)
+    assert_array_almost_equal(w_fit_dense, w_fit_sparse)
 
-        dense_gap = _compute_enet_duality_gap(w, alpha, beta, positive, X, y)
-        assert dense_gap > 0
+    gap_fit_dense_2 = _compute_enet_duality_gap(
+        w_fit_dense, l1_reg, l2_reg, positive, X, y)
+    assert gap_fit_dense_2 > 0
+    assert_almost_equal(gap_fit_dense_2 / gap_fit_dense, 1, decimal=4)
 
-        assert_almost_equal(dense_gap, duality_gap(X, y, w, alpha, beta))
+    expected_gap = reference_duality_gap(X, y, w_fit_dense, l1_reg, l2_reg)
+    assert expected_gap > 0
+    assert_almost_equal(gap_fit_dense_2 / expected_gap, 1, decimal=3)
 
