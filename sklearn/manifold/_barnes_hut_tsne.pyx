@@ -723,7 +723,8 @@ def gradient(float[:] val_P,
     if verbose > 10:
         printf("[t-SNE] Inserting %li points\n", pos_output.shape[0])
     err = insert_many(qt, pos_output)
-    assert err == 0, "[t-SNE] Insertion failed"
+    if err != 0 and verbose > 0:
+        print("[t-SNE] Insertion failed")
     if verbose > 10:
         # XXX: format hack to workaround lack of `const char *` type
         # in the generated C code that triggers error with gcc 4.9
