@@ -129,7 +129,7 @@ $ cd ..
 
     data_size = [100, 500, 1000, 5000, 10000]
     if args.all:
-        data_size += [70000]
+        data_size = [70000]
 
     results = []
     basename, _ = os.path.splitext(__file__)
