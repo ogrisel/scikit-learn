@@ -52,9 +52,20 @@ DEFAULT_THREAD_BACKEND = 'threading'
 # manager
 _backend = threading.local()
 
+VALID_BACKEND_HINTS = ('processes', 'threads', None)
+VALID_BACKEND_CONSTRAINTS = ('sharedmem', None)
 
-def get_active_backend(prefer=None, require=None):
+
+def get_active_backend(prefer=None, require=None, verbose=0):
     """Return the active default backend"""
+    if prefer not in VALID_BACKEND_HINTS:
+        raise ValueError("prefer=%r is not a valid backend hint, "
+                         "expected one of %r" % (prefer, VALID_BACKEND_HINTS))
+    if require not in VALID_BACKEND_CONSTRAINTS:
+        raise ValueError("require=%r is not a valid backend constraint, "
+                         "expected one of %r"
+                         % (require, VALID_BACKEND_CONSTRAINTS))
+
     if prefer == 'processes' and require == 'sharedmem':
         raise ValueError("prefer == 'processes' and require == 'sharedmem'"
                          " are inconsistent settings")
@@ -66,8 +77,12 @@ def get_active_backend(prefer=None, require=None):
         if require == 'sharedmem' and not supports_sharedmem:
             # This backend does not match the shared memory constraint:
             # fallback to the default thead-based backend.
-            backend = BACKENDS[DEFAULT_THREAD_BACKEND]()
-            return backend, n_jobs
+            sharedmem_backend = BACKENDS[DEFAULT_THREAD_BACKEND]()
+            if verbose >= 10:
+                print("Using %s as joblib.Parallel backend instead of %s "
+                      "as the latter does not provide shared memory semantics."
+                      % (sharedmem_backend, backend))
+            return sharedmem_backend, n_jobs
         else:
             return backend_and_jobs
 
@@ -143,12 +158,15 @@ else:
 class BatchedCalls(object):
     """Wrap a sequence of (func, args, kwargs) tuples as a single callable"""
 
-    def __init__(self, iterator_slice):
+    def __init__(self, iterator_slice, backend):
         self.items = list(iterator_slice)
         self._size = len(self.items)
+        self._backend = backend
 
     def __call__(self):
-        return [func(*args, **kwargs) for func, args, kwargs in self.items]
+        with parallel_backend(self._backend):
+            return [func(*args, **kwargs)
+                    for func, args, kwargs in self.items]
 
     def __len__(self):
         return self._size
@@ -156,10 +174,10 @@ class BatchedCalls(object):
     def __getstate__(self):
         items = [(dumps(func), args, kwargs)
                  for func, args, kwargs in self.items]
-        return (items, self._size)
+        return (items, self._size, self._backend)
 
     def __setstate__(self, state):
-        items, self._size = state
+        items, self._size, self._backend = state
         self.items = [(loads(func), args, kwargs)
                       for func, args, kwargs in items]
 
@@ -327,6 +345,7 @@ class Parallel(Logger):
             - finally, you can register backends by calling
               register_parallel_backend. This will allow you to implement
               a backend of your liking.
+
             It is not recommended to hard-code the backend name in a call to
             Parallel in a library. Instead it is recommended to set soft hints
             (prefer) or hard constraints (require) so as to make it possible
@@ -515,9 +534,9 @@ class Parallel(Logger):
     def __init__(self, n_jobs=1, backend=None, verbose=0, timeout=None,
                  pre_dispatch='2 * n_jobs', batch_size='auto',
                  temp_folder=None, max_nbytes='1M', mmap_mode='r',
-                 prefer=None, require=False):
+                 prefer=None, require=None):
         active_backend, default_n_jobs = get_active_backend(
-            prefer=prefer, require=require)
+            prefer=prefer, require=require, verbose=verbose)
         if backend is None and n_jobs == 1:
             # If we are under a parallel_backend context manager, look up
             # the default number of jobs and use that instead:
@@ -534,6 +553,8 @@ class Parallel(Logger):
             max_nbytes=max_nbytes,
             mmap_mode=mmap_mode,
             temp_folder=temp_folder,
+            prefer=prefer,
+            require=require,
             verbose=max(0, self.verbose - 50),
         )
         if DEFAULT_MP_CONTEXT is not None:
@@ -572,10 +593,6 @@ class Parallel(Logger):
                 % batch_size)
 
         self._backend = backend
-        # Store backend hints and constraints on the parallel instance to make
-        # them available to the backend itself.
-        self._require = require
-        self._prefer = prefer
         self._output = None
         self._jobs = list()
         self._managed_backend = False
@@ -597,8 +614,6 @@ class Parallel(Logger):
         """Build a process or thread pool and return the number of workers"""
         try:
             n_jobs = self._backend.configure(n_jobs=self.n_jobs, parallel=self,
-                                             prefer=self._prefer,
-                                             require=self._require,
                                              **self._backend_args)
             if self.timeout is not None and not self._backend.supports_timeout:
                 warnings.warn(
@@ -678,7 +693,8 @@ class Parallel(Logger):
             batch_size = self.batch_size
 
         with self._lock:
-            tasks = BatchedCalls(itertools.islice(iterator, batch_size))
+            tasks = BatchedCalls(itertools.islice(iterator, batch_size),
+                                 self._backend.get_nested_backend())
             if len(tasks) == 0:
                 # No more tasks available in the iterator: tell caller to stop.
                 return False
@@ -855,7 +871,8 @@ Sub-process traceback:
                 # consumption.
                 self._iterating = False
 
-            self.retrieve()
+            with self._backend.retrieval_context():
+                self.retrieve()
             # Make sure that we get a last message telling us we are done
             elapsed_time = time.time() - self._start_time
             self._print('Done %3i out of %3i | elapsed: %s finished',
