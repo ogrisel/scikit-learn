@@ -81,7 +81,8 @@ def get_active_backend(prefer=None, require=None, verbose=0):
             if verbose >= 10:
                 print("Using %s as joblib.Parallel backend instead of %s "
                       "as the latter does not provide shared memory semantics."
-                      % (sharedmem_backend, backend))
+                      % (sharedmem_backend.__class__.__name__,
+                         backend.__class__.__name__))
             return sharedmem_backend, n_jobs
         else:
             return backend_and_jobs
@@ -359,10 +360,8 @@ class Parallel(Logger):
         require: 'sharedmem' or None, default None
             Hard constraint to select the backend. If set to 'sharedmem',
             the selected backend will be single-host and thread-based even
-            if the user asked for a non-thread based backend with the
-            parallel_backend this constraint ensures that this choice will
-            be locally overriden by the default thread-based backend:
-            'threading'.
+            if the user asked for a non-thread based backend with
+            parallel_backend.
         verbose: int, optional
             The verbosity level: if non zero, progress messages are
             printed. Above 50, the output is sent to stdout.
