@@ -157,8 +157,10 @@ sorted_idx = permute_importance_mean.argsort()
 
 # sphinx_gallery_thumbnail_number = 2
 _, ax = plt.subplots()
+ax.vlines(0, 0, X_test.shape[1] + 1, linestyles='dashed', alpha=0.5)
 ax.boxplot(permute_importance[sorted_idx].T,
            vert=False, labels=X_test.columns[sorted_idx])
+ax.set_xlabel("baseline score - score on permutated variable")
 ax.set_title("Permutation Importances (test set)")
 
 ##############################################################################
@@ -174,7 +176,9 @@ sorted_idx = permute_importance_mean.argsort()
 
 # sphinx_gallery_thumbnail_number = 3
 _, ax = plt.subplots()
+ax.vlines(0, 0, X_test.shape[1] + 1, linestyles='dashed', alpha=0.5)
 ax.boxplot(permute_importance[sorted_idx].T,
            vert=False, labels=X_train.columns[sorted_idx])
+ax.set_xlabel("baseline score - score on permutated variable")
 ax.set_title("Permutation Importances (train set)")
 plt.show()
