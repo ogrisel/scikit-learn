@@ -378,21 +378,30 @@ def ridge_regression(X, y, alpha, sample_weight=None, solver='auto',
                              check_input=check_input)
 
 
+def _check_auto_solver(solver, sparse_data, return_intercept):
+    """Select the solver based on data layout and requirement
+
+    XXX: this is rather arbitrary but any change would need to go through a
+    deprecation warning cycle.
+    """
+    if solver == 'auto':
+        if return_intercept:
+            # only sag supports fitting intercept directly
+            solver = "sag"
+        elif sparse_data:
+            solver = "sparse_cg"
+        else:
+            solver = "cholesky"
+    return solver
+
+
 def _ridge_regression(X, y, alpha, sample_weight=None, solver='auto',
                       max_iter=None, tol=1e-3, verbose=0, random_state=None,
                       return_n_iter=False, return_intercept=False,
                       X_scale=None, X_offset=None, check_input=True):
 
     has_sw = sample_weight is not None
-
-    if solver == 'auto':
-        if return_intercept:
-            # only sag supports fitting intercept directly
-            solver = "sag"
-        elif not sparse.issparse(X):
-            solver = "cholesky"
-        else:
-            solver = "sparse_cg"
+    solver = _check_auto_solver(solver,  sparse.issparse(X), return_intercept)
 
     if solver not in ('sparse_cg', 'cholesky', 'svd', 'lsqr', 'sag', 'saga'):
         raise ValueError("Known solvers are 'sparse_cg', 'cholesky', 'svd'"
@@ -404,7 +413,12 @@ def _ridge_regression(X, y, alpha, sample_weight=None, solver='auto',
                          "return_intercept=False.")
 
     if check_input:
-        _dtype = [np.float64, np.float32]
+        if solver == "sparse_cg":
+            # sparse_cg is not numerically stable enough to work with single
+            # precision arithmetic
+            _dtype = np.float64
+        else:
+            _dtype = [np.float64, np.float32]
         _accept_sparse = _get_valid_accept_sparse(sparse.issparse(X), solver)
         X = check_array(X, accept_sparse=_accept_sparse, dtype=_dtype,
                         order="C")
@@ -536,11 +550,16 @@ class _BaseRidge(LinearModel, MultiOutputMixin, metaclass=ABCMeta):
         self.random_state = random_state
 
     def fit(self, X, y, sample_weight=None):
+        solver = _check_auto_solver(self.solver, sparse.issparse(X),
+                                    self.fit_intercept)
+        if solver == "sparse_cg":
+            # sparse_cg is not numerically stable enough to work with single
+            # precision arithmetic
+            _dtype = np.float64
+        else:
+            _dtype = [np.float64, np.float32]
 
-        # all other solvers work at both float precision levels
-        _dtype = [np.float64, np.float32]
-        _accept_sparse = _get_valid_accept_sparse(sparse.issparse(X),
-                                                  self.solver)
+        _accept_sparse = _get_valid_accept_sparse(sparse.issparse(X), solver)
         X, y = check_X_y(X, y,
                          accept_sparse=_accept_sparse,
                          dtype=_dtype,
@@ -557,16 +576,16 @@ class _BaseRidge(LinearModel, MultiOutputMixin, metaclass=ABCMeta):
 
         # temporary fix for fitting the intercept with sparse data using 'sag'
         if (sparse.issparse(X) and self.fit_intercept and
-           self.solver != 'sparse_cg'):
+                solver != 'sparse_cg'):
             self.coef_, self.n_iter_, self.intercept_ = _ridge_regression(
                 X, y, alpha=self.alpha, sample_weight=sample_weight,
-                max_iter=self.max_iter, tol=self.tol, solver=self.solver,
+                max_iter=self.max_iter, tol=self.tol, solver=solver,
                 random_state=self.random_state, return_n_iter=True,
                 return_intercept=True, check_input=False)
             # add the offset which was subtracted by _preprocess_data
             self.intercept_ += y_offset
         else:
-            if sparse.issparse(X) and self.solver == 'sparse_cg':
+            if sparse.issparse(X) and solver == 'sparse_cg':
                 # required to fit intercept with sparse_cg solver
                 params = {'X_offset': X_offset, 'X_scale': X_scale}
             else:
@@ -575,7 +594,7 @@ class _BaseRidge(LinearModel, MultiOutputMixin, metaclass=ABCMeta):
 
             self.coef_, self.n_iter_ = _ridge_regression(
                 X, y, alpha=self.alpha, sample_weight=sample_weight,
-                max_iter=self.max_iter, tol=self.tol, solver=self.solver,
+                max_iter=self.max_iter, tol=self.tol, solver=solver,
                 random_state=self.random_state, return_n_iter=True,
                 return_intercept=False, check_input=False, **params)
             self._set_intercept(X_offset, y_offset, X_scale)

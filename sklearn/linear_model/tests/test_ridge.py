@@ -1061,8 +1061,9 @@ def test_ridge_classifier_no_support_multilabel():
 
 @pytest.mark.parametrize(
     "solver", ["svd", "sparse_cg", "cholesky", "lsqr", "sag", "saga"])
-def test_dtype_match(solver):
-    rng = np.random.RandomState(0)
+@pytest.mark.parametrize("seed", range(1000))
+def test_dtype_match(solver, seed):
+    rng = np.random.RandomState(seed)
     alpha = 1.0
 
     n_samples, n_features = 6, 5
@@ -1072,21 +1073,28 @@ def test_dtype_match(solver):
     y_32 = y_64.astype(np.float32)
 
     # Check type consistency 32bits
-    ridge_32 = Ridge(alpha=alpha, solver=solver, max_iter=500, tol=1e-10,)
+    ridge_32 = Ridge(alpha=alpha, solver=solver, max_iter=500, tol=1e-10)
     ridge_32.fit(X_32, y_32)
     coef_32 = ridge_32.coef_
 
     # Check type consistency 64 bits
-    ridge_64 = Ridge(alpha=alpha, solver=solver, max_iter=500, tol=1e-10,)
+    ridge_64 = Ridge(alpha=alpha, solver=solver, max_iter=500, tol=1e-10)
     ridge_64.fit(X_64, y_64)
     coef_64 = ridge_64.coef_
 
     # Do the actual checks at once for easier debug
-    assert coef_32.dtype == X_32.dtype
+    if solver == "sparse_cg":
+        # sparse CG always uses double precision because it is not numerical
+        # stable enough to work in single precision.
+        expected_32_dtype = X_64.dtype
+    else:
+        expected_32_dtype = X_32.dtype
+
+    assert coef_32.dtype == expected_32_dtype
     assert coef_64.dtype == X_64.dtype
-    assert ridge_32.predict(X_32).dtype == X_32.dtype
+    assert ridge_32.predict(X_32).dtype == expected_32_dtype
     assert ridge_64.predict(X_64).dtype == X_64.dtype
-    assert_allclose(ridge_32.coef_, ridge_64.coef_, rtol=1e-4)
+    assert_allclose(ridge_32.coef_, ridge_64.coef_, atol=1e-5)
 
 
 def test_dtype_match_cholesky():
