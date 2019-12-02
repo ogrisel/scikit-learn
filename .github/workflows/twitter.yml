@@ -16,9 +16,9 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Tweet URL of last commit as @sklearn_commits
-        uses: xorilog/twitter-action@0.2
+        uses: xorilog/twitter-action@0.1
         with:
-          args: "-message \"${{ github.event.html_url}}/commit/${{ github.event.head }}\""
+          args: "-message \"https://github.com/scikit-learn/scikit-learn/commit/${{ github.sha }}\""
         env:
           TWITTER_CONSUMER_KEY: ${{ secrets.TWITTER_CONSUMER_KEY }}
           TWITTER_CONSUMER_SECRET: ${{ secrets.TWITTER_CONSUMER_SECRET }}
