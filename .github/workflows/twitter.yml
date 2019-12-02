@@ -4,9 +4,10 @@ name: Twitter Push Notification
 
 
 on:
-  branches:
-    - master
-    - twitter-test-branch
+  push:
+    branches:
+      - master
+      - twitter-test-branch
 
 
 jobs:
@@ -14,7 +15,7 @@ jobs:
     name: Twitter Notification
     runs-on: ubuntu-latest
     steps:
-      - name: Tweet Push on the https://twitter.com/sklearn_commits account
+      - name: Tweet URL of last commit as @sklearn_commits
         uses: xorilog/twitter-action@0.2
         with:
           args: "-message \"${{ github.event.html_url}}/commit/${{ github.event.head }}\""
