@@ -219,7 +219,9 @@ def _logistic_grad_hess(w, X, y, alpha, sample_weight=None):
     # The mat-vec product of the Hessian
     d = sample_weight * z * (1 - z)
     if sparse.issparse(X):
-        dX = safe_sparse_dot(sparse.dia_matrix((d, 0), shape=(n_samples, n_samples)), X)
+        dX = safe_sparse_dot(
+            sparse.dia_matrix((d, 0), shape=(n_samples, n_samples)), X
+        )
     else:
         # Precompute as much as possible
         dX = d[:, np.newaxis] * X
@@ -341,7 +343,9 @@ def _multinomial_loss_grad(w, X, Y, alpha, sample_weight):
     n_classes = Y.shape[1]
     n_features = X.shape[1]
     fit_intercept = w.size == n_classes * (n_features + 1)
-    grad = np.zeros((n_classes, n_features + bool(fit_intercept)), dtype=X.dtype)
+    grad = np.zeros(
+        (n_classes, n_features + bool(fit_intercept)), dtype=X.dtype
+    )
     loss, p, w = _multinomial_loss(w, X, Y, alpha, sample_weight)
     sample_weight = sample_weight[:, np.newaxis]
     diff = sample_weight * (p - Y)
@@ -447,7 +451,8 @@ def _check_solver(solver, penalty, dual):
         )
     if solver != "liblinear" and dual:
         raise ValueError(
-            "Solver %s supports only " "dual=False, got dual=%s" % (solver, dual)
+            "Solver %s supports only "
+            "dual=False, got dual=%s" % (solver, dual)
         )
 
     if penalty == "elasticnet" and solver != "saga":
@@ -457,7 +462,9 @@ def _check_solver(solver, penalty, dual):
         )
 
     if solver == "liblinear" and penalty == "none":
-        raise ValueError("penalty='none' is not supported for the liblinear solver")
+        raise ValueError(
+            "penalty='none' is not supported for the liblinear solver"
+        )
 
     return solver
 
@@ -718,7 +725,9 @@ def _logistic_regression_path(
             Y_multi = le.fit_transform(y).astype(X.dtype, copy=False)
 
         w0 = np.zeros(
-            (classes.size, n_features + int(fit_intercept)), order="F", dtype=X.dtype
+            (classes.size, n_features + int(fit_intercept)),
+            order="F",
+            dtype=X.dtype,
         )
 
     if coef is not None:
@@ -1086,7 +1095,8 @@ def _log_reg_scoring_path(
         log_reg.classes_ = np.unique(y_train)
     else:
         raise ValueError(
-            "multi_class should be either multinomial or ovr, " "got %d" % multi_class
+            "multi_class should be either multinomial or ovr, "
+            "got %d" % multi_class
         )
 
     if pos_class is not None:
@@ -1425,7 +1435,9 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
         solver = _check_solver(self.solver, self.penalty, self.dual)
 
         if not isinstance(self.C, numbers.Number) or self.C < 0:
-            raise ValueError("Penalty term must be positive; got (C=%r)" % self.C)
+            raise ValueError(
+                "Penalty term must be positive; got (C=%r)" % self.C
+            )
         if self.penalty == "elasticnet":
             if (
                 not isinstance(self.l1_ratio, numbers.Number)
@@ -1481,7 +1493,9 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
         check_classification_targets(y)
         self.classes_ = np.unique(y)
 
-        multi_class = _check_multi_class(self.multi_class, solver, len(self.classes_))
+        multi_class = _check_multi_class(
+            self.multi_class, solver, len(self.classes_)
+        )
 
         if solver == "liblinear":
             if effective_n_jobs(self.n_jobs) != 1:
@@ -1665,7 +1679,9 @@ class LogisticRegression(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
         return np.log(self.predict_proba(X))
 
 
-class LogisticRegressionCV(LogisticRegression, LinearClassifierMixin, BaseEstimator):
+class LogisticRegressionCV(
+    LogisticRegression, LinearClassifierMixin, BaseEstimator
+):
     """Logistic Regression CV (aka logit, MaxEnt) classifier.
 
     See glossary entry for :term:`cross-validation estimator`.
@@ -2029,7 +2045,8 @@ class LogisticRegressionCV(LogisticRegression, LinearClassifierMixin, BaseEstima
         y = label_encoder.transform(y)
         if isinstance(class_weight, dict):
             class_weight = {
-                label_encoder.transform([cls])[0]: v for cls, v in class_weight.items()
+                label_encoder.transform([cls])[0]: v
+                for cls, v in class_weight.items()
             }
 
         # The original class labels
@@ -2154,7 +2171,8 @@ class LogisticRegressionCV(LogisticRegression, LinearClassifierMixin, BaseEstima
                 (n_classes, len(folds), len(self.Cs_) * len(l1_ratios_), -1),
             )
             self.n_iter_ = np.reshape(
-                n_iter_, (n_classes, len(folds), len(self.Cs_) * len(l1_ratios_))
+                n_iter_,
+                (n_classes, len(folds), len(self.Cs_) * len(l1_ratios_)),
             )
         scores = np.reshape(scores, (n_classes, len(folds), -1))
         self.scores_ = dict(zip(classes, scores))
@@ -2194,7 +2212,9 @@ class LogisticRegressionCV(LogisticRegression, LinearClassifierMixin, BaseEstima
                 self.l1_ratio_.append(l1_ratio_)
 
                 if multi_class == "multinomial":
-                    coef_init = np.mean(coefs_paths[:, :, best_index, :], axis=1)
+                    coef_init = np.mean(
+                        coefs_paths[:, :, best_index, :], axis=1
+                    )
                 else:
                     coef_init = np.mean(coefs_paths[:, best_index, :], axis=0)
 
@@ -2228,7 +2248,10 @@ class LogisticRegressionCV(LogisticRegression, LinearClassifierMixin, BaseEstima
                 best_indices = np.argmax(scores, axis=1)
                 if multi_class == "ovr":
                     w = np.mean(
-                        [coefs_paths[i, best_indices[i], :] for i in range(len(folds))],
+                        [
+                            coefs_paths[i, best_indices[i], :]
+                            for i in range(len(folds))
+                        ],
                         axis=0,
                     )
                 else:

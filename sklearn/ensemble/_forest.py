@@ -176,9 +176,13 @@ def _parallel_build_trees(
         if class_weight == "subsample":
             with catch_warnings():
                 simplefilter("ignore", DeprecationWarning)
-                curr_sample_weight *= compute_sample_weight("auto", y, indices=indices)
+                curr_sample_weight *= compute_sample_weight(
+                    "auto", y, indices=indices
+                )
         elif class_weight == "balanced_subsample":
-            curr_sample_weight *= compute_sample_weight("balanced", y, indices=indices)
+            curr_sample_weight *= compute_sample_weight(
+                "balanced", y, indices=indices
+            )
 
         tree.fit(X, y, sample_weight=curr_sample_weight, check_input=False)
     else:
@@ -248,7 +252,10 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
             n_jobs=self.n_jobs,
             verbose=self.verbose,
             **_joblib_parallel_args(prefer="threads"),
-        )(delayed(tree.apply)(X, check_input=False) for tree in self.estimators_)
+        )(
+            delayed(tree.apply)(X, check_input=False)
+            for tree in self.estimators_
+        )
 
         return np.array(results).T
 
@@ -321,7 +328,9 @@ class BaseForest(MultiOutputMixin, BaseEnsemble, metaclass=ABCMeta):
         """
         # Validate or convert input data
         if issparse(y):
-            raise ValueError("sparse multilabel-indicator for y is not supported.")
+            raise ValueError(
+                "sparse multilabel-indicator for y is not supported."
+            )
         X, y = self._validate_data(
             X, y, multi_output=True, accept_sparse="csc", dtype=DTYPE
         )
@@ -569,7 +578,9 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
             np.zeros((n_samples, n_classes_[k])) for k in range(self.n_outputs_)
         ]
 
-        n_samples_bootstrap = _get_n_samples_bootstrap(n_samples, self.max_samples)
+        n_samples_bootstrap = _get_n_samples_bootstrap(
+            n_samples, self.max_samples
+        )
 
         for estimator in self.estimators_:
             unsampled_indices = _generate_unsampled_indices(
@@ -593,9 +604,13 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
                     "to compute any reliable oob estimates."
                 )
 
-            decision = predictions[k] / predictions[k].sum(axis=1)[:, np.newaxis]
+            decision = (
+                predictions[k] / predictions[k].sum(axis=1)[:, np.newaxis]
+            )
             oob_decision_function.append(decision)
-            oob_score += np.mean(y[:, k] == np.argmax(predictions[k], axis=1), axis=0)
+            oob_score += np.mean(
+                y[:, k] == np.argmax(predictions[k], axis=1), axis=0
+            )
 
         if self.n_outputs_ == 1:
             self.oob_decision_function_ = oob_decision_function[0]
@@ -653,7 +668,9 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
                     class_weight = "balanced"
                 else:
                     class_weight = self.class_weight
-                expanded_class_weight = compute_sample_weight(class_weight, y_original)
+                expanded_class_weight = compute_sample_weight(
+                    class_weight, y_original
+                )
 
         return y, expanded_class_weight
 
@@ -687,7 +704,9 @@ class ForestClassifier(ClassifierMixin, BaseForest, metaclass=ABCMeta):
             n_samples = proba[0].shape[0]
             # all dtypes should be the same, so just take the first
             class_type = self.classes_[0].dtype
-            predictions = np.empty((n_samples, self.n_outputs_), dtype=class_type)
+            predictions = np.empty(
+                (n_samples, self.n_outputs_), dtype=class_type
+            )
 
             for k in range(self.n_outputs_):
                 predictions[:, k] = self.classes_[k].take(
@@ -876,13 +895,17 @@ class ForestRegressor(RegressorMixin, BaseForest, metaclass=ABCMeta):
         predictions = np.zeros((n_samples, self.n_outputs_))
         n_predictions = np.zeros((n_samples, self.n_outputs_))
 
-        n_samples_bootstrap = _get_n_samples_bootstrap(n_samples, self.max_samples)
+        n_samples_bootstrap = _get_n_samples_bootstrap(
+            n_samples, self.max_samples
+        )
 
         for estimator in self.estimators_:
             unsampled_indices = _generate_unsampled_indices(
                 estimator.random_state, n_samples, n_samples_bootstrap
             )
-            p_estimator = estimator.predict(X[unsampled_indices, :], check_input=False)
+            p_estimator = estimator.predict(
+                X[unsampled_indices, :], check_input=False
+            )
 
             if self.n_outputs_ == 1:
                 p_estimator = p_estimator[:, np.newaxis]

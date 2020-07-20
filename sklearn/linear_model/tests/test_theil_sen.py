@@ -187,7 +187,9 @@ def test_theil_sen_2d():
     lstq = LinearRegression().fit(X, y)
     assert norm(lstq.coef_ - w) > 1.0
     # Check that Theil-Sen works
-    theil_sen = TheilSenRegressor(max_subpopulation=1e3, random_state=0).fit(X, y)
+    theil_sen = TheilSenRegressor(max_subpopulation=1e3, random_state=0).fit(
+        X, y
+    )
     assert_array_almost_equal(theil_sen.coef_, w, 1)
     assert_array_almost_equal(theil_sen.intercept_, c, 1)
 
@@ -226,14 +228,18 @@ def test_checksubparams_n_subsamples_if_less_samples_than_features():
 
 def test_subpopulation():
     X, y, w, c = gen_toy_problem_4d()
-    theil_sen = TheilSenRegressor(max_subpopulation=250, random_state=0).fit(X, y)
+    theil_sen = TheilSenRegressor(max_subpopulation=250, random_state=0).fit(
+        X, y
+    )
     assert_array_almost_equal(theil_sen.coef_, w, 1)
     assert_array_almost_equal(theil_sen.intercept_, c, 1)
 
 
 def test_subsamples():
     X, y, w, c = gen_toy_problem_4d()
-    theil_sen = TheilSenRegressor(n_subsamples=X.shape[0], random_state=0).fit(X, y)
+    theil_sen = TheilSenRegressor(n_subsamples=X.shape[0], random_state=0).fit(
+        X, y
+    )
     lstq = LinearRegression().fit(X, y)
     # Check for exact the same results as Least Squares
     assert_array_almost_equal(theil_sen.coef_, lstq.coef_, 9)
@@ -244,7 +250,9 @@ def test_verbosity():
     # Check that Theil-Sen can be verbose
     with no_stdout_stderr():
         TheilSenRegressor(verbose=True, random_state=0).fit(X, y)
-        TheilSenRegressor(verbose=True, max_subpopulation=10, random_state=0).fit(X, y)
+        TheilSenRegressor(
+            verbose=True, max_subpopulation=10, random_state=0
+        ).fit(X, y)
 
 
 def test_theil_sen_parallel():
@@ -253,9 +261,9 @@ def test_theil_sen_parallel():
     lstq = LinearRegression().fit(X, y)
     assert norm(lstq.coef_ - w) > 1.0
     # Check that Theil-Sen works
-    theil_sen = TheilSenRegressor(n_jobs=2, random_state=0, max_subpopulation=2e3).fit(
-        X, y
-    )
+    theil_sen = TheilSenRegressor(
+        n_jobs=2, random_state=0, max_subpopulation=2e3
+    ).fit(X, y)
     assert_array_almost_equal(theil_sen.coef_, w, 1)
     assert_array_almost_equal(theil_sen.intercept_, c, 1)
 

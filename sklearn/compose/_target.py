@@ -145,7 +145,8 @@ class TransformedTargetRegressor(RegressorMixin, BaseEstimator):
         else:
             if self.func is not None and self.inverse_func is None:
                 raise ValueError(
-                    "When 'func' is provided, 'inverse_func' must" " also be provided"
+                    "When 'func' is provided, 'inverse_func' must"
+                    " also be provided"
                 )
             self.transformer_ = FunctionTransformer(
                 func=self.func,
@@ -162,7 +163,9 @@ class TransformedTargetRegressor(RegressorMixin, BaseEstimator):
             idx_selected = slice(None, None, max(1, y.shape[0] // 10))
             y_sel = _safe_indexing(y, idx_selected)
             y_sel_t = self.transformer_.transform(y_sel)
-            if not np.allclose(y_sel, self.transformer_.inverse_transform(y_sel_t)):
+            if not np.allclose(
+                y_sel, self.transformer_.inverse_transform(y_sel_t)
+            ):
                 warnings.warn(
                     "The provided functions or transformer are"
                     " not strictly inverse of each other. If"
@@ -251,7 +254,9 @@ class TransformedTargetRegressor(RegressorMixin, BaseEstimator):
         check_is_fitted(self)
         pred = self.regressor_.predict(X)
         if pred.ndim == 1:
-            pred_trans = self.transformer_.inverse_transform(pred.reshape(-1, 1))
+            pred_trans = self.transformer_.inverse_transform(
+                pred.reshape(-1, 1)
+            )
         else:
             pred_trans = self.transformer_.inverse_transform(pred)
         if (

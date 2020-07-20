@@ -41,7 +41,9 @@ def compute_class_weight(class_weight, *, classes, y):
     from ..preprocessing import LabelEncoder
 
     if set(y) - set(classes):
-        raise ValueError("classes should include all valid labels that can " "be in y")
+        raise ValueError(
+            "classes should include all valid labels that can " "be in y"
+        )
     if class_weight is None or len(class_weight) == 0:
         # uniform class weights
         weight = np.ones(classes.shape[0], dtype=np.float64, order="C")
@@ -52,7 +54,9 @@ def compute_class_weight(class_weight, *, classes, y):
         if not all(np.in1d(classes, le.classes_)):
             raise ValueError("classes should have valid labels that are in y")
 
-        recip_freq = len(y) / (len(le.classes_) * np.bincount(y_ind).astype(np.float64))
+        recip_freq = len(y) / (
+            len(le.classes_) * np.bincount(y_ind).astype(np.float64)
+        )
         weight = recip_freq[le.transform(classes)]
     else:
         # user-defined dictionary
@@ -129,7 +133,9 @@ def compute_sample_weight(class_weight, y, *, indices=None):
             '"balanced". Given "%s".' % class_weight
         )
     elif n_outputs > 1:
-        if not hasattr(class_weight, "__iter__") or isinstance(class_weight, dict):
+        if not hasattr(class_weight, "__iter__") or isinstance(
+            class_weight, dict
+        ):
             raise ValueError(
                 "For multi-output, class_weight should be a "
                 "list of dicts, or a valid string."
@@ -181,6 +187,8 @@ def compute_sample_weight(class_weight, y, *, indices=None):
 
         expanded_class_weight.append(weight_k)
 
-    expanded_class_weight = np.prod(expanded_class_weight, axis=0, dtype=np.float64)
+    expanded_class_weight = np.prod(
+        expanded_class_weight, axis=0, dtype=np.float64
+    )
 
     return expanded_class_weight

@@ -40,7 +40,9 @@ def fetch_20newsgroups_vectorized_fxt():
 
 @pytest.fixture
 def fetch_california_housing_fxt():
-    return _wrapped_fetch(fetch_california_housing, dataset_name="california_housing")
+    return _wrapped_fetch(
+        fetch_california_housing, dataset_name="california_housing"
+    )
 
 
 @pytest.fixture

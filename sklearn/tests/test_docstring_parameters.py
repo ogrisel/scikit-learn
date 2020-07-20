@@ -118,7 +118,10 @@ def test_docstring_parameters():
                 # by default for API reason
                 if method_name in _METHODS_IGNORE_NONE_Y:
                     sig = signature(method)
-                    if "y" in sig.parameters and sig.parameters["y"].default is None:
+                    if (
+                        "y" in sig.parameters
+                        and sig.parameters["y"].default is None
+                    ):
                         param_ignore = ["y"]  # ignore y for fit and score
                 result = check_docstring_parameters(method, ignore=param_ignore)
                 this_incorrect += result
@@ -135,9 +138,9 @@ def test_docstring_parameters():
             if fname == "configuration" and name.endswith("setup"):
                 continue
             name_ = _get_func_name(func)
-            if not any(d in name_ for d in _DOCSTRING_IGNORES) and not _is_deprecated(
-                func
-            ):
+            if not any(
+                d in name_ for d in _DOCSTRING_IGNORES
+            ) and not _is_deprecated(func):
                 incorrect += check_docstring_parameters(func)
 
     msg = "\n".join(incorrect)
@@ -148,7 +151,9 @@ def test_docstring_parameters():
 @ignore_warnings(category=FutureWarning)
 def test_tabs():
     # Test that there are no tabs in our source files
-    for importer, modname, ispkg in walk_packages(sklearn.__path__, prefix="sklearn."):
+    for importer, modname, ispkg in walk_packages(
+        sklearn.__path__, prefix="sklearn."
+    ):
 
         if IS_PYPY and (
             "_svmlight_format_io" in modname
@@ -271,7 +276,9 @@ def test_fit_docstring_attributes(name, Estimator):
         pytest.xfail(reason="Estimator has too many undocumented attributes.")
 
     fit_attr = [
-        k for k in est.__dict__.keys() if k.endswith("_") and not k.startswith("_")
+        k
+        for k in est.__dict__.keys()
+        if k.endswith("_") and not k.startswith("_")
     ]
     fit_attr_names = [attr.name for attr in attributes]
     undocumented_attrs = set(fit_attr).difference(fit_attr_names)

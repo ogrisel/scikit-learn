@@ -10,7 +10,10 @@ from sklearn.utils._encode import _check_unknown
 @pytest.mark.parametrize(
     "values, expected",
     [
-        (np.array([2, 1, 3, 1, 3], dtype="int64"), np.array([1, 2, 3], dtype="int64")),
+        (
+            np.array([2, 1, 3, 1, 3], dtype="int64"),
+            np.array([1, 2, 3], dtype="int64"),
+        ),
         (
             np.array(["b", "a", "c", "a", "c"], dtype=object),
             np.array(["a", "b", "c"], dtype=object),
@@ -48,8 +51,18 @@ def test_encode_with_check_unknown():
 @pytest.mark.parametrize(
     "values, uniques, expected_diff, expected_mask",
     [
-        (np.array([1, 2, 3, 4]), np.array([1, 2, 3]), [4], [True, True, True, False]),
-        (np.array([2, 1, 4, 5]), np.array([2, 5, 1]), [4], [True, True, False, True]),
+        (
+            np.array([1, 2, 3, 4]),
+            np.array([1, 2, 3]),
+            [4],
+            [True, True, True, False],
+        ),
+        (
+            np.array([2, 1, 4, 5]),
+            np.array([2, 5, 1]),
+            [4],
+            [True, True, False, True],
+        ),
         (
             np.array(["a", "b", "c", "d"], dtype=object),
             np.array(["a", "b", "c"], dtype=object),

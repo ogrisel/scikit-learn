@@ -634,7 +634,9 @@ def pairwise_distances_argmin_min(
 
 
 @_deprecate_positional_args
-def pairwise_distances_argmin(X, Y, *, axis=1, metric="euclidean", metric_kwargs=None):
+def pairwise_distances_argmin(
+    X, Y, *, axis=1, metric="euclidean", metric_kwargs=None
+):
     """Compute minimum distances between one point and a set of points.
 
     This function computes for each row in X, the index of the row of Y which
@@ -828,7 +830,9 @@ def manhattan_distances(X, Y=None, *, sum_over_features=True):
         X.sum_duplicates()  # this also sorts indices in-place
         Y.sum_duplicates()
         D = np.zeros((X.shape[0], Y.shape[0]))
-        _sparse_manhattan(X.data, X.indices, X.indptr, Y.data, Y.indices, Y.indptr, D)
+        _sparse_manhattan(
+            X.data, X.indices, X.indptr, Y.data, Y.indices, Y.indptr, D
+        )
         return D
 
     if sum_over_features:
@@ -1692,7 +1696,9 @@ def pairwise_distances_chunked(
             X_chunk = X  # enable optimised paths for X is Y
         else:
             X_chunk = X[sl]
-        D_chunk = pairwise_distances(X_chunk, Y, metric=metric, n_jobs=n_jobs, **kwds)
+        D_chunk = pairwise_distances(
+            X_chunk, Y, metric=metric, n_jobs=n_jobs, **kwds
+        )
         if (X is Y or Y is None) and PAIRWISE_DISTANCE_FUNCTIONS.get(
             metric, None
         ) is euclidean_distances:
@@ -1838,15 +1844,22 @@ def pairwise_distances(
         func = PAIRWISE_DISTANCE_FUNCTIONS[metric]
     elif callable(metric):
         func = partial(
-            _pairwise_callable, metric=metric, force_all_finite=force_all_finite, **kwds
+            _pairwise_callable,
+            metric=metric,
+            force_all_finite=force_all_finite,
+            **kwds,
         )
     else:
         if issparse(X) or issparse(Y):
-            raise TypeError("scipy distance metrics do not" " support sparse matrices.")
+            raise TypeError(
+                "scipy distance metrics do not" " support sparse matrices."
+            )
 
         dtype = bool if metric in PAIRWISE_BOOLEAN_FUNCTIONS else None
 
-        if dtype == bool and (X.dtype != bool or (Y is not None and Y.dtype != bool)):
+        if dtype == bool and (
+            X.dtype != bool or (Y is not None and Y.dtype != bool)
+        ):
             msg = "Data was converted to boolean for metric %s" % metric
             warnings.warn(msg, DataConversionWarning)
 

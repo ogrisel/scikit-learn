@@ -39,7 +39,9 @@ def _objective(mle, precision_, alpha):
     """
     p = precision_.shape[0]
     cost = -2.0 * log_likelihood(mle, precision_) + p * np.log(2 * np.pi)
-    cost += alpha * (np.abs(precision_).sum() - np.abs(np.diag(precision_)).sum())
+    cost += alpha * (
+        np.abs(precision_).sum() - np.abs(np.diag(precision_)).sum()
+    )
     return cost
 
 
@@ -51,7 +53,9 @@ def _dual_gap(emp_cov, precision_, alpha):
     """
     gap = np.sum(emp_cov * precision_)
     gap -= precision_.shape[0]
-    gap += alpha * (np.abs(precision_).sum() - np.abs(np.diag(precision_)).sum())
+    gap += alpha * (
+        np.abs(precision_).sum() - np.abs(np.diag(precision_)).sum()
+    )
     return gap
 
 
@@ -297,7 +301,9 @@ def graphical_lasso(
                 ConvergenceWarning,
             )
     except FloatingPointError as e:
-        e.args = (e.args[0] + ". The system is too ill-conditioned for this solver",)
+        e.args = (
+            e.args[0] + ". The system is too ill-conditioned for this solver",
+        )
         raise e
 
     if return_costs:
@@ -801,7 +807,9 @@ class GraphicalLassoCV(GraphicalLasso):
             n_refinements = self.n_refinements
             alpha_1 = alpha_max(emp_cov)
             alpha_0 = 1e-2 * alpha_1
-            alphas = np.logspace(np.log10(alpha_0), np.log10(alpha_1), n_alphas)[::-1]
+            alphas = np.logspace(
+                np.log10(alpha_0), np.log10(alpha_1), n_alphas
+            )[::-1]
 
         t0 = time.time()
         for i in range(n_refinements):
@@ -858,7 +866,10 @@ class GraphicalLassoCV(GraphicalLasso):
                 # non-zero coefficients
                 alpha_1 = path[0][0]
                 alpha_0 = path[1][0]
-            elif best_index == last_finite_idx and not best_index == len(path) - 1:
+            elif (
+                best_index == last_finite_idx
+                and not best_index == len(path) - 1
+            ):
                 # We have non-converged models on the upper bound of the
                 # grid, we need to refine the grid there
                 alpha_1 = path[best_index][0]
@@ -871,7 +882,9 @@ class GraphicalLassoCV(GraphicalLasso):
                 alpha_0 = path[best_index + 1][0]
 
             if not isinstance(n_alphas, Sequence):
-                alphas = np.logspace(np.log10(alpha_1), np.log10(alpha_0), n_alphas + 2)
+                alphas = np.logspace(
+                    np.log10(alpha_1), np.log10(alpha_0), n_alphas + 2
+                )
                 alphas = alphas[1:-1]
 
             if self.verbose and n_refinements > 1:
@@ -930,7 +943,10 @@ class GraphicalLassoCV(GraphicalLasso):
         # remove 3 for mean_score, std_score, and alphas
         n_alphas = len(self.cv_results_) - 3
         return np.asarray(
-            [self.cv_results_["split{}_score".format(i)] for i in range(n_alphas)]
+            [
+                self.cv_results_["split{}_score".format(i)]
+                for i in range(n_alphas)
+            ]
         ).T
 
     # TODO: Remove in 0.26 when cv_alphas_ is deprecated

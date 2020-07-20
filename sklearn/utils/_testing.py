@@ -105,7 +105,9 @@ def assert_warns(warning_class, func, *args, **kw):
 
         # Verify some things
         if not len(w) > 0:
-            raise AssertionError("No warning raised when calling %s" % func.__name__)
+            raise AssertionError(
+                "No warning raised when calling %s" % func.__name__
+            )
 
         found = any(warning.category is warning_class for warning in w)
         if not found:
@@ -152,7 +154,9 @@ def assert_warns_message(warning_class, message, func, *args, **kw):
         result = func(*args, **kw)
         # Verify some things
         if not len(w) > 0:
-            raise AssertionError("No warning raised when calling %s" % func.__name__)
+            raise AssertionError(
+                "No warning raised when calling %s" % func.__name__
+            )
 
         found = [issubclass(warning.category, warning_class) for warning in w]
         if not any(found):
@@ -270,7 +274,9 @@ def ignore_warnings(obj=None, category=Warning):
             "'obj' should be a callable where you want to ignore warnings. "
             "You passed a warning class instead: 'obj={warning_name}'. "
             "If you want to pass a warning class to ignore_warnings, "
-            "you should use 'category={warning_name}'".format(warning_name=warning_name)
+            "you should use 'category={warning_name}'".format(
+                warning_name=warning_name
+            )
         )
     elif callable(obj):
         return _IgnoreWarnings(category=category)(obj)
@@ -365,7 +371,8 @@ def assert_raise_message(exceptions, message, function, *args, **kwargs):
         if message not in error_message:
             raise AssertionError(
                 "Error message does not include the expected"
-                " string: %r. Observed error message: %r" % (message, error_message)
+                " string: %r. Observed error message: %r"
+                % (message, error_message)
             )
     else:
         # concatenate exception names
@@ -415,7 +422,8 @@ def assert_allclose_dense_sparse(x, y, rtol=1e-07, atol=1e-9, err_msg=""):
         assert_allclose(x, y, rtol=rtol, atol=atol, err_msg=err_msg)
     else:
         raise ValueError(
-            "Can only compare two sparse matrices," " not a sparse matrix and an array."
+            "Can only compare two sparse matrices,"
+            " not a sparse matrix and an array."
         )
 
 
@@ -438,11 +446,15 @@ def set_random_state(estimator, random_state=0):
 try:
     import pytest
 
-    skip_if_32bit = pytest.mark.skipif(_IS_32BIT, reason="skipped on 32bit platforms")
+    skip_if_32bit = pytest.mark.skipif(
+        _IS_32BIT, reason="skipped on 32bit platforms"
+    )
     skip_travis = pytest.mark.skipif(
         os.environ.get("TRAVIS") == "true", reason="skip on travis"
     )
-    fails_if_pypy = pytest.mark.xfail(IS_PYPY, reason="not compatible with PyPy")
+    fails_if_pypy = pytest.mark.xfail(
+        IS_PYPY, reason="not compatible with PyPy"
+    )
     skip_if_no_parallel = pytest.mark.skipif(
         not joblib.parallel.mp, reason="joblib is in serial mode"
     )
@@ -467,7 +479,8 @@ try:
     #  default.
 
     if_safe_multiprocessing_with_blas = pytest.mark.skipif(
-        sys.platform == "darwin", reason="Possible multi-process bug with some BLAS"
+        sys.platform == "darwin",
+        reason="Possible multi-process bug with some BLAS",
     )
 except ImportError:
     pass
@@ -529,7 +542,9 @@ def create_memmap_backed_data(data, mmap_mode="r", return_folder=False):
     joblib.dump(data, filename)
     memmap_backed_data = joblib.load(filename, mmap_mode=mmap_mode)
     result = (
-        memmap_backed_data if not return_folder else (memmap_backed_data, temp_folder)
+        memmap_backed_data
+        if not return_folder
+        else (memmap_backed_data, temp_folder)
     )
     return result
 
@@ -648,7 +663,8 @@ def check_docstring_parameters(func, doc=None, ignore=None):
         if not type_definition.strip():
             if ":" in name and name[: name.index(":")][-1:].strip():
                 incorrect += [
-                    func_name + " There was no space between the param name and "
+                    func_name
+                    + " There was no space between the param name and "
                     "colon (%r)" % name
                 ]
             elif name.rstrip().endswith(":"):
@@ -713,7 +729,9 @@ def check_docstring_parameters(func, doc=None, ignore=None):
 
     message.extend(
         line.strip()
-        for line in difflib.ndiff(param_signature_formatted, param_docs_formatted)
+        for line in difflib.ndiff(
+            param_signature_formatted, param_docs_formatted
+        )
     )
 
     incorrect.extend(message)

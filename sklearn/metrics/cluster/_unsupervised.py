@@ -39,7 +39,13 @@ def check_number_of_labels(n_labels, n_samples):
 
 @_deprecate_positional_args
 def silhouette_score(
-    X, labels, *, metric="euclidean", sample_size=None, random_state=None, **kwds
+    X,
+    labels,
+    *,
+    metric="euclidean",
+    sample_size=None,
+    random_state=None,
+    **kwds,
 ):
     """Compute the mean Silhouette Coefficient of all samples.
 
@@ -135,14 +141,19 @@ def _silhouette_reduce(D_chunk, start, labels, label_freqs):
         distribution of cluster labels in ``labels``
     """
     # accumulate distances from each sample to each cluster
-    clust_dists = np.zeros((len(D_chunk), len(label_freqs)), dtype=D_chunk.dtype)
+    clust_dists = np.zeros(
+        (len(D_chunk), len(label_freqs)), dtype=D_chunk.dtype
+    )
     for i in range(len(D_chunk)):
         clust_dists[i] += np.bincount(
             labels, weights=D_chunk[i], minlength=len(label_freqs)
         )
 
     # intra_index selects intra-cluster distances within clust_dists
-    intra_index = (np.arange(len(D_chunk)), labels[start : start + len(D_chunk)])
+    intra_index = (
+        np.arange(len(D_chunk)),
+        labels[start : start + len(D_chunk)],
+    )
     # intra_clust_dists are averaged over cluster size outside this function
     intra_clust_dists = clust_dists[intra_index]
     # of the remaining distances we normalise and extract the minimum
@@ -235,7 +246,9 @@ def silhouette_samples(X, labels, *, metric="euclidean", **kwds):
     reduce_func = functools.partial(
         _silhouette_reduce, labels=labels, label_freqs=label_freqs
     )
-    results = zip(*pairwise_distances_chunked(X, reduce_func=reduce_func, **kwds))
+    results = zip(
+        *pairwise_distances_chunked(X, reduce_func=reduce_func, **kwds)
+    )
     intra_clust_dists, inter_clust_dists = results
     intra_clust_dists = np.concatenate(intra_clust_dists)
     inter_clust_dists = np.concatenate(inter_clust_dists)
@@ -301,7 +314,9 @@ def calinski_harabasz_score(X, labels):
     return (
         1.0
         if intra_disp == 0.0
-        else extra_disp * (n_samples - n_labels) / (intra_disp * (n_labels - 1.0))
+        else extra_disp
+        * (n_samples - n_labels)
+        / (intra_disp * (n_labels - 1.0))
     )
 
 

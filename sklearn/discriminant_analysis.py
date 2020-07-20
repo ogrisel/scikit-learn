@@ -300,9 +300,9 @@ class LinearDiscriminantAnalysis(
         self.means_ = _class_means(X, y)
         self.covariance_ = _class_cov(X, y, self.priors_, shrinkage)
         self.coef_ = linalg.lstsq(self.covariance_, self.means_.T)[0].T
-        self.intercept_ = -0.5 * np.diag(np.dot(self.means_, self.coef_.T)) + np.log(
-            self.priors_
-        )
+        self.intercept_ = -0.5 * np.diag(
+            np.dot(self.means_, self.coef_.T)
+        ) + np.log(self.priors_)
 
     def _solve_eigen(self, X, y, shrinkage):
         """Eigenvalue solver.
@@ -351,9 +351,9 @@ class LinearDiscriminantAnalysis(
 
         self.scalings_ = evecs
         self.coef_ = np.dot(self.means_, evecs).dot(evecs.T)
-        self.intercept_ = -0.5 * np.diag(np.dot(self.means_, self.coef_.T)) + np.log(
-            self.priors_
-        )
+        self.intercept_ = -0.5 * np.diag(
+            np.dot(self.means_, self.coef_.T)
+        ) + np.log(self.priors_)
 
     def _solve_svd(self, X, y):
         """SVD solver.
@@ -417,7 +417,9 @@ class LinearDiscriminantAnalysis(
         rank = np.sum(S > self.tol * S[0])
         self.scalings_ = np.dot(scalings, Vt.T[:, :rank])
         coef = np.dot(self.means_ - self.xbar_, self.scalings_)
-        self.intercept_ = -0.5 * np.sum(coef ** 2, axis=1) + np.log(self.priors_)
+        self.intercept_ = -0.5 * np.sum(coef ** 2, axis=1) + np.log(
+            self.priors_
+        )
         self.coef_ = np.dot(coef, self.scalings_.T)
         self.intercept_ -= np.dot(self.xbar_, self.coef_.T)
 
@@ -440,7 +442,11 @@ class LinearDiscriminantAnalysis(
             Target values.
         """
         X, y = self._validate_data(
-            X, y, ensure_min_samples=2, estimator=self, dtype=[np.float64, np.float32]
+            X,
+            y,
+            ensure_min_samples=2,
+            estimator=self,
+            dtype=[np.float64, np.float32],
         )
         self.classes_ = unique_labels(y)
         n_samples, _ = X.shape
@@ -448,7 +454,8 @@ class LinearDiscriminantAnalysis(
 
         if n_samples == n_classes:
             raise ValueError(
-                "The number of samples must be more " "than the number of classes."
+                "The number of samples must be more "
+                "than the number of classes."
             )
 
         if self.priors is None:  # estimate priors from sample
@@ -460,7 +467,9 @@ class LinearDiscriminantAnalysis(
         if (self.priors_ < 0).any():
             raise ValueError("priors must be non-negative")
         if not np.isclose(self.priors_.sum(), 1.0):
-            warnings.warn("The priors do not sum to 1. Renormalizing", UserWarning)
+            warnings.warn(
+                "The priors do not sum to 1. Renormalizing", UserWarning
+            )
             self.priors_ = self.priors_ / self.priors_.sum()
 
         # Maximum number of components no matter what n_components is
@@ -514,7 +523,8 @@ class LinearDiscriminantAnalysis(
         """
         if self.solver == "lsqr":
             raise NotImplementedError(
-                "transform not implemented for 'lsqr' " "solver (use 'svd' or 'eigen')."
+                "transform not implemented for 'lsqr' "
+                "solver (use 'svd' or 'eigen')."
             )
         check_is_fitted(self)
 

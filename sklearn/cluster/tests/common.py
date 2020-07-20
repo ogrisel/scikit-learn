@@ -17,12 +17,16 @@ def generate_clustered_data(
 
     # the data is voluntary shifted away from zero to check clustering
     # algorithm robustness with regards to non centered data
-    means = np.array([[1, 1, 1, 0], [-1, -1, 0, 1], [1, -1, 1, 1], [-1, 1, 1, 0],]) + 10
+    means = (
+        np.array([[1, 1, 1, 0], [-1, -1, 0, 1], [1, -1, 1, 1], [-1, 1, 1, 0],])
+        + 10
+    )
 
     X = np.empty((0, n_features))
     for i in range(n_clusters):
         X = np.r_[
             X,
-            means[i][:n_features] + std * prng.randn(n_samples_per_cluster, n_features),
+            means[i][:n_features]
+            + std * prng.randn(n_samples_per_cluster, n_features),
         ]
     return X

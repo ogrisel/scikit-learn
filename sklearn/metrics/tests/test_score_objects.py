@@ -118,7 +118,10 @@ MULTILABEL_ONLY_SCORERS = [
     "jaccard_samples",
 ]
 
-REQUIRE_POSITIVE_Y_SCORERS = ["neg_mean_poisson_deviance", "neg_mean_gamma_deviance"]
+REQUIRE_POSITIVE_Y_SCORERS = [
+    "neg_mean_poisson_deviance",
+    "neg_mean_gamma_deviance",
+]
 
 
 def _require_positive_y(y):
@@ -155,7 +158,9 @@ def setup_module():
     global X_mm, y_mm, y_ml_mm, TEMP_FOLDER, ESTIMATORS
     TEMP_FOLDER = tempfile.mkdtemp(prefix="sklearn_test_score_objects_")
     X, y = make_classification(n_samples=30, n_features=5, random_state=0)
-    _, y_ml = make_multilabel_classification(n_samples=X.shape[0], random_state=0)
+    _, y_ml = make_multilabel_classification(
+        n_samples=X.shape[0], random_state=0
+    )
     filename = os.path.join(TEMP_FOLDER, "test_data.pkl")
     joblib.dump((X, y, y_ml), filename)
     X_mm, y_mm, y_ml_mm = joblib.load(filename, mmap_mode="r")
@@ -220,7 +225,8 @@ def check_scoring_validator_for_single_metric_usecases(scoring_validator):
     # Test all branches of single metric usecases
     estimator = EstimatorWithoutFit()
     pattern = (
-        r"estimator should be an estimator implementing 'fit' method," r" .* was passed"
+        r"estimator should be an estimator implementing 'fit' method,"
+        r" .* was passed"
     )
     with pytest.raises(TypeError, match=pattern):
         scoring_validator(estimator)
@@ -288,7 +294,10 @@ def test_check_scoring_and_check_multimetric_scoring(scoring):
     assert isinstance(scorers, dict)
     assert sorted(scorers.keys()) == sorted(list(scoring))
     assert all(
-        [isinstance(scorer, _PredictScorer) for scorer in list(scorers.values())]
+        [
+            isinstance(scorer, _PredictScorer)
+            for scorer in list(scorers.values())
+        ]
     )
 
     if "acc" in scoring:
@@ -297,7 +306,8 @@ def test_check_scoring_and_check_multimetric_scoring(scoring):
         )
     if "accuracy" in scoring:
         assert_almost_equal(
-            scorers["accuracy"](estimator, [[1], [2], [3]], [1, 0, 0]), 2.0 / 3.0
+            scorers["accuracy"](estimator, [[1], [2], [3]], [1, 0, 0]),
+            2.0 / 3.0,
         )
     if "precision" in scoring:
         assert_almost_equal(
@@ -313,7 +323,10 @@ def test_check_scoring_and_check_multimetric_scoring(scoring):
             "One or more of the elements were callables",
         ),
         ([5], "Non-string types were found"),
-        ((make_scorer(precision_score),), "One of mor eof the elements were callables"),
+        (
+            (make_scorer(precision_score),),
+            "One of mor eof the elements were callables",
+        ),
         ((), "Empty list was given"),
         (("f1", "f1"), "Duplicate elements were found"),
         ({4: "accuracy"}, "Non-string types were found in the keys"),
@@ -356,7 +369,11 @@ def test_check_scoring_gridsearchcv():
     # and doesn't make any assumptions about the estimator apart from having a
     # fit.
     scores = cross_val_score(
-        EstimatorWithFit(), [[1], [2], [3]], [1, 0, 1], scoring=DummyScorer(), cv=3
+        EstimatorWithFit(),
+        [[1], [2], [3]],
+        [1, 0, 1],
+        scoring=DummyScorer(),
+        cv=3,
     )
     assert_array_equal(scores, 1)
 
@@ -383,15 +400,21 @@ def test_classification_scores():
     ]:
 
         score1 = get_scorer("%s_weighted" % prefix)(clf, X_test, y_test)
-        score2 = metric(y_test, clf.predict(X_test), pos_label=None, average="weighted")
+        score2 = metric(
+            y_test, clf.predict(X_test), pos_label=None, average="weighted"
+        )
         assert_almost_equal(score1, score2)
 
         score1 = get_scorer("%s_macro" % prefix)(clf, X_test, y_test)
-        score2 = metric(y_test, clf.predict(X_test), pos_label=None, average="macro")
+        score2 = metric(
+            y_test, clf.predict(X_test), pos_label=None, average="macro"
+        )
         assert_almost_equal(score1, score2)
 
         score1 = get_scorer("%s_micro" % prefix)(clf, X_test, y_test)
-        score2 = metric(y_test, clf.predict(X_test), pos_label=None, average="micro")
+        score2 = metric(
+            y_test, clf.predict(X_test), pos_label=None, average="micro"
+        )
         assert_almost_equal(score1, score2)
 
         score1 = get_scorer("%s" % prefix)(clf, X_test, y_test)
@@ -554,7 +577,9 @@ def test_classification_scorer_sample_weight():
     # to ensure that, on the classifier output, weighted and unweighted
     # scores really should be unequal.
     X, y = make_classification(random_state=0)
-    _, y_ml = make_multilabel_classification(n_samples=X.shape[0], random_state=0)
+    _, y_ml = make_multilabel_classification(
+        n_samples=X.shape[0], random_state=0
+    )
     split = train_test_split(X, y, y_ml, random_state=0)
     X_train, X_test, y_train, y_test, y_ml_train, y_ml_test = split
 
@@ -854,7 +879,12 @@ def test_multiclass_roc_proba_scorer_label():
 
 @pytest.mark.parametrize(
     "scorer_name",
-    ["roc_auc_ovr", "roc_auc_ovo", "roc_auc_ovr_weighted", "roc_auc_ovo_weighted"],
+    [
+        "roc_auc_ovr",
+        "roc_auc_ovo",
+        "roc_auc_ovr_weighted",
+        "roc_auc_ovo_weighted",
+    ],
 )
 def test_multiclass_roc_no_proba_scorer_errors(scorer_name):
     # Perceptron has no predict_proba

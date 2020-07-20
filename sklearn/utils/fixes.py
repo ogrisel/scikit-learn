@@ -183,7 +183,9 @@ def _take_along_axis(arr, indices, axis):
             )
 
         shape_ones = (1,) * indices.ndim
-        dest_dims = list(range(axis)) + [None] + list(range(axis + 1, indices.ndim))
+        dest_dims = (
+            list(range(axis)) + [None] + list(range(axis + 1, indices.ndim))
+        )
 
         # build a fancy index, consisting of orthogonal aranges, with the
         # requested index inserted at the right location

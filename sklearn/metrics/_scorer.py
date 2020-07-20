@@ -132,7 +132,9 @@ class _MultimetricScorer:
         if counter[_ThresholdScorer]:
             if is_regressor(estimator) and counter[_PredictScorer]:
                 return True
-            elif counter[_ProbaScorer] and not hasattr(estimator, "decision_function"):
+            elif counter[_ProbaScorer] and not hasattr(
+                estimator, "decision_function"
+            ):
                 return True
         return False
 
@@ -493,7 +495,8 @@ def _check_multimetric_scoring(estimator, scoring):
 
     if isinstance(scoring, (list, tuple, set)):
         err_msg = (
-            "The list/tuple elements must be unique " "strings of predefined scorers. "
+            "The list/tuple elements must be unique "
+            "strings of predefined scorers. "
         )
         invalid = False
         try:
@@ -523,7 +526,8 @@ def _check_multimetric_scoring(estimator, scoring):
                         f"in the given list. Got {scoring!r}"
                     )
             scorers = {
-                scorer: check_scoring(estimator, scoring=scorer) for scorer in scoring
+                scorer: check_scoring(estimator, scoring=scorer)
+                for scorer in scoring
             }
         else:
             raise ValueError(f"{err_msg} Empty list was given. {scoring!r}")
@@ -627,7 +631,8 @@ def make_scorer(
     sign = 1 if greater_is_better else -1
     if needs_proba and needs_threshold:
         raise ValueError(
-            "Set either needs_proba or needs_threshold to True," " but not both."
+            "Set either needs_proba or needs_threshold to True,"
+            " but not both."
         )
     if needs_proba:
         cls = _ProbaScorer
@@ -642,7 +647,9 @@ def make_scorer(
 explained_variance_scorer = make_scorer(explained_variance_score)
 r2_scorer = make_scorer(r2_score)
 max_error_scorer = make_scorer(max_error, greater_is_better=False)
-neg_mean_squared_error_scorer = make_scorer(mean_squared_error, greater_is_better=False)
+neg_mean_squared_error_scorer = make_scorer(
+    mean_squared_error, greater_is_better=False
+)
 neg_mean_squared_log_error_scorer = make_scorer(
     mean_squared_log_error, greater_is_better=False
 )
@@ -674,18 +681,26 @@ balanced_accuracy_scorer = make_scorer(balanced_accuracy_score)
 roc_auc_scorer = make_scorer(
     roc_auc_score, greater_is_better=True, needs_threshold=True
 )
-average_precision_scorer = make_scorer(average_precision_score, needs_threshold=True)
-roc_auc_ovo_scorer = make_scorer(roc_auc_score, needs_proba=True, multi_class="ovo")
+average_precision_scorer = make_scorer(
+    average_precision_score, needs_threshold=True
+)
+roc_auc_ovo_scorer = make_scorer(
+    roc_auc_score, needs_proba=True, multi_class="ovo"
+)
 roc_auc_ovo_weighted_scorer = make_scorer(
     roc_auc_score, needs_proba=True, multi_class="ovo", average="weighted"
 )
-roc_auc_ovr_scorer = make_scorer(roc_auc_score, needs_proba=True, multi_class="ovr")
+roc_auc_ovr_scorer = make_scorer(
+    roc_auc_score, needs_proba=True, multi_class="ovr"
+)
 roc_auc_ovr_weighted_scorer = make_scorer(
     roc_auc_score, needs_proba=True, multi_class="ovr", average="weighted"
 )
 
 # Score function for probabilistic classification
-neg_log_loss_scorer = make_scorer(log_loss, greater_is_better=False, needs_proba=True)
+neg_log_loss_scorer = make_scorer(
+    log_loss, greater_is_better=False, needs_proba=True
+)
 neg_brier_score_scorer = make_scorer(
     brier_score_loss, greater_is_better=False, needs_proba=True
 )
@@ -748,4 +763,6 @@ for name, metric in [
     SCORERS[name] = make_scorer(metric, average="binary")
     for average in ["macro", "micro", "samples", "weighted"]:
         qualified_name = "{0}_{1}".format(name, average)
-        SCORERS[qualified_name] = make_scorer(metric, pos_label=None, average=average)
+        SCORERS[qualified_name] = make_scorer(
+            metric, pos_label=None, average=average
+        )

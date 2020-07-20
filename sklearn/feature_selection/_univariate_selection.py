@@ -110,7 +110,9 @@ def f_oneway(*args):
     msw = sswn / float(dfwn)
     constant_features_idx = np.where(msw == 0.0)[0]
     if np.nonzero(msb)[0].size != msb.size and constant_features_idx.size:
-        warnings.warn("Features %s are constant." % constant_features_idx, UserWarning)
+        warnings.warn(
+            "Features %s are constant." % constant_features_idx, UserWarning
+        )
     f = msb / msw
     # flatten matrix to vector in sparse case
     f = np.asarray(f).ravel()
@@ -276,7 +278,9 @@ def f_regression(X, y, *, center=True):
     SelectPercentile: Select features based on percentile of the highest
         scores.
     """
-    X, y = check_X_y(X, y, accept_sparse=["csr", "csc", "coo"], dtype=np.float64)
+    X, y = check_X_y(
+        X, y, accept_sparse=["csr", "csc", "coo"], dtype=np.float64
+    )
     n_samples = X.shape[0]
 
     # compute centered values
@@ -289,7 +293,9 @@ def f_regression(X, y, *, center=True):
         else:
             X_means = X.mean(axis=0)
         # compute the scaled standard deviations via moments
-        X_norms = np.sqrt(row_norms(X.T, squared=True) - n_samples * X_means ** 2)
+        X_norms = np.sqrt(
+            row_norms(X.T, squared=True) - n_samples * X_means ** 2
+        )
     else:
         X_norms = row_norms(X.T)
 

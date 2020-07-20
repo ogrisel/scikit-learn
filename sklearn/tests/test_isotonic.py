@@ -35,7 +35,9 @@ def test_permutation_invariance():
     sample_weight = [1, 2, 3, 4, 5, 6, 7]
     x_s, y_s, sample_weight_s = shuffle(x, y, sample_weight, random_state=0)
     y_transformed = ir.fit_transform(x, y, sample_weight=sample_weight)
-    y_transformed_s = ir.fit(x_s, y_s, sample_weight=sample_weight_s).transform(x)
+    y_transformed_s = ir.fit(x_s, y_s, sample_weight=sample_weight_s).transform(
+        x
+    )
 
     assert_array_equal(y_transformed, y_transformed_s)
 
@@ -114,7 +116,9 @@ def test_isotonic_regression():
     # check that it is immune to permutation
     perm = np.random.permutation(len(y))
     ir = IsotonicRegression(y_min=0.0, y_max=1.0)
-    assert_array_equal(ir.fit_transform(x[perm], y[perm]), ir.fit_transform(x, y)[perm])
+    assert_array_equal(
+        ir.fit_transform(x[perm], y[perm]), ir.fit_transform(x, y)[perm]
+    )
     assert_array_equal(ir.transform(x[perm]), ir.transform(x)[perm])
 
     # check we don't crash when all x are equal:
@@ -215,7 +219,9 @@ def test_isotonic_regression_with_ties_in_differently_sized_groups():
 
 def test_isotonic_regression_reversed():
     y = np.array([10, 9, 10, 7, 6, 6.1, 5])
-    y_ = IsotonicRegression(increasing=False).fit_transform(np.arange(len(y)), y)
+    y_ = IsotonicRegression(increasing=False).fit_transform(
+        np.arange(len(y)), y
+    )
     assert_array_equal(np.ones(y_[:-1].shape), ((y_[:-1] - y_[1:]) >= 0))
 
 
@@ -230,7 +236,9 @@ def test_isotonic_regression_auto_decreasing():
         warnings.simplefilter("always")
         y_ = ir.fit_transform(x, y)
         # work-around for pearson divide warnings in scipy <= 0.17.0
-        assert all(["invalid value encountered in " in str(warn.message) for warn in w])
+        assert all(
+            ["invalid value encountered in " in str(warn.message) for warn in w]
+        )
 
     # Check that relationship decreases
     is_increasing = y_[0] < y_[-1]
@@ -248,7 +256,9 @@ def test_isotonic_regression_auto_increasing():
         warnings.simplefilter("always")
         y_ = ir.fit_transform(x, y)
         # work-around for pearson divide warnings in scipy <= 0.17.0
-        assert all(["invalid value encountered in " in str(warn.message) for warn in w])
+        assert all(
+            ["invalid value encountered in " in str(warn.message) for warn in w]
+        )
 
     # Check that relationship increases
     is_increasing = y_[0] < y_[-1]
@@ -469,7 +479,9 @@ def test_fast_predict():
     # X values over the -10,10 range
     X_train = 20.0 * rng.rand(n_samples) - 10
     y_train = (
-        np.less(rng.rand(n_samples), expit(X_train)).astype("int64").astype("float64")
+        np.less(rng.rand(n_samples), expit(X_train))
+        .astype("int64")
+        .astype("float64")
     )
 
     weights = rng.rand(n_samples)
@@ -524,7 +536,9 @@ def test_isotonic_dtype():
             assert res.dtype == expected_dtype
 
 
-@pytest.mark.parametrize("y_dtype", [np.int32, np.int64, np.float32, np.float64])
+@pytest.mark.parametrize(
+    "y_dtype", [np.int32, np.int64, np.float32, np.float64]
+)
 def test_isotonic_mismatched_dtype(y_dtype):
     # regression test for #15004
     # check that data are converted when X and y dtype differ

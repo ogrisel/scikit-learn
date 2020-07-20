@@ -288,7 +288,9 @@ def _escape_sub_callback(match):
 
 def _unquote(v):
     if v[:1] in ('"', "'"):
-        return re.sub(r"\\([0-9]{1,3}|u[0-9a-f]{4}|.)", _escape_sub_callback, v[1:-1])
+        return re.sub(
+            r"\\([0-9]{1,3}|u[0-9a-f]{4}|.)", _escape_sub_callback, v[1:-1]
+        )
     elif v in ("?", ""):
         return None
     else:
@@ -308,7 +310,9 @@ def _parse_values(s):
         return [_unquote(v) for v in values]
     if _RE_SPARSE_LINE.match(s):
         try:
-            return {int(k): _unquote(v) for k, v in _RE_SPARSE_KEY_VALUES.findall(s)}
+            return {
+                int(k): _unquote(v) for k, v in _RE_SPARSE_KEY_VALUES.findall(s)
+            }
         except ValueError as exc:
             # an ARFF syntax error in sparse data
             for match in _RE_SPARSE_KEY_VALUES.finditer(s):
@@ -508,7 +512,8 @@ class DenseGeneratorData(object):
                     raise BadDataFormat(row)
                 # XXX: int 0 is used for implicit values, not '0'
                 values = [
-                    values[i] if i in values else 0 for i in xrange(len(conversors))
+                    values[i] if i in values else 0
+                    for i in xrange(len(conversors))
                 ]
             else:
                 if len(values) != len(conversors):
@@ -1069,7 +1074,9 @@ class ArffEncoder(object):
                 or len(attr) != 2
                 or not isinstance(attr[0], basestring)
             ):
-                raise BadObject('Invalid attribute declaration "%s"' % str(attr))
+                raise BadObject(
+                    'Invalid attribute declaration "%s"' % str(attr)
+                )
 
             if isinstance(attr[1], basestring):
                 # Verify for invalid types
@@ -1121,7 +1128,9 @@ def load(fp, encode_nominal=False, return_type=DENSE):
     :return: a dictionary.
      """
     decoder = ArffDecoder()
-    return decoder.decode(fp, encode_nominal=encode_nominal, return_type=return_type)
+    return decoder.decode(
+        fp, encode_nominal=encode_nominal, return_type=return_type
+    )
 
 
 def loads(s, encode_nominal=False, return_type=DENSE):
@@ -1139,7 +1148,9 @@ def loads(s, encode_nominal=False, return_type=DENSE):
     :return: a dictionary.
     """
     decoder = ArffDecoder()
-    return decoder.decode(s, encode_nominal=encode_nominal, return_type=return_type)
+    return decoder.decode(
+        s, encode_nominal=encode_nominal, return_type=return_type
+    )
 
 
 def dump(obj, fp):

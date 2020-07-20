@@ -41,7 +41,14 @@ def _calculate_permutation_scores(
 
 @_deprecate_positional_args
 def permutation_importance(
-    estimator, X, y, *, scoring=None, n_repeats=5, n_jobs=None, random_state=None
+    estimator,
+    X,
+    y,
+    *,
+    scoring=None,
+    n_repeats=5,
+    n_jobs=None,
+    random_state=None,
 ):
     """Permutation importance for feature evaluation [BRE]_.
 

@@ -134,7 +134,9 @@ def test_lda_transform():
     lda = LatentDirichletAllocation(n_components=n_components, random_state=rng)
     X_trans = lda.fit_transform(X)
     assert (X_trans > 0.0).any()
-    assert_array_almost_equal(np.sum(X_trans, axis=1), np.ones(X_trans.shape[0]))
+    assert_array_almost_equal(
+        np.sum(X_trans, axis=1), np.ones(X_trans.shape[0])
+    )
 
 
 @pytest.mark.parametrize("method", ("online", "batch"))
@@ -175,7 +177,10 @@ def test_invalid_params():
 
     invalid_models = (
         ("n_components", LatentDirichletAllocation(n_components=0)),
-        ("learning_method", LatentDirichletAllocation(learning_method="unknown")),
+        (
+            "learning_method",
+            LatentDirichletAllocation(learning_method="unknown"),
+        ),
         ("total_samples", LatentDirichletAllocation(total_samples=0)),
         ("learning_offset", LatentDirichletAllocation(learning_offset=-1)),
     )
@@ -423,7 +428,9 @@ def test_dirichlet_expectation():
     )
 
 
-def check_verbosity(verbose, evaluate_every, expected_lines, expected_perplexities):
+def check_verbosity(
+    verbose, evaluate_every, expected_lines, expected_perplexities
+):
     n_components, X = _build_sparse_mtx()
     lda = LatentDirichletAllocation(
         n_components=n_components,
@@ -456,5 +463,9 @@ def check_verbosity(verbose, evaluate_every, expected_lines, expected_perplexiti
         (True, 2, 3, 1),
     ],
 )
-def test_verbosity(verbose, evaluate_every, expected_lines, expected_perplexities):
-    check_verbosity(verbose, evaluate_every, expected_lines, expected_perplexities)
+def test_verbosity(
+    verbose, evaluate_every, expected_lines, expected_perplexities
+):
+    check_verbosity(
+        verbose, evaluate_every, expected_lines, expected_perplexities
+    )

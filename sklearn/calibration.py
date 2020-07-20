@@ -37,7 +37,9 @@ from .model_selection import check_cv
 from .utils.validation import _deprecate_positional_args
 
 
-class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator):
+class CalibratedClassifierCV(
+    ClassifierMixin, MetaEstimatorMixin, BaseEstimator
+):
     """Probability calibration with isotonic regression or logistic regression.
 
     This class uses cross-validation to both estimate the parameters of a
@@ -288,7 +290,9 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
             The predicted probas.
         """
         check_is_fitted(self)
-        X = check_array(X, accept_sparse=["csc", "csr", "coo"], force_all_finite=False)
+        X = check_array(
+            X, accept_sparse=["csc", "csr", "coo"], force_all_finite=False
+        )
         # Compute the arithmetic mean of the predictions of the calibrated
         # classifiers
         mean_proba = np.zeros((X.shape[0], len(self.classes_)))
@@ -388,10 +392,13 @@ class _CalibratedClassifier:
                 df = df[:, 1:]
         else:
             raise RuntimeError(
-                "classifier has no decision_function or " "predict_proba method."
+                "classifier has no decision_function or "
+                "predict_proba method."
             )
 
-        idx_pos_class = self.label_encoder_.transform(self.base_estimator.classes_)
+        idx_pos_class = self.label_encoder_.transform(
+            self.base_estimator.classes_
+        )
 
         return df, idx_pos_class
 
@@ -434,7 +441,8 @@ class _CalibratedClassifier:
                 calibrator = _SigmoidCalibration()
             else:
                 raise ValueError(
-                    'method should be "sigmoid" or ' '"isotonic". Got %s.' % self.method
+                    'method should be "sigmoid" or '
+                    '"isotonic". Got %s.' % self.method
                 )
             calibrator.fit(this_df, Y[:, k], sample_weight)
             self.calibrators_.append(calibrator)
@@ -462,7 +470,9 @@ class _CalibratedClassifier:
 
         df, idx_pos_class = self._preproc(X)
 
-        for k, this_df, calibrator in zip(idx_pos_class, df.T, self.calibrators_):
+        for k, this_df, calibrator in zip(
+            idx_pos_class, df.T, self.calibrators_
+        ):
             if n_classes == 2:
                 k += 1
             proba[:, k] = calibrator.predict(this_df)
@@ -601,7 +611,9 @@ class _SigmoidCalibration(RegressorMixin, BaseEstimator):
 
 
 @_deprecate_positional_args
-def calibration_curve(y_true, y_prob, *, normalize=False, n_bins=5, strategy="uniform"):
+def calibration_curve(
+    y_true, y_prob, *, normalize=False, n_bins=5, strategy="uniform"
+):
     """Compute true and predicted probabilities for a calibration curve.
 
     The method assumes the inputs come from a binary classifier, and
@@ -680,7 +692,8 @@ def calibration_curve(y_true, y_prob, *, normalize=False, n_bins=5, strategy="un
     labels = np.unique(y_true)
     if len(labels) > 2:
         raise ValueError(
-            "Only binary classification is supported. " "Provided labels %s." % labels
+            "Only binary classification is supported. "
+            "Provided labels %s." % labels
         )
     y_true = label_binarize(y_true, classes=labels)[:, 0]
 

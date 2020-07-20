@@ -146,11 +146,15 @@ def _alpha_grid(
         X_sparse = sparse.isspmatrix(X)
         sparse_center = X_sparse and (fit_intercept or normalize)
         X = check_array(
-            X, accept_sparse="csc", copy=(copy_X and fit_intercept and not X_sparse)
+            X,
+            accept_sparse="csc",
+            copy=(copy_X and fit_intercept and not X_sparse),
         )
         if not X_sparse:
             # X can be touched inplace thanks to the above line
-            X, y, _, _, _ = _preprocess_data(X, y, fit_intercept, normalize, copy=False)
+            X, y, _, _, _ = _preprocess_data(
+                X, y, fit_intercept, normalize, copy=False
+            )
         Xy = safe_sparse_dot(X.T, y, dense_output=True)
 
         if sparse_center:
@@ -177,9 +181,9 @@ def _alpha_grid(
         alphas.fill(np.finfo(float).resolution)
         return alphas
 
-    return np.logspace(np.log10(alpha_max * eps), np.log10(alpha_max), num=n_alphas)[
-        ::-1
-    ]
+    return np.logspace(
+        np.log10(alpha_max * eps), np.log10(alpha_max), num=n_alphas
+    )[::-1]
 
 
 @_deprecate_positional_args
@@ -613,7 +617,9 @@ def enet_path(
             # We expect precompute to be already Fortran ordered when bypassing
             # checks
             if check_input:
-                precompute = check_array(precompute, dtype=X.dtype.type, order="C")
+                precompute = check_array(
+                    precompute, dtype=X.dtype.type, order="C"
+                )
             model = cd_fast.enet_coordinate_descent_gram(
                 coef_,
                 l1_reg,
@@ -629,7 +635,16 @@ def enet_path(
             )
         elif precompute is False:
             model = cd_fast.enet_coordinate_descent(
-                coef_, l1_reg, l2_reg, X, y, max_iter, tol, rng, random, positive
+                coef_,
+                l1_reg,
+                l2_reg,
+                X,
+                y,
+                max_iter,
+                tol,
+                rng,
+                random,
+                positive,
             )
         else:
             raise ValueError(
@@ -882,7 +897,8 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, LinearModel):
             or self.l1_ratio > 1
         ):
             raise ValueError(
-                "l1_ratio must be between 0 and 1; " f"got l1_ratio={self.l1_ratio}"
+                "l1_ratio must be between 0 and 1; "
+                f"got l1_ratio={self.l1_ratio}"
             )
 
         # Remember if X is copied
@@ -914,9 +930,12 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, LinearModel):
             if check_input:
                 if sparse.issparse(X):
                     raise ValueError(
-                        "Sample weights do not (yet) support " "sparse matrices."
+                        "Sample weights do not (yet) support "
+                        "sparse matrices."
                     )
-                sample_weight = _check_sample_weight(sample_weight, X, dtype=X.dtype)
+                sample_weight = _check_sample_weight(
+                    sample_weight, X, dtype=X.dtype
+                )
             # simplify things by rescaling sw to sum up to n_samples
             # => np.average(x, weights=sw) = np.mean(sw * x)
             sample_weight *= n_samples / np.sum(sample_weight)
@@ -1038,7 +1057,10 @@ class ElasticNet(MultiOutputMixin, RegressorMixin, LinearModel):
         """
         check_is_fitted(self)
         if sparse.isspmatrix(X):
-            return safe_sparse_dot(X, self.coef_.T, dense_output=True) + self.intercept_
+            return (
+                safe_sparse_dot(X, self.coef_.T, dense_output=True)
+                + self.intercept_
+            )
         else:
             return super()._decision_function(X)
 
@@ -1303,7 +1325,9 @@ def _path_residuals(
 
     # Do the ordering and type casting here, as if it is done in the path,
     # X is copied and a reference is kept here
-    X_train = check_array(X_train, accept_sparse="csc", dtype=dtype, order=X_order)
+    X_train = check_array(
+        X_train, accept_sparse="csc", dtype=dtype, order=X_order
+    )
     alphas, coefs, _ = path(X_train, y_train, **path_params)
     del X_train, y_train
 
@@ -1414,9 +1438,9 @@ class LinearModelCV(MultiOutputMixin, LinearModel, metaclass=ABCMeta):
                 X, y, validate_separately=(check_X_params, check_y_params)
             )
             if sparse.isspmatrix(X):
-                if hasattr(reference_to_old_X, "data") and not np.may_share_memory(
-                    reference_to_old_X.data, X.data
-                ):
+                if hasattr(
+                    reference_to_old_X, "data"
+                ) and not np.may_share_memory(reference_to_old_X.data, X.data):
                     # X is a sparse matrix and has been copied
                     copy_X = False
             elif not np.may_share_memory(reference_to_old_X, X):
@@ -1451,10 +1475,13 @@ class LinearModelCV(MultiOutputMixin, LinearModel, metaclass=ABCMeta):
             y = column_or_1d(y, warn=True)
         else:
             if sparse.isspmatrix(X):
-                raise TypeError("X should be dense but a sparse matrix was" "passed")
+                raise TypeError(
+                    "X should be dense but a sparse matrix was" "passed"
+                )
             elif y.ndim == 1:
                 raise ValueError(
-                    "For mono-task outputs, use " "%sCV" % self.__class__.__name__[9:]
+                    "For mono-task outputs, use "
+                    "%sCV" % self.__class__.__name__[9:]
                 )
 
         model = self._get_estimator()
@@ -2224,7 +2251,9 @@ class MultiTaskElasticNet(Lasso):
         )
 
         if not self.warm_start or not hasattr(self, "coef_"):
-            self.coef_ = np.zeros((n_tasks, n_features), dtype=X.dtype.type, order="F")
+            self.coef_ = np.zeros(
+                (n_tasks, n_features), dtype=X.dtype.type, order="F"
+            )
 
         l1_reg = self.alpha * self.l1_ratio * n_samples
         l2_reg = self.alpha * (1.0 - self.l1_ratio) * n_samples

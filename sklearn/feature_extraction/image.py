@@ -44,7 +44,9 @@ def _make_edges_3d(n_x, n_y, n_z=1):
         The size of the grid in the z direction, defaults to 1
     """
     vertices = np.arange(n_x * n_y * n_z).reshape((n_x, n_y, n_z))
-    edges_deep = np.vstack((vertices[:, :, :-1].ravel(), vertices[:, :, 1:].ravel()))
+    edges_deep = np.vstack(
+        (vertices[:, :, :-1].ravel(), vertices[:, :, 1:].ravel())
+    )
     edges_right = np.vstack((vertices[:, :-1].ravel(), vertices[:, 1:].ravel()))
     edges_down = np.vstack((vertices[:-1].ravel(), vertices[1:].ravel()))
     edges = np.hstack((edges_deep, edges_right, edges_down))
@@ -243,9 +245,15 @@ def _compute_n_patches(i_h, i_w, p_h, p_w, max_patches=None):
     all_patches = n_h * n_w
 
     if max_patches:
-        if isinstance(max_patches, (numbers.Integral)) and max_patches < all_patches:
+        if (
+            isinstance(max_patches, (numbers.Integral))
+            and max_patches < all_patches
+        ):
             return max_patches
-        elif isinstance(max_patches, (numbers.Integral)) and max_patches >= all_patches:
+        elif (
+            isinstance(max_patches, (numbers.Integral))
+            and max_patches >= all_patches
+        ):
             return all_patches
         elif isinstance(max_patches, (numbers.Real)) and 0 < max_patches < 1:
             return int(max_patches * all_patches)
@@ -304,7 +312,8 @@ def _extract_patches(arr, patch_shape=8, extraction_step=1):
     indexing_strides = arr[slices].strides
 
     patch_indices_shape = (
-        (np.array(arr.shape) - np.array(patch_shape)) // np.array(extraction_step)
+        (np.array(arr.shape) - np.array(patch_shape))
+        // np.array(extraction_step)
     ) + 1
 
     shape = tuple(list(patch_indices_shape) + list(patch_shape))
@@ -315,7 +324,9 @@ def _extract_patches(arr, patch_shape=8, extraction_step=1):
 
 
 @_deprecate_positional_args
-def extract_patches_2d(image, patch_size, *, max_patches=None, random_state=None):
+def extract_patches_2d(
+    image, patch_size, *, max_patches=None, random_state=None
+):
     """Reshape a 2D image into a collection of patches
 
     The resulting patches are allocated in a dedicated array.
@@ -379,7 +390,8 @@ def extract_patches_2d(image, patch_size, *, max_patches=None, random_state=None
 
     if p_h > i_h:
         raise ValueError(
-            "Height of the patch should be less than the height" " of the image."
+            "Height of the patch should be less than the height"
+            " of the image."
         )
 
     if p_w > i_w:
@@ -451,7 +463,9 @@ def reconstruct_from_patches_2d(patches, image_size):
         for j in range(i_w):
             # divide by the amount of overlap
             # XXX: is this the most efficient way? memory-wise yes, cpu wise?
-            img[i, j] /= float(min(i + 1, p_h, i_h - i) * min(j + 1, p_w, i_w - j))
+            img[i, j] /= float(
+                min(i + 1, p_h, i_h - i) * min(j + 1, p_w, i_w - j)
+            )
     return img
 
 

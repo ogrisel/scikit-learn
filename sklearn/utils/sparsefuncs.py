@@ -382,11 +382,15 @@ def _min_or_max_axis(X, axis, min_or_max):
 
     if axis == 0:
         res = sp.coo_matrix(
-            (value, (np.zeros(len(value)), major_index)), dtype=X.dtype, shape=(1, M)
+            (value, (np.zeros(len(value)), major_index)),
+            dtype=X.dtype,
+            shape=(1, M),
         )
     else:
         res = sp.coo_matrix(
-            (value, (major_index, np.zeros(len(value)))), dtype=X.dtype, shape=(M, 1)
+            (value, (major_index, np.zeros(len(value)))),
+            dtype=X.dtype,
+            shape=(M, 1),
         )
     return res.A.ravel()
 
@@ -418,7 +422,10 @@ def _sparse_min_max(X, axis):
 
 
 def _sparse_nan_min_max(X, axis):
-    return (_sparse_min_or_max(X, axis, np.fmin), _sparse_min_or_max(X, axis, np.fmax))
+    return (
+        _sparse_min_or_max(X, axis, np.fmin),
+        _sparse_min_or_max(X, axis, np.fmax),
+    )
 
 
 def min_max_axis(X, axis, ignore_nan=False):

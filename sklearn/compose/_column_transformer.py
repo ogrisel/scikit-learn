@@ -27,7 +27,11 @@ from ..utils.validation import check_array, check_is_fitted
 from ..utils.validation import _deprecate_positional_args
 
 
-__all__ = ["ColumnTransformer", "make_column_transformer", "make_column_selector"]
+__all__ = [
+    "ColumnTransformer",
+    "make_column_transformer",
+    "make_column_selector",
+]
 
 
 _ERR_MSG_1DCOLUMN = (
@@ -252,7 +256,9 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
             # interleave the validated column specifiers
             transformers = [
                 (name, trans, column)
-                for (name, trans, _), column in zip(self.transformers, self._columns)
+                for (name, trans, _), column in zip(
+                    self.transformers, self._columns
+                )
             ]
             # add transformer tuple for remainder
             if self._remainder[2] is not None:
@@ -264,7 +270,9 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
                 # replace 'passthrough' with identity transformer and
                 # skip in case of 'drop'
                 if trans == "passthrough":
-                    trans = FunctionTransformer(accept_sparse=True, check_inverse=False)
+                    trans = FunctionTransformer(
+                        accept_sparse=True, check_inverse=False
+                    )
                 elif trans == "drop":
                     continue
                 elif _is_empty_column_selection(column):
@@ -285,9 +293,9 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
         for t in transformers:
             if t in ("drop", "passthrough"):
                 continue
-            if not (hasattr(t, "fit") or hasattr(t, "fit_transform")) or not hasattr(
-                t, "transform"
-            ):
+            if not (
+                hasattr(t, "fit") or hasattr(t, "fit_transform")
+            ) or not hasattr(t, "transform"):
                 raise TypeError(
                     "All estimators should implement fit and "
                     "transform, or can be 'drop' or 'passthrough' "
@@ -311,12 +319,14 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
         the remaining columns.
         """
         is_transformer = (
-            hasattr(self.remainder, "fit") or hasattr(self.remainder, "fit_transform")
+            hasattr(self.remainder, "fit")
+            or hasattr(self.remainder, "fit_transform")
         ) and hasattr(self.remainder, "transform")
         if self.remainder not in ("drop", "passthrough") and not is_transformer:
             raise ValueError(
                 "The remainder keyword needs to be one of 'drop', "
-                "'passthrough', or estimator. '%s' was passed instead" % self.remainder
+                "'passthrough', or estimator. '%s' was passed instead"
+                % self.remainder
             )
 
         # Make it possible to check for reordered named columns on transform
@@ -357,7 +367,9 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
         check_is_fitted(self)
         feature_names = []
         for name, trans, column, _ in self._iter(fitted=True):
-            if trans == "drop" or (hasattr(column, "__len__") and not len(column)):
+            if trans == "drop" or (
+                hasattr(column, "__len__") and not len(column)
+            ):
                 continue
             if trans == "passthrough":
                 if hasattr(self, "_df_columns"):
@@ -374,9 +386,12 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
             if not hasattr(trans, "get_feature_names"):
                 raise AttributeError(
                     "Transformer %s (type %s) does not "
-                    "provide get_feature_names." % (str(name), type(trans).__name__)
+                    "provide get_feature_names."
+                    % (str(name), type(trans).__name__)
                 )
-            feature_names.extend([name + "__" + f for f in trans.get_feature_names()])
+            feature_names.extend(
+                [name + "__" + f for f in trans.get_feature_names()]
+            )
         return feature_names
 
     def _update_fitted_transformers(self, transformers):
@@ -408,7 +423,8 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
         hstack can raise an error or produce incorrect results.
         """
         names = [
-            name for name, _, _, _ in self._iter(fitted=True, replace_strings=True)
+            name
+            for name, _, _, _ in self._iter(fitted=True, replace_strings=True)
         ]
         for Xs, name in zip(result, names):
             if not getattr(Xs, "ndim", 0) == 2:
@@ -429,7 +445,9 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
         ) and self._n_features == n_features:
             return
 
-        neg_col_present = np.any([_is_negative_indexing(col) for col in self._columns])
+        neg_col_present = np.any(
+            [_is_negative_indexing(col) for col in self._columns]
+        )
         if neg_col_present and self._n_features != n_features:
             raise RuntimeError(
                 "At least one negative column was used to "
@@ -554,7 +572,8 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
         if any(sparse.issparse(X) for X in Xs):
             nnz = sum(X.nnz if sparse.issparse(X) else X.size for X in Xs)
             total = sum(
-                X.shape[0] * X.shape[1] if sparse.issparse(X) else X.size for X in Xs
+                X.shape[0] * X.shape[1] if sparse.issparse(X) else X.size
+                for X in Xs
             )
             density = nnz / total
             self.sparse_output_ = density < self.sparse_threshold
@@ -596,7 +615,9 @@ class ColumnTransformer(TransformerMixin, _BaseComposition):
                 "Number of features of the input must be equal "
                 "to or greater than that of the fitted "
                 "transformer. Transformer n_features is {0} "
-                "and input n_features is {1}.".format(self._n_features, X.shape[1])
+                "and input n_features is {1}.".format(
+                    self._n_features, X.shape[1]
+                )
             )
 
         # No column reordering allowed for named cols combined with remainder
@@ -701,7 +722,11 @@ def _get_transformer_list(estimators):
 
 
 def make_column_transformer(
-    *transformers, remainder="drop", sparse_threshold=0.3, n_jobs=None, verbose=False
+    *transformers,
+    remainder="drop",
+    sparse_threshold=0.3,
+    n_jobs=None,
+    verbose=False,
 ):
     """Construct a ColumnTransformer from the given transformers.
 
@@ -874,7 +899,8 @@ class make_column_selector:
     def __call__(self, df):
         if not hasattr(df, "iloc"):
             raise ValueError(
-                "make_column_selector can only be applied to " "pandas dataframes"
+                "make_column_selector can only be applied to "
+                "pandas dataframes"
             )
         df_row = df.iloc[:1]
         if self.dtype_include is not None or self.dtype_exclude is not None:

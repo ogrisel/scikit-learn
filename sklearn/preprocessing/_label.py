@@ -159,7 +159,9 @@ class LabelEncoder(TransformerMixin, BaseEstimator):
 
         diff = np.setdiff1d(y, np.arange(len(self.classes_)))
         if len(diff):
-            raise ValueError("y contains previously unseen labels: %s" % str(diff))
+            raise ValueError(
+                "y contains previously unseen labels: %s" % str(diff)
+            )
         y = np.asarray(y)
         return self.classes_[y]
 
@@ -294,7 +296,8 @@ class LabelBinarizer(TransformerMixin, BaseEstimator):
         self.y_type_ = type_of_target(y)
         if "multioutput" in self.y_type_:
             raise ValueError(
-                "Multioutput target data is not supported with " "label binarization"
+                "Multioutput target data is not supported with "
+                "label binarization"
             )
         if _num_samples(y) == 0:
             raise ValueError("y has 0 samples: %r" % y)
@@ -348,7 +351,9 @@ class LabelBinarizer(TransformerMixin, BaseEstimator):
 
         y_is_multilabel = type_of_target(y).startswith("multilabel")
         if y_is_multilabel and not self.y_type_.startswith("multilabel"):
-            raise ValueError("The object was not fitted with multilabel" " input.")
+            raise ValueError(
+                "The object was not fitted with multilabel" " input."
+            )
 
         return label_binarize(
             y,
@@ -413,7 +418,9 @@ class LabelBinarizer(TransformerMixin, BaseEstimator):
 
 
 @_deprecate_positional_args
-def label_binarize(y, *, classes, neg_label=0, pos_label=1, sparse_output=False):
+def label_binarize(
+    y, *, classes, neg_label=0, pos_label=1, sparse_output=False
+):
     """Binarize labels in a one-vs-all fashion
 
     Several regression and binary classification algorithms are
@@ -501,7 +508,8 @@ def label_binarize(y, *, classes, neg_label=0, pos_label=1, sparse_output=False)
     y_type = type_of_target(y)
     if "multioutput" in y_type:
         raise ValueError(
-            "Multioutput target data is not supported with label " "binarization"
+            "Multioutput target data is not supported with label "
+            "binarization"
         )
     if y_type == "unknown":
         raise ValueError("The type of target data is not known")
@@ -550,7 +558,8 @@ def label_binarize(y, *, classes, neg_label=0, pos_label=1, sparse_output=False)
             Y.data = data
     else:
         raise ValueError(
-            "%s target data is not supported with label " "binarization" % y_type
+            "%s target data is not supported with label "
+            "binarization" % y_type
         )
 
     if not sparse_output:
@@ -626,11 +635,14 @@ def _inverse_binarize_thresholding(y, output_type, classes, threshold):
     """Inverse label binarization transformation using thresholding."""
 
     if output_type == "binary" and y.ndim == 2 and y.shape[1] > 2:
-        raise ValueError("output_type='binary', but y.shape = {0}".format(y.shape))
+        raise ValueError(
+            "output_type='binary', but y.shape = {0}".format(y.shape)
+        )
 
     if output_type != "binary" and y.shape[1] != len(classes):
         raise ValueError(
-            "The number of class is not equal to the number of " "dimension of y."
+            "The number of class is not equal to the number of "
+            "dimension of y."
         )
 
     classes = np.asarray(classes)
@@ -799,7 +811,9 @@ class MultiLabelBinarizer(TransformerMixin, BaseEstimator):
         class_mapping[:] = tmp
         self.classes_, inverse = np.unique(class_mapping, return_inverse=True)
         # ensure yt.indices keeps its current dtype
-        yt.indices = np.array(inverse[yt.indices], dtype=yt.indices.dtype, copy=False)
+        yt.indices = np.array(
+            inverse[yt.indices], dtype=yt.indices.dtype, copy=False
+        )
 
         if not self.sparse_output:
             yt = yt.toarray()
@@ -834,7 +848,9 @@ class MultiLabelBinarizer(TransformerMixin, BaseEstimator):
 
     def _build_cache(self):
         if self._cached_dict is None:
-            self._cached_dict = dict(zip(self.classes_, range(len(self.classes_))))
+            self._cached_dict = dict(
+                zip(self.classes_, range(len(self.classes_)))
+            )
 
         return self._cached_dict
 
@@ -866,7 +882,9 @@ class MultiLabelBinarizer(TransformerMixin, BaseEstimator):
             indptr.append(len(indices))
         if unknown:
             warnings.warn(
-                "unknown class(es) {0} will be ignored".format(sorted(unknown, key=str))
+                "unknown class(es) {0} will be ignored".format(
+                    sorted(unknown, key=str)
+                )
             )
         data = np.ones(len(indices), dtype=int)
 
@@ -912,7 +930,9 @@ class MultiLabelBinarizer(TransformerMixin, BaseEstimator):
                     "Expected only 0s and 1s in label indicator. "
                     "Also got {0}".format(unexpected)
                 )
-            return [tuple(self.classes_.compress(indicators)) for indicators in yt]
+            return [
+                tuple(self.classes_.compress(indicators)) for indicators in yt
+            ]
 
     def _more_tags(self):
         return {"X_types": ["2dlabels"]}

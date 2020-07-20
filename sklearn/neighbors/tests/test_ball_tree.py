@@ -44,7 +44,9 @@ def brute_force_neighbors(X, Y, k, metric, **kwargs):
     return dist, ind
 
 
-@pytest.mark.parametrize("metric", itertools.chain(BOOLEAN_METRICS, DISCRETE_METRICS))
+@pytest.mark.parametrize(
+    "metric", itertools.chain(BOOLEAN_METRICS, DISCRETE_METRICS)
+)
 def test_ball_tree_query_metrics(metric):
     rng = check_random_state(0)
     if metric in BOOLEAN_METRICS:

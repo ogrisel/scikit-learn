@@ -224,7 +224,8 @@ def spectral_embedding(
     except ImportError:
         if eigen_solver == "amg":
             raise ValueError(
-                "The eigen_solver was set to 'amg', but pyamg is " "not available."
+                "The eigen_solver was set to 'amg', but pyamg is "
+                "not available."
             )
 
     if eigen_solver is None:
@@ -284,7 +285,12 @@ def spectral_embedding(
             laplacian *= -1
             v0 = random_state.uniform(-1, 1, laplacian.shape[0])
             _, diffusion_map = eigsh(
-                laplacian, k=n_components, sigma=1.0, which="LM", tol=eigen_tol, v0=v0
+                laplacian,
+                k=n_components,
+                sigma=1.0,
+                which="LM",
+                tol=eigen_tol,
+                v0=v0,
             )
             embedding = diffusion_map.T[n_components::-1]
             if norm_laplacian:
@@ -316,7 +322,9 @@ def spectral_embedding(
         # matrix to the solver and afterward set it back to the original.
         diag_shift = 1e-5 * sparse.eye(laplacian.shape[0])
         laplacian += diag_shift
-        ml = smoothed_aggregation_solver(check_array(laplacian, accept_sparse="csr"))
+        ml = smoothed_aggregation_solver(
+            check_array(laplacian, accept_sparse="csr")
+        )
         laplacian -= diag_shift
 
         M = ml.aspreconditioner()
@@ -506,7 +514,9 @@ class SpectralEmbedding(BaseEstimator):
             return self.affinity_matrix_
         if self.affinity == "precomputed_nearest_neighbors":
             estimator = NearestNeighbors(
-                n_neighbors=self.n_neighbors, n_jobs=self.n_jobs, metric="precomputed"
+                n_neighbors=self.n_neighbors,
+                n_jobs=self.n_jobs,
+                metric="precomputed",
             ).fit(X)
             connectivity = estimator.kneighbors_graph(X=X, mode="connectivity")
             self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
@@ -534,7 +544,9 @@ class SpectralEmbedding(BaseEstimator):
                 )
                 return self.affinity_matrix_
         if self.affinity == "rbf":
-            self.gamma_ = self.gamma if self.gamma is not None else 1.0 / X.shape[1]
+            self.gamma_ = (
+                self.gamma if self.gamma is not None else 1.0 / X.shape[1]
+            )
             self.affinity_matrix_ = rbf_kernel(X, gamma=self.gamma_)
             return self.affinity_matrix_
         self.affinity_matrix_ = self.affinity(X)

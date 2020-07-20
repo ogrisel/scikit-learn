@@ -295,7 +295,9 @@ class IsolationForest(OutlierMixin, BaseBagging):
             return self
 
         # else, define offset_ wrt contamination parameter
-        self.offset_ = np.percentile(self.score_samples(X), 100.0 * self.contamination)
+        self.offset_ = np.percentile(
+            self.score_samples(X), 100.0 * self.contamination
+        )
 
         return self
 
@@ -460,7 +462,10 @@ class IsolationForest(OutlierMixin, BaseBagging):
 
         scores = 2 ** (
             -depths
-            / (len(self.estimators_) * _average_path_length([self.max_samples_]))
+            / (
+                len(self.estimators_)
+                * _average_path_length([self.max_samples_])
+            )
         )
         return scores
 

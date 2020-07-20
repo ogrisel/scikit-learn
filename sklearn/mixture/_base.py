@@ -57,7 +57,8 @@ def _check_X(X, n_components=None, n_features=None, ensure_min_samples=1):
     if n_components is not None and X.shape[0] < n_components:
         raise ValueError(
             "Expected n_samples >= n_components "
-            "but got n_components = %d, n_samples = %d" % (n_components, X.shape[0])
+            "but got n_components = %d, n_samples = %d"
+            % (n_components, X.shape[0])
         )
     if n_features is not None and X.shape[1] != n_features:
         raise ValueError(
@@ -166,7 +167,9 @@ class BaseMixture(DensityMixin, BaseEstimator, metaclass=ABCMeta):
             resp = np.zeros((n_samples, self.n_components))
             label = (
                 cluster.KMeans(
-                    n_clusters=self.n_components, n_init=1, random_state=random_state
+                    n_clusters=self.n_components,
+                    n_init=1,
+                    random_state=random_state,
                 )
                 .fit(X)
                 .labels_
@@ -461,7 +464,9 @@ class BaseMixture(DensityMixin, BaseEstimator, metaclass=ABCMeta):
         elif self.covariance_type == "tied":
             X = np.vstack(
                 [
-                    rng.multivariate_normal(mean, self.covariances_, int(sample))
+                    rng.multivariate_normal(
+                        mean, self.covariances_, int(sample)
+                    )
                     for (mean, sample) in zip(self.means_, n_samples_comp)
                 ]
             )
@@ -476,7 +481,10 @@ class BaseMixture(DensityMixin, BaseEstimator, metaclass=ABCMeta):
             )
 
         y = np.concatenate(
-            [np.full(sample, j, dtype=int) for j, sample in enumerate(n_samples_comp)]
+            [
+                np.full(sample, j, dtype=int)
+                for j, sample in enumerate(n_samples_comp)
+            ]
         )
 
         return (X, y)

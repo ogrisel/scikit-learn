@@ -72,7 +72,14 @@ def _generate_bagging_indices(
 
 
 def _parallel_build_estimators(
-    n_estimators, ensemble, X, y, sample_weight, seeds, total_n_estimators, verbose
+    n_estimators,
+    ensemble,
+    X,
+    y,
+    sample_weight,
+    seeds,
+    total_n_estimators,
+    verbose,
 ):
     """Private function used to build a batch of estimators within a job."""
     # Retrieve settings
@@ -81,7 +88,9 @@ def _parallel_build_estimators(
     max_samples = ensemble._max_samples
     bootstrap = ensemble.bootstrap
     bootstrap_features = ensemble.bootstrap_features
-    support_sample_weight = has_fit_parameter(ensemble.base_estimator_, "sample_weight")
+    support_sample_weight = has_fit_parameter(
+        ensemble.base_estimator_, "sample_weight"
+    )
     if not support_sample_weight and sample_weight is not None:
         raise ValueError("The base estimator doesn't support sample weight")
 
@@ -97,7 +106,9 @@ def _parallel_build_estimators(
             )
 
         random_state = seeds[i]
-        estimator = ensemble._make_estimator(append=False, random_state=random_state)
+        estimator = ensemble._make_estimator(
+            append=False, random_state=random_state
+        )
 
         # Draw random feature, sample indices
         features, indices = _generate_bagging_indices(
@@ -226,7 +237,9 @@ class BaseBagging(BaseEnsemble, metaclass=ABCMeta):
         random_state=None,
         verbose=0,
     ):
-        super().__init__(base_estimator=base_estimator, n_estimators=n_estimators)
+        super().__init__(
+            base_estimator=base_estimator, n_estimators=n_estimators
+        )
 
         self.max_samples = max_samples
         self.max_features = max_features
@@ -467,7 +480,10 @@ class BaseBagging(BaseEnsemble, metaclass=ABCMeta):
         to reduce the object memory footprint by not storing the sampling
         data. Thus fetching the property may be slower than expected.
         """
-        return [sample_indices for _, sample_indices in self._get_estimators_indices()]
+        return [
+            sample_indices
+            for _, sample_indices in self._get_estimators_indices()
+        ]
 
 
 class BaggingClassifier(ClassifierMixin, BaseBagging):
@@ -662,7 +678,9 @@ class BaggingClassifier(ClassifierMixin, BaseBagging):
         predictions = np.zeros((n_samples, n_classes_))
 
         for estimator, samples, features in zip(
-            self.estimators_, self.estimators_samples_, self.estimators_features_
+            self.estimators_,
+            self.estimators_samples_,
+            self.estimators_features_,
         ):
             # Create mask for OOB samples
             mask = ~indices_to_mask(samples, n_samples)
@@ -688,7 +706,9 @@ class BaggingClassifier(ClassifierMixin, BaseBagging):
                 "to compute any reliable oob estimates."
             )
 
-        oob_decision_function = predictions / predictions.sum(axis=1)[:, np.newaxis]
+        oob_decision_function = (
+            predictions / predictions.sum(axis=1)[:, np.newaxis]
+        )
         oob_score = accuracy_score(y, np.argmax(predictions, axis=1))
 
         self.oob_decision_function_ = oob_decision_function
@@ -721,7 +741,9 @@ class BaggingClassifier(ClassifierMixin, BaseBagging):
             The predicted classes.
         """
         predicted_probabilitiy = self.predict_proba(X)
-        return self.classes_.take((np.argmax(predicted_probabilitiy, axis=1)), axis=0)
+        return self.classes_.take(
+            (np.argmax(predicted_probabilitiy, axis=1)), axis=0
+        )
 
     def predict_proba(self, X):
         """Predict class probabilities for X.
@@ -804,7 +826,10 @@ class BaggingClassifier(ClassifierMixin, BaseBagging):
         if hasattr(self.base_estimator_, "predict_log_proba"):
             # Check data
             X = check_array(
-                X, accept_sparse=["csr", "csc"], dtype=None, force_all_finite=False
+                X,
+                accept_sparse=["csr", "csc"],
+                dtype=None,
+                force_all_finite=False,
             )
 
             if self.n_features_ != X.shape[1]:
@@ -1121,7 +1146,9 @@ class BaggingRegressor(RegressorMixin, BaseBagging):
         n_predictions = np.zeros((n_samples,))
 
         for estimator, samples, features in zip(
-            self.estimators_, self.estimators_samples_, self.estimators_features_
+            self.estimators_,
+            self.estimators_samples_,
+            self.estimators_features_,
         ):
             # Create mask for OOB samples
             mask = ~indices_to_mask(samples, n_samples)

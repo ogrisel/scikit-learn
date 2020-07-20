@@ -16,7 +16,9 @@ from sklearn.utils._testing import (
 )
 
 from sklearn.cluster import AffinityPropagation
-from sklearn.cluster._affinity_propagation import _equal_similarities_and_preferences
+from sklearn.cluster._affinity_propagation import (
+    _equal_similarities_and_preferences,
+)
 from sklearn.cluster import affinity_propagation
 from sklearn.datasets import make_blobs
 from sklearn.metrics import euclidean_distances
@@ -52,7 +54,9 @@ def test_affinity_propagation():
     )
     labels_precomputed = af.fit(S).labels_
 
-    af = AffinityPropagation(preference=preference, verbose=True, random_state=37)
+    af = AffinityPropagation(
+        preference=preference, verbose=True, random_state=37
+    )
     labels = af.fit(X).labels_
 
     assert_array_equal(labels, labels_precomputed)
@@ -172,7 +176,9 @@ def test_affinity_propagation_predict_non_convergence():
 
 def test_affinity_propagation_non_convergence_regressiontest():
     X = np.array([[1, 0, 0, 0, 0, 0], [0, 1, 1, 1, 0, 0], [0, 0, 1, 0, 0, 1]])
-    af = AffinityPropagation(affinity="euclidean", max_iter=2, random_state=34).fit(X)
+    af = AffinityPropagation(
+        affinity="euclidean", max_iter=2, random_state=34
+    ).fit(X)
     assert_array_equal(np.array([-1, -1, -1]), af.labels_)
 
 
@@ -233,7 +239,9 @@ def test_affinity_propagation_random_state_warning():
         AffinityPropagation().fit(X)
 
 
-@pytest.mark.parametrize("centers", [csr_matrix(np.zeros((1, 10))), np.zeros((1, 10))])
+@pytest.mark.parametrize(
+    "centers", [csr_matrix(np.zeros((1, 10))), np.zeros((1, 10))]
+)
 def test_affinity_propagation_convergence_warning_dense_sparse(centers):
     """Non-regression, see #13334"""
     rng = np.random.RandomState(42)

@@ -286,7 +286,9 @@ class KNeighborsClassifier(KNeighborsMixin, ClassifierMixin, NeighborsBase):
         return probabilities
 
 
-class RadiusNeighborsClassifier(RadiusNeighborsMixin, ClassifierMixin, NeighborsBase):
+class RadiusNeighborsClassifier(
+    RadiusNeighborsMixin, ClassifierMixin, NeighborsBase
+):
     """Classifier implementing a vote among neighbors within a given radius
 
     Read more in the :ref:`User Guide <classification>`.

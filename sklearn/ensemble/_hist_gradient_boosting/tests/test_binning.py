@@ -19,10 +19,14 @@ DATA = (
 )
 
 
-def _find_binning_thresholds(data, max_bins=255, subsample=int(2e5), random_state=None):
+def _find_binning_thresholds(
+    data, max_bins=255, subsample=int(2e5), random_state=None
+):
     # Just a redef to avoid having to pass arguments all the time (as the
     # function is private we don't use default values for parameters)
-    return _find_binning_thresholds_orig(data, max_bins, subsample, random_state)
+    return _find_binning_thresholds_orig(
+        data, max_bins, subsample, random_state
+    )
 
 
 def test_find_binning_thresholds_regular_data():
@@ -53,7 +57,9 @@ def test_find_binning_thresholds_small_regular_data():
 
 
 def test_find_binning_thresholds_random_data():
-    bin_thresholds = _find_binning_thresholds(DATA, max_bins=255, random_state=0)
+    bin_thresholds = _find_binning_thresholds(
+        DATA, max_bins=255, random_state=0
+    )
     assert len(bin_thresholds) == 2
     for i in range(len(bin_thresholds)):
         assert bin_thresholds[i].shape == (254,)  # 255 - 1
@@ -64,12 +70,16 @@ def test_find_binning_thresholds_random_data():
     )
 
     assert_allclose(
-        bin_thresholds[1][[64, 128, 192]], np.array([9.99, 10.00, 10.01]), atol=1e-2
+        bin_thresholds[1][[64, 128, 192]],
+        np.array([9.99, 10.00, 10.01]),
+        atol=1e-2,
     )
 
 
 def test_find_binning_thresholds_low_n_bins():
-    bin_thresholds = _find_binning_thresholds(DATA, max_bins=128, random_state=0)
+    bin_thresholds = _find_binning_thresholds(
+        DATA, max_bins=128, random_state=0
+    )
     assert len(bin_thresholds) == 2
     for i in range(len(bin_thresholds)):
         assert bin_thresholds[i].shape == (127,)  # 128 - 1
@@ -94,7 +104,9 @@ def test_bin_mapper_n_features_transform():
 
 @pytest.mark.parametrize("max_bins", [16, 128, 255])
 def test_map_to_bins(max_bins):
-    bin_thresholds = _find_binning_thresholds(DATA, max_bins=max_bins, random_state=0)
+    bin_thresholds = _find_binning_thresholds(
+        DATA, max_bins=max_bins, random_state=0
+    )
     binned = np.zeros_like(DATA, dtype=X_BINNED_DTYPE, order="F")
     last_bin_idx = max_bins
     _map_to_bins(DATA, bin_thresholds, last_bin_idx, binned)
@@ -126,7 +138,9 @@ def test_bin_mapper_random_data(max_bins):
     assert binned.shape == (n_samples, n_features)
     assert binned.dtype == np.uint8
     assert_array_equal(binned.min(axis=0), np.array([0, 0]))
-    assert_array_equal(binned.max(axis=0), np.array([max_bins - 1, max_bins - 1]))
+    assert_array_equal(
+        binned.max(axis=0), np.array([max_bins - 1, max_bins - 1])
+    )
     assert len(mapper.bin_thresholds_) == n_features
     for bin_thresholds_feature in mapper.bin_thresholds_:
         assert bin_thresholds_feature.shape == (max_bins - 1,)
@@ -140,7 +154,9 @@ def test_bin_mapper_random_data(max_bins):
             assert abs(count - expected_count_per_bin) < tol
 
 
-@pytest.mark.parametrize("n_samples, max_bins", [(5, 5), (5, 10), (5, 11), (42, 255)])
+@pytest.mark.parametrize(
+    "n_samples, max_bins", [(5, 5), (5, 10), (5, 11), (42, 255)]
+)
 def test_bin_mapper_small_random_data(n_samples, max_bins):
     data = np.random.RandomState(42).normal(size=n_samples).reshape(-1, 1)
     assert len(np.unique(data)) == n_samples
@@ -152,7 +168,9 @@ def test_bin_mapper_small_random_data(n_samples, max_bins):
 
     assert binned.shape == data.shape
     assert binned.dtype == np.uint8
-    assert_array_equal(binned.ravel()[np.argsort(data.ravel())], np.arange(n_samples))
+    assert_array_equal(
+        binned.ravel()[np.argsort(data.ravel())], np.arange(n_samples)
+    )
 
 
 @pytest.mark.parametrize(
@@ -226,7 +244,9 @@ def test_n_bins_non_missing(n_bins, diff):
     X = list(range(n_unique_values)) * 2
     X = np.array(X).reshape(-1, 1)
     mapper = _BinMapper(n_bins=n_bins).fit(X)
-    assert np.all(mapper.n_bins_non_missing_ == min(n_bins - 1, n_unique_values))
+    assert np.all(
+        mapper.n_bins_non_missing_ == min(n_bins - 1, n_unique_values)
+    )
 
 
 def test_subsample():

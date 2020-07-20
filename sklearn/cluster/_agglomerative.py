@@ -100,7 +100,9 @@ def _single_linkage_tree(
     from scipy.sparse.csgraph import minimum_spanning_tree
 
     # explicitly cast connectivity to ensure safety
-    connectivity = connectivity.astype("float64", **_astype_copy_false(connectivity))
+    connectivity = connectivity.astype(
+        "float64", **_astype_copy_false(connectivity)
+    )
 
     # Ensure zero distances aren't ignored by setting them to "epsilon"
     epsilon_value = np.finfo(dtype=connectivity.data.dtype).eps
@@ -291,7 +293,9 @@ def ward_tree(X, *, connectivity=None, n_clusters=None, return_distance=False):
     moments_2 = np.zeros((n_nodes, n_features), order="C")
     moments_2[:n_samples] = X
     inertia = np.empty(len(coord_row), dtype=np.float64, order="C")
-    _hierarchical.compute_ward_dist(moments_1, moments_2, coord_row, coord_col, inertia)
+    _hierarchical.compute_ward_dist(
+        moments_1, moments_2, coord_row, coord_col, inertia
+    )
     inertia = list(zip(inertia, coord_row, coord_col))
     heapify(inertia)
 
@@ -336,10 +340,15 @@ def ward_tree(X, *, connectivity=None, n_clusters=None, return_distance=False):
         n_additions = len(coord_row)
         ini = np.empty(n_additions, dtype=np.float64, order="C")
 
-        _hierarchical.compute_ward_dist(moments_1, moments_2, coord_row, coord_col, ini)
+        _hierarchical.compute_ward_dist(
+            moments_1, moments_2, coord_row, coord_col, ini
+        )
 
         # List comprehension is faster than a for loop
-        [heappush(inertia, (ini[idx], k, coord_col[idx])) for idx in range(n_additions)]
+        [
+            heappush(inertia, (ini[idx], k, coord_col[idx]))
+            for idx in range(n_additions)
+        ]
 
     # Separate leaves in children (empty lists up to now)
     n_leaves = n_samples
@@ -458,7 +467,9 @@ def linkage_tree(
         )
 
     if affinity == "cosine" and np.any(~np.any(X, axis=1)):
-        raise ValueError("Cosine affinity cannot be used when X contains zero vectors")
+        raise ValueError(
+            "Cosine affinity cannot be used when X contains zero vectors"
+        )
 
     if connectivity is None:
         from scipy.cluster import hierarchy  # imports PIL
@@ -480,7 +491,8 @@ def linkage_tree(
             # by sklearn.metrics.pairwise_distances.
             if X.shape[0] != X.shape[1]:
                 raise ValueError(
-                    "Distance matrix should be square, " "Got matrix of shape {X.shape}"
+                    "Distance matrix should be square, "
+                    "Got matrix of shape {X.shape}"
                 )
             i, j = np.triu_indices(X.shape[0], k=1)
             X = X[i, j]
@@ -570,14 +582,18 @@ def linkage_tree(
     # without the numpy overhead of slicing CSR indices and data.
     connectivity = connectivity.tolil()
     # We are storing the graph in a list of IntFloatDict
-    for ind, (data, row) in enumerate(zip(connectivity.data, connectivity.rows)):
+    for ind, (data, row) in enumerate(
+        zip(connectivity.data, connectivity.rows)
+    ):
         A[ind] = IntFloatDict(
             np.asarray(row, dtype=np.intp), np.asarray(data, dtype=np.float64)
         )
         # We keep only the upper triangular for the heap
         # Generator expressions are faster than arrays on the following
         inertia.extend(
-            _hierarchical.WeightedEdge(d, ind, r) for r, d in zip(row, data) if r < ind
+            _hierarchical.WeightedEdge(d, ind, r)
+            for r, d in zip(row, data)
+            if r < ind
         )
     del connectivity
 
@@ -882,7 +898,8 @@ class AgglomerativeClustering(ClusterMixin, BaseEstimator):
 
         if self.distance_threshold is not None and not self.compute_full_tree:
             raise ValueError(
-                "compute_full_tree must be True if " "distance_threshold is set."
+                "compute_full_tree must be True if "
+                "distance_threshold is set."
             )
 
         if self.linkage == "ward" and self.affinity != "euclidean":
@@ -938,9 +955,12 @@ class AgglomerativeClustering(ClusterMixin, BaseEstimator):
             return_distance=return_distance,
             **kwargs,
         )
-        (self.children_, self.n_connected_components_, self.n_leaves_, parents) = out[
-            :4
-        ]
+        (
+            self.children_,
+            self.n_connected_components_,
+            self.n_leaves_,
+            parents,
+        ) = out[:4]
 
         if return_distance:
             self.distances_ = out[-1]
@@ -952,7 +972,9 @@ class AgglomerativeClustering(ClusterMixin, BaseEstimator):
 
         # Cut the tree
         if compute_full_tree:
-            self.labels_ = _hc_cut(self.n_clusters_, self.children_, self.n_leaves_)
+            self.labels_ = _hc_cut(
+                self.n_clusters_, self.children_, self.n_leaves_
+            )
         else:
             labels = _hierarchical.hc_get_heads(parents, copy=False)
             # copy to avoid holding a reference on the original array

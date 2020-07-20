@@ -99,7 +99,8 @@ class ParameterGrid:
     def __init__(self, param_grid):
         if not isinstance(param_grid, (Mapping, Iterable)):
             raise TypeError(
-                "Parameter grid is not a dict or " "a list ({!r})".format(param_grid)
+                "Parameter grid is not a dict or "
+                "a list ({!r})".format(param_grid)
             )
 
         if isinstance(param_grid, Mapping):
@@ -110,7 +111,9 @@ class ParameterGrid:
         # check if all entries are dictionaries of lists
         for grid in param_grid:
             if not isinstance(grid, dict):
-                raise TypeError("Parameter grid is not a " "dict ({!r})".format(grid))
+                raise TypeError(
+                    "Parameter grid is not a " "dict ({!r})".format(grid)
+                )
             for key in grid:
                 if not isinstance(grid[key], Iterable):
                     raise TypeError(
@@ -145,7 +148,8 @@ class ParameterGrid:
         # Product function that can handle iterables (np.product can't).
         product = partial(reduce, operator.mul)
         return sum(
-            product(len(v) for v in p.values()) if p else 1 for p in self.param_grid
+            product(len(v) for v in p.values()) if p else 1
+            for p in self.param_grid
         )
 
     def __getitem__(self, ind):
@@ -262,7 +266,8 @@ class ParameterSampler:
         for dist in param_distributions:
             if not isinstance(dist, dict):
                 raise TypeError(
-                    "Parameter distribution is not a " "dict ({!r})".format(dist)
+                    "Parameter distribution is not a "
+                    "dict ({!r})".format(dist)
                 )
             for key in dist:
                 if not isinstance(dist[key], Iterable) and not hasattr(
@@ -270,7 +275,9 @@ class ParameterSampler:
                 ):
                     raise TypeError(
                         "Parameter value is not iterable "
-                        "or distribution (key={!r}, value={!r})".format(key, dist[key])
+                        "or distribution (key={!r}, value={!r})".format(
+                            key, dist[key]
+                        )
                     )
         self.n_iter = n_iter
         self.random_state = random_state
@@ -295,11 +302,14 @@ class ParameterSampler:
                 warnings.warn(
                     "The total space of parameters %d is smaller "
                     "than n_iter=%d. Running %d iterations. For exhaustive "
-                    "searches, use GridSearchCV." % (grid_size, self.n_iter, grid_size),
+                    "searches, use GridSearchCV."
+                    % (grid_size, self.n_iter, grid_size),
                     UserWarning,
                 )
                 n_iter = grid_size
-            for i in sample_without_replacement(grid_size, n_iter, random_state=rng):
+            for i in sample_without_replacement(
+                grid_size, n_iter, random_state=rng
+            ):
                 yield param_grid[i]
 
         else:
@@ -498,7 +508,8 @@ class BaseSearchCV(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
         if self.scorer_ is None:
             raise ValueError(
                 "No score function explicitly defined, "
-                "and the estimator doesn't provide one %s" % self.best_estimator_
+                "and the estimator doesn't provide one %s"
+                % self.best_estimator_
             )
         if isinstance(self.scorer_, dict):
             if self.multimetric_:
@@ -808,8 +819,12 @@ class BaseSearchCV(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
                         candidate_progress=(cand_idx, n_candidates),
                         **fit_and_score_kwargs,
                     )
-                    for (cand_idx, parameters), (split_idx, (train, test)) in product(
-                        enumerate(candidate_params), enumerate(cv.split(X, y, groups))
+                    for (cand_idx, parameters), (
+                        split_idx,
+                        (train, test),
+                    ) in product(
+                        enumerate(candidate_params),
+                        enumerate(cv.split(X, y, groups)),
                     )
                 )
 
@@ -823,7 +838,9 @@ class BaseSearchCV(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
                     raise ValueError(
                         "cv.split and cv.get_n_splits returned "
                         "inconsistent results. Expected {} "
-                        "splits, got {}".format(n_splits, len(out) // n_candidates)
+                        "splits, got {}".format(
+                            n_splits, len(out) // n_candidates
+                        )
                     )
 
                 # For callable self.scoring, the return type is only know after
@@ -836,7 +853,9 @@ class BaseSearchCV(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
                 all_out.extend(out)
 
                 nonlocal results
-                results = self._format_results(all_candidate_params, n_splits, all_out)
+                results = self._format_results(
+                    all_candidate_params, n_splits, all_out
+                )
                 return results
 
             self._run_search(evaluate_candidates)
@@ -861,10 +880,14 @@ class BaseSearchCV(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
                 self.best_index_ = self.refit(results)
                 if not isinstance(self.best_index_, numbers.Integral):
                     raise TypeError("best_index_ returned is not an integer")
-                if self.best_index_ < 0 or self.best_index_ >= len(results["params"]):
+                if self.best_index_ < 0 or self.best_index_ >= len(
+                    results["params"]
+                ):
                     raise IndexError("best_index_ index out of range")
             else:
-                self.best_index_ = results["rank_test_%s" % refit_metric].argmin()
+                self.best_index_ = results[
+                    "rank_test_%s" % refit_metric
+                ].argmin()
                 self.best_score_ = results["mean_test_%s" % refit_metric][
                     self.best_index_
                 ]
@@ -902,18 +925,24 @@ class BaseSearchCV(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
             """A small helper to store the scores/times to the cv_results_"""
             # When iterated first by splits, then by parameters
             # We want `array` to have `n_candidates` rows and `n_splits` cols.
-            array = np.array(array, dtype=np.float64).reshape(n_candidates, n_splits)
+            array = np.array(array, dtype=np.float64).reshape(
+                n_candidates, n_splits
+            )
             if splits:
                 for split_idx in range(n_splits):
                     # Uses closure to alter the results
-                    results["split%d_%s" % (split_idx, key_name)] = array[:, split_idx]
+                    results["split%d_%s" % (split_idx, key_name)] = array[
+                        :, split_idx
+                    ]
 
             array_means = np.average(array, axis=1, weights=weights)
             results["mean_%s" % key_name] = array_means
             # Weighted std is not directly available in numpy
             array_stds = np.sqrt(
                 np.average(
-                    (array - array_means[:, np.newaxis]) ** 2, axis=1, weights=weights
+                    (array - array_means[:, np.newaxis]) ** 2,
+                    axis=1,
+                    weights=weights,
                 )
             )
             results["std_%s" % key_name] = array_stds
@@ -929,7 +958,9 @@ class BaseSearchCV(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
         # applicable for that candidate. Use defaultdict as each candidate may
         # not contain all the params
         param_results = defaultdict(
-            partial(MaskedArray, np.empty(n_candidates,), mask=True, dtype=object)
+            partial(
+                MaskedArray, np.empty(n_candidates,), mask=True, dtype=object
+            )
         )
         for cand_idx, params in enumerate(candidate_params):
             for name, value in params.items():
@@ -1652,6 +1683,8 @@ class RandomizedSearchCV(BaseSearchCV):
         """Search n_iter candidates from param_distributions"""
         evaluate_candidates(
             ParameterSampler(
-                self.param_distributions, self.n_iter, random_state=self.random_state
+                self.param_distributions,
+                self.n_iter,
+                random_state=self.random_state,
             )
         )

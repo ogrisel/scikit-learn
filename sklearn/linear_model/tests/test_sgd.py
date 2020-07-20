@@ -191,7 +191,8 @@ def asgd(klass, X, y, eta, alpha, weight_init=None, intercept_init=0.0):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_sgd_bad_alpha(klass):
     # Check whether expected ValueError on bad alpha
@@ -199,7 +200,8 @@ def test_sgd_bad_alpha(klass):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_sgd_bad_penalty(klass):
     # Check whether expected ValueError on bad penalty
@@ -207,7 +209,8 @@ def test_sgd_bad_penalty(klass):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_sgd_bad_loss(klass):
     # Check whether expected ValueError on bad loss
@@ -220,7 +223,9 @@ def _test_warm_start(klass, X, Y, lr):
     clf.fit(X, Y)
 
     clf2 = klass(alpha=0.001, eta0=0.01, shuffle=False, learning_rate=lr)
-    clf2.fit(X, Y, coef_init=clf.coef_.copy(), intercept_init=clf.intercept_.copy())
+    clf2.fit(
+        X, Y, coef_init=clf.coef_.copy(), intercept_init=clf.intercept_.copy()
+    )
 
     # ... and implicit warm restart are equivalent.
     clf3 = klass(
@@ -239,15 +244,19 @@ def _test_warm_start(klass, X, Y, lr):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
-@pytest.mark.parametrize("lr", ["constant", "optimal", "invscaling", "adaptive"])
+@pytest.mark.parametrize(
+    "lr", ["constant", "optimal", "invscaling", "adaptive"]
+)
 def test_warm_start(klass, lr):
     _test_warm_start(klass, X, Y, lr)
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_input_format(klass):
     # Input format tests.
@@ -260,7 +269,8 @@ def test_input_format(klass):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_clone(klass):
     # Test whether clone works ok.
@@ -276,7 +286,8 @@ def test_clone(klass):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_plain_has_no_average_attr(klass):
     clf = klass(average=True, eta0=0.01)
@@ -314,7 +325,8 @@ def test_sgd_deprecated_attr(klass):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_late_onset_averaging_not_reached(klass):
     clf1 = klass(average=600)
@@ -332,7 +344,8 @@ def test_late_onset_averaging_not_reached(klass):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_late_onset_averaging_reached(klass):
     eta0 = 0.001
@@ -373,12 +386,15 @@ def test_late_onset_averaging_reached(klass):
         intercept_init=clf2.intercept_,
     )
 
-    assert_array_almost_equal(clf1.coef_.ravel(), average_weights.ravel(), decimal=16)
+    assert_array_almost_equal(
+        clf1.coef_.ravel(), average_weights.ravel(), decimal=16
+    )
     assert_almost_equal(clf1.intercept_, average_intercept, decimal=16)
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_sgd_bad_alpha_for_optimal_learning_rate(klass):
     # Check whether expected ValueError on bad alpha, i.e. 0
@@ -387,21 +403,23 @@ def test_sgd_bad_alpha_for_optimal_learning_rate(klass):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_early_stopping(klass):
     X = iris.data[iris.target > 0]
     Y = iris.target[iris.target > 0]
     for early_stopping in [True, False]:
         max_iter = 1000
-        clf = klass(early_stopping=early_stopping, tol=1e-3, max_iter=max_iter).fit(
-            X, Y
-        )
+        clf = klass(
+            early_stopping=early_stopping, tol=1e-3, max_iter=max_iter
+        ).fit(X, Y)
         assert clf.n_iter_ < max_iter
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_adaptive_longer_than_constant(klass):
     clf1 = klass(learning_rate="adaptive", eta0=0.01, tol=1e-3, max_iter=100)
@@ -412,7 +430,8 @@ def test_adaptive_longer_than_constant(klass):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_validation_set_not_used_for_training(klass):
     X, Y = iris.data, iris.target
@@ -444,7 +463,9 @@ def test_validation_set_not_used_for_training(klass):
     )
 
     if is_classifier(clf2):
-        cv = StratifiedShuffleSplit(test_size=validation_fraction, random_state=seed)
+        cv = StratifiedShuffleSplit(
+            test_size=validation_fraction, random_state=seed
+        )
     else:
         cv = ShuffleSplit(test_size=validation_fraction, random_state=seed)
     idx_train, idx_val = next(cv.split(X, Y))
@@ -456,7 +477,8 @@ def test_validation_set_not_used_for_training(klass):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_n_iter_no_change(klass):
     X, Y = iris.data, iris.target
@@ -477,7 +499,8 @@ def test_n_iter_no_change(klass):
 
 
 @pytest.mark.parametrize(
-    "klass", [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor]
+    "klass",
+    [SGDClassifier, SparseSGDClassifier, SGDRegressor, SparseSGDRegressor],
 )
 def test_not_enough_sample_for_early_stopping(klass):
     # test an error is raised if the training or validation set is empty
@@ -756,8 +779,9 @@ def test_sgd_predict_proba_method_access(klass):
             assert hasattr(clf, "predict_proba")
             assert hasattr(clf, "predict_log_proba")
         else:
-            message = "probability estimates are not " "available for loss={!r}".format(
-                loss
+            message = (
+                "probability estimates are not "
+                "available for loss={!r}".format(loss)
             )
             assert not hasattr(clf, "predict_proba")
             assert not hasattr(clf, "predict_log_proba")
@@ -774,7 +798,9 @@ def test_sgd_proba(klass):
     # Hinge loss does not allow for conditional prob estimate.
     # We cannot use the factory here, because it defines predict_proba
     # anyway.
-    clf = SGDClassifier(loss="hinge", alpha=0.01, max_iter=10, tol=None).fit(X, Y)
+    clf = SGDClassifier(loss="hinge", alpha=0.01, max_iter=10, tol=None).fit(
+        X, Y
+    )
     assert not hasattr(clf, "predict_proba")
     assert not hasattr(clf, "predict_log_proba")
 
@@ -876,15 +902,21 @@ def test_sgd_l1(klass):
 @pytest.mark.parametrize("klass", [SGDClassifier, SparseSGDClassifier])
 def test_class_weights(klass):
     # Test class weights.
-    X = np.array([[-1.0, -1.0], [-1.0, 0], [-0.8, -1.0], [1.0, 1.0], [1.0, 0.0]])
+    X = np.array(
+        [[-1.0, -1.0], [-1.0, 0], [-0.8, -1.0], [1.0, 1.0], [1.0, 0.0]]
+    )
     y = [1, 1, 1, -1, -1]
 
-    clf = klass(alpha=0.1, max_iter=1000, fit_intercept=False, class_weight=None)
+    clf = klass(
+        alpha=0.1, max_iter=1000, fit_intercept=False, class_weight=None
+    )
     clf.fit(X, y)
     assert_array_equal(clf.predict([[0.2, -1.0]]), np.array([1]))
 
     # we give a small weights to class 1
-    clf = klass(alpha=0.1, max_iter=1000, fit_intercept=False, class_weight={1: 0.001})
+    clf = klass(
+        alpha=0.1, max_iter=1000, fit_intercept=False, class_weight={1: 0.001}
+    )
     clf.fit(X, y)
 
     # now the hyperplane should rotate clock-wise and
@@ -902,7 +934,9 @@ def test_equal_class_weight(klass):
 
     X = [[1, 0], [0, 1]]
     y = [0, 1]
-    clf_weighted = klass(alpha=0.1, max_iter=1000, class_weight={0: 0.5, 1: 0.5})
+    clf_weighted = klass(
+        alpha=0.1, max_iter=1000, class_weight={0: 0.5, 1: 0.5}
+    )
     clf_weighted.fit(X, y)
 
     # should be similar up to some epsilon due to learning rate schedule
@@ -954,7 +988,9 @@ def test_balanced_weight(klass):
     rng.shuffle(idx)
     X = X[idx]
     y = y[idx]
-    clf = klass(alpha=0.0001, max_iter=1000, class_weight=None, shuffle=False).fit(X, y)
+    clf = klass(
+        alpha=0.0001, max_iter=1000, class_weight=None, shuffle=False
+    ).fit(X, y)
     f1 = metrics.f1_score(y, clf.predict(X), average="weighted")
     assert_almost_equal(f1, 0.96, decimal=1)
 
@@ -992,7 +1028,9 @@ def test_balanced_weight(klass):
 @pytest.mark.parametrize("klass", [SGDClassifier, SparseSGDClassifier])
 def test_sample_weights(klass):
     # Test weights on individual samples
-    X = np.array([[-1.0, -1.0], [-1.0, 0], [-0.8, -1.0], [1.0, 1.0], [1.0, 0.0]])
+    X = np.array(
+        [[-1.0, -1.0], [-1.0, 0], [-0.8, -1.0], [1.0, 1.0], [1.0, 0.0]]
+    )
     y = [1, 1, 1, -1, -1]
 
     clf = klass(alpha=0.1, max_iter=1000, fit_intercept=False)
@@ -1087,10 +1125,14 @@ def test_fit_then_partial_fit(klass):
 
 
 @pytest.mark.parametrize("klass", [SGDClassifier, SparseSGDClassifier])
-@pytest.mark.parametrize("lr", ["constant", "optimal", "invscaling", "adaptive"])
+@pytest.mark.parametrize(
+    "lr", ["constant", "optimal", "invscaling", "adaptive"]
+)
 def test_partial_fit_equal_fit_classif(klass, lr):
     for X_, Y_, T_ in ((X, Y, T), (X2, Y2, T2)):
-        clf = klass(alpha=0.01, eta0=0.01, max_iter=2, learning_rate=lr, shuffle=False)
+        clf = klass(
+            alpha=0.01, eta0=0.01, max_iter=2, learning_rate=lr, shuffle=False
+        )
         clf.fit(X_, Y_)
         y_pred = clf.decision_function(T_)
         t = clf.t_
@@ -1275,7 +1317,9 @@ def test_sgd_least_squares_fit(klass):
     # simple linear function without noise
     y = 0.5 * X.ravel()
 
-    clf = klass(loss="squared_loss", alpha=0.1, max_iter=20, fit_intercept=False)
+    clf = klass(
+        loss="squared_loss", alpha=0.1, max_iter=20, fit_intercept=False
+    )
     clf.fit(X, y)
     score = clf.score(X, y)
     assert score > 0.99
@@ -1283,7 +1327,9 @@ def test_sgd_least_squares_fit(klass):
     # simple linear function with noise
     y = 0.5 * X.ravel() + rng.randn(n_samples, 1).ravel()
 
-    clf = klass(loss="squared_loss", alpha=0.1, max_iter=20, fit_intercept=False)
+    clf = klass(
+        loss="squared_loss", alpha=0.1, max_iter=20, fit_intercept=False
+    )
     clf.fit(X, y)
     score = clf.score(X, y)
     assert score > 0.5
@@ -1335,7 +1381,9 @@ def test_sgd_huber_fit(klass):
     # simple linear function without noise
     y = 0.5 * X.ravel()
 
-    clf = klass(loss="huber", epsilon=0.1, alpha=0.1, max_iter=20, fit_intercept=False)
+    clf = klass(
+        loss="huber", epsilon=0.1, alpha=0.1, max_iter=20, fit_intercept=False
+    )
     clf.fit(X, y)
     score = clf.score(X, y)
     assert score > 0.99
@@ -1343,7 +1391,9 @@ def test_sgd_huber_fit(klass):
     # simple linear function with noise
     y = 0.5 * X.ravel() + rng.randn(n_samples, 1).ravel()
 
-    clf = klass(loss="huber", epsilon=0.1, alpha=0.1, max_iter=20, fit_intercept=False)
+    clf = klass(
+        loss="huber", epsilon=0.1, alpha=0.1, max_iter=20, fit_intercept=False
+    )
     clf.fit(X, y)
     score = clf.score(X, y)
     assert score > 0.5
@@ -1402,9 +1452,13 @@ def test_partial_fit(klass):
 
 
 @pytest.mark.parametrize("klass", [SGDRegressor, SparseSGDRegressor])
-@pytest.mark.parametrize("lr", ["constant", "optimal", "invscaling", "adaptive"])
+@pytest.mark.parametrize(
+    "lr", ["constant", "optimal", "invscaling", "adaptive"]
+)
 def test_partial_fit_equal_fit(klass, lr):
-    clf = klass(alpha=0.01, max_iter=2, eta0=0.01, learning_rate=lr, shuffle=False)
+    clf = klass(
+        alpha=0.01, max_iter=2, eta0=0.01, learning_rate=lr, shuffle=False
+    )
     clf.fit(X, Y)
     y_pred = clf.predict(T)
     t = clf.t_
@@ -1744,8 +1798,12 @@ def test_multi_core_gridsearch_and_early_stopping():
         "n_iter_no_change": [5, 10, 50],
     }
 
-    clf = SGDClassifier(tol=1e-2, max_iter=1000, early_stopping=True, random_state=0)
-    search = RandomizedSearchCV(clf, param_grid, n_iter=3, n_jobs=2, random_state=0)
+    clf = SGDClassifier(
+        tol=1e-2, max_iter=1000, early_stopping=True, random_state=0
+    )
+    search = RandomizedSearchCV(
+        clf, param_grid, n_iter=3, n_jobs=2, random_state=0
+    )
     search.fit(iris.data, iris.target)
     assert search.best_score_ > 0.8
 
@@ -1766,7 +1824,10 @@ def test_SGDClassifier_fit_for_all_backends(backend):
     # a segmentation fault when trying to write in a readonly memory mapped
     # buffer.
 
-    if parse_version(joblib.__version__) < parse_version("0.12") and backend == "loky":
+    if (
+        parse_version(joblib.__version__) < parse_version("0.12")
+        and backend == "loky"
+    ):
         pytest.skip("loky backend does not exist in joblib <0.12")
 
     random_state = np.random.RandomState(42)
@@ -1774,7 +1835,9 @@ def test_SGDClassifier_fit_for_all_backends(backend):
     # Create a classification problem with 50000 features and 20 classes. Using
     # loky or multiprocessing this make the clf.coef_ exceed the threshold
     # above which memmaping is used in joblib and loky (1MB as of 2018/11/1).
-    X = sp.random(500, 2000, density=0.02, format="csr", random_state=random_state)
+    X = sp.random(
+        500, 2000, density=0.02, format="csr", random_state=random_state
+    )
     y = random_state.choice(20, 500)
 
     # Begin by fitting a SGD classifier sequentially

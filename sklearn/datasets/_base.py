@@ -23,7 +23,9 @@ import numpy as np
 
 from urllib.request import urlretrieve
 
-RemoteFileMetadata = namedtuple("RemoteFileMetadata", ["filename", "url", "checksum"])
+RemoteFileMetadata = namedtuple(
+    "RemoteFileMetadata", ["filename", "url", "checksum"]
+)
 
 
 def get_data_home(data_home=None) -> str:
@@ -47,7 +49,9 @@ def get_data_home(data_home=None) -> str:
         The path to scikit-learn data dir.
     """
     if data_home is None:
-        data_home = environ.get("SCIKIT_LEARN_DATA", join("~", "scikit_learn_data"))
+        data_home = environ.get(
+            "SCIKIT_LEARN_DATA", join("~", "scikit_learn_data")
+        )
     data_home = expanduser(data_home)
     if not exists(data_home):
         makedirs(data_home)
@@ -66,7 +70,9 @@ def clear_data_home(data_home=None):
     shutil.rmtree(data_home)
 
 
-def _convert_data_dataframe(caller_name, data, target, feature_names, target_names):
+def _convert_data_dataframe(
+    caller_name, data, target, feature_names, target_names
+):
     pd = check_pandas_support("{} with as_frame=True".format(caller_name))
     data_df = pd.DataFrame(data, columns=feature_names)
     target_df = pd.DataFrame(target, columns=target_names)
@@ -189,7 +195,9 @@ def load_files(
     filenames = []
 
     folders = [
-        f for f in sorted(listdir(container_path)) if isdir(join(container_path, f))
+        f
+        for f in sorted(listdir(container_path))
+        if isdir(join(container_path, f))
     ]
 
     if categories is not None:
@@ -229,7 +237,10 @@ def load_files(
         )
 
     return Bunch(
-        filenames=filenames, target_names=target_names, target=target, DESCR=description
+        filenames=filenames,
+        target_names=target_names,
+        target=target,
+        DESCR=description,
     )
 
 
@@ -857,7 +868,18 @@ def load_diabetes(*, return_X_y=False, as_frame=False):
     with open(join(module_path, "descr", "diabetes.rst")) as rst_file:
         fdescr = rst_file.read()
 
-    feature_names = ["age", "sex", "bmi", "bp", "s1", "s2", "s3", "s4", "s5", "s6"]
+    feature_names = [
+        "age",
+        "sex",
+        "bmi",
+        "bp",
+        "s1",
+        "s2",
+        "s3",
+        "s4",
+        "s5",
+        "s6",
+    ]
 
     frame = None
     target_columns = [
@@ -1221,13 +1243,17 @@ def _fetch_remote(remote, dirname=None):
         Full path of the created file.
     """
 
-    file_path = remote.filename if dirname is None else join(dirname, remote.filename)
+    file_path = (
+        remote.filename if dirname is None else join(dirname, remote.filename)
+    )
     urlretrieve(remote.url, file_path)
     checksum = _sha256(file_path)
     if remote.checksum != checksum:
         raise IOError(
             "{} has an SHA256 checksum ({}) "
             "differing from expected ({}), "
-            "file may be corrupted.".format(file_path, checksum, remote.checksum)
+            "file may be corrupted.".format(
+                file_path, checksum, remote.checksum
+            )
         )
     return file_path

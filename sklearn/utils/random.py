@@ -11,7 +11,9 @@ from ._random import sample_without_replacement
 __all__ = ["sample_without_replacement"]
 
 
-def _random_choice_csc(n_samples, classes, class_probability=None, random_state=None):
+def _random_choice_csc(
+    n_samples, classes, class_probability=None, random_state=None
+):
     """Generate a sparse random matrix given column class distributions
 
     Parameters
@@ -43,7 +45,9 @@ def _random_choice_csc(n_samples, classes, class_probability=None, random_state=
     for j in range(len(classes)):
         classes[j] = np.asarray(classes[j])
         if classes[j].dtype.kind != "i":
-            raise ValueError("class dtype %s is not supported" % classes[j].dtype)
+            raise ValueError(
+                "class dtype %s is not supported" % classes[j].dtype
+            )
         classes[j] = classes[j].astype(np.int64, copy=False)
 
         # use uniform distribution if no class_probability is given
@@ -55,7 +59,8 @@ def _random_choice_csc(n_samples, classes, class_probability=None, random_state=
 
         if not np.isclose(np.sum(class_prob_j), 1.0):
             raise ValueError(
-                "Probability array at index {0} does not sum to " "one".format(j)
+                "Probability array at index {0} does not sum to "
+                "one".format(j)
             )
 
         if class_prob_j.shape[0] != classes[j].shape[0]:
@@ -94,4 +99,6 @@ def _random_choice_csc(n_samples, classes, class_probability=None, random_state=
             data.extend(classes[j][classes_j_nonzero][classes_ind])
         indptr.append(len(indices))
 
-    return sp.csc_matrix((data, indices, indptr), (n_samples, len(classes)), dtype=int)
+    return sp.csc_matrix(
+        (data, indices, indptr), (n_samples, len(classes)), dtype=int
+    )

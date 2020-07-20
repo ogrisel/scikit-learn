@@ -356,7 +356,9 @@ class FactorAnalysis(TransformerMixin, BaseEstimator):
         components_ = self.components_
         precision = np.dot(components_ / self.noise_variance_, components_.T)
         precision.flat[:: len(precision) + 1] += 1.0
-        precision = np.dot(components_.T, np.dot(linalg.inv(precision), components_))
+        precision = np.dot(
+            components_.T, np.dot(linalg.inv(precision), components_)
+        )
         precision /= self.noise_variance_[:, np.newaxis]
         precision /= -self.noise_variance_[np.newaxis, :]
         precision.flat[:: len(precision) + 1] += 1.0 / self.noise_variance_
@@ -381,7 +383,9 @@ class FactorAnalysis(TransformerMixin, BaseEstimator):
         precision = self.get_precision()
         n_features = X.shape[1]
         log_like = -0.5 * (Xr * (np.dot(Xr, precision))).sum(axis=1)
-        log_like -= 0.5 * (n_features * log(2.0 * np.pi) - fast_logdet(precision))
+        log_like -= 0.5 * (
+            n_features * log(2.0 * np.pi) - fast_logdet(precision)
+        )
         return log_like
 
     def score(self, X, y=None):
@@ -411,7 +415,9 @@ class FactorAnalysis(TransformerMixin, BaseEstimator):
                 : self.n_components
             ]
         else:
-            raise ValueError("'method' must be in %s, not %s" % (implemented, method))
+            raise ValueError(
+                "'method' must be in %s, not %s" % (implemented, method)
+            )
 
 
 def _ortho_rotation(components, method="varimax", tol=1e-6, max_iter=100):

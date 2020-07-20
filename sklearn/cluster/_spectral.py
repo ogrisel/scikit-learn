@@ -90,7 +90,9 @@ def discretize(
     # search easier.
     norm_ones = np.sqrt(n_samples)
     for i in range(vectors.shape[1]):
-        vectors[:, i] = (vectors[:, i] / np.linalg.norm(vectors[:, i])) * norm_ones
+        vectors[:, i] = (
+            vectors[:, i] / np.linalg.norm(vectors[:, i])
+        ) * norm_ones
         if vectors[0, i] != 0:
             vectors[:, i] = -1 * vectors[:, i] * np.sign(vectors[0, i])
 
@@ -145,7 +147,9 @@ def discretize(
                 break
 
             ncut_value = 2.0 * (n_samples - S.sum())
-            if (abs(ncut_value - last_objective_value) < eps) or (n_iter > n_iter_max):
+            if (abs(ncut_value - last_objective_value) < eps) or (
+                n_iter > n_iter_max
+            ):
                 has_converged = True
             else:
                 # otherwise calculate rotation and continue
@@ -529,12 +533,17 @@ class SpectralClustering(ClusterMixin, BaseEstimator):
 
         if self.affinity == "nearest_neighbors":
             connectivity = kneighbors_graph(
-                X, n_neighbors=self.n_neighbors, include_self=True, n_jobs=self.n_jobs
+                X,
+                n_neighbors=self.n_neighbors,
+                include_self=True,
+                n_jobs=self.n_jobs,
             )
             self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)
         elif self.affinity == "precomputed_nearest_neighbors":
             estimator = NearestNeighbors(
-                n_neighbors=self.n_neighbors, n_jobs=self.n_jobs, metric="precomputed"
+                n_neighbors=self.n_neighbors,
+                n_jobs=self.n_jobs,
+                metric="precomputed",
             ).fit(X)
             connectivity = estimator.kneighbors_graph(X=X, mode="connectivity")
             self.affinity_matrix_ = 0.5 * (connectivity + connectivity.T)

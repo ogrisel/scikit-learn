@@ -125,7 +125,10 @@ def test_normalized_output(metric_name):
     lower_bound_1 = [0, 0, 0, 0, 0, 0]
     lower_bound_2 = [0, 1, 2, 3, 4, 5]
     score = np.array(
-        [metric(lower_bound_1, lower_bound_2), metric(lower_bound_2, lower_bound_1)]
+        [
+            metric(lower_bound_1, lower_bound_2),
+            metric(lower_bound_2, lower_bound_1),
+        ]
     )
     assert not (score < 0).any()
 
@@ -181,7 +184,9 @@ def test_format_invariance(metric_name):
         score_1 = metric(y_true, y_pred)
         y_true_gen = generate_formats(y_true)
         y_pred_gen = generate_formats(y_pred)
-        for (y_true_fmt, fmt_name), (y_pred_fmt, _) in zip(y_true_gen, y_pred_gen):
+        for (y_true_fmt, fmt_name), (y_pred_fmt, _) in zip(
+            y_true_gen, y_pred_gen
+        ):
             assert score_1 == metric(y_true_fmt, y_pred_fmt)
     else:
         metric = UNSUPERVISED_METRICS[metric_name]
@@ -201,7 +206,8 @@ def test_single_sample(metric):
 
 
 @pytest.mark.parametrize(
-    "metric_name, metric_func", dict(SUPERVISED_METRICS, **UNSUPERVISED_METRICS).items()
+    "metric_name, metric_func",
+    dict(SUPERVISED_METRICS, **UNSUPERVISED_METRICS).items(),
 )
 def test_inf_nan_input(metric_name, metric_func):
     if metric_name in SUPERVISED_METRICS:
@@ -212,7 +218,11 @@ def test_inf_nan_input(metric_name, metric_func):
         ]
     else:
         X = np.random.randint(10, size=(2, 10))
-        invalids = [(X, [np.inf, np.inf]), (X, [np.nan, np.nan]), (X, [np.nan, np.inf])]
+        invalids = [
+            (X, [np.inf, np.inf]),
+            (X, [np.nan, np.nan]),
+            (X, [np.nan, np.inf]),
+        ]
     with pytest.raises(ValueError, match="contains NaN, infinity"):
         for args in invalids:
             metric_func(*args)

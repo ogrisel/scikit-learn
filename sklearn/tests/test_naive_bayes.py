@@ -131,7 +131,9 @@ def test_gnb_priors_sum_isclose():
             [5, 5],
         ]
     )
-    priors = np.array([0.08, 0.14, 0.03, 0.16, 0.11, 0.16, 0.07, 0.14, 0.11, 0.0])
+    priors = np.array(
+        [0.08, 0.14, 0.03, 0.16, 0.11, 0.16, 0.07, 0.14, 0.11, 0.0]
+    )
     Y = np.array([1, 2, 3, 4, 5, 6, 7, 8, 9, 10])
     clf = GaussianNB(priors=priors)
     # smoke test for issue #9633
@@ -165,7 +167,9 @@ def test_gnb_check_update_with_no_data():
     mean = 0.0
     var = 1.0
     x_empty = np.empty((0, X.shape[1]))
-    tmean, tvar = GaussianNB._update_mean_variance(prev_points, mean, var, x_empty)
+    tmean, tvar = GaussianNB._update_mean_variance(
+        prev_points, mean, var, x_empty
+    )
     assert tmean == mean
     assert tvar == var
 
@@ -198,7 +202,9 @@ def test_gnb_naive_bayes_scale_invariance():
     # Scaling the data should not change the prediction results
     iris = load_iris()
     X, y = iris.data, iris.target
-    labels = [GaussianNB().fit(f * X, y).predict(f * X) for f in [1e-10, 1, 1e10]]
+    labels = [
+        GaussianNB().fit(f * X, y).predict(f * X) for f in [1e-10, 1, 1e10]
+    ]
     assert_array_equal(labels[0], labels[1])
     assert_array_equal(labels[1], labels[2])
 
@@ -274,7 +280,9 @@ def test_discretenb_partial_fit(cls):
         assert_array_equal(clf1.feature_count_, clf3.feature_count_)
 
 
-@pytest.mark.parametrize("cls", [BernoulliNB, MultinomialNB, GaussianNB, CategoricalNB])
+@pytest.mark.parametrize(
+    "cls", [BernoulliNB, MultinomialNB, GaussianNB, CategoricalNB]
+)
 def test_discretenb_pickle(cls):
     # Test picklability of discrete naive Bayes classifiers
 
@@ -296,7 +304,9 @@ def test_discretenb_pickle(cls):
     assert_array_equal(y_pred, clf2.predict(X2))
 
 
-@pytest.mark.parametrize("cls", [BernoulliNB, MultinomialNB, GaussianNB, CategoricalNB])
+@pytest.mark.parametrize(
+    "cls", [BernoulliNB, MultinomialNB, GaussianNB, CategoricalNB]
+)
 def test_discretenb_input_check_fit(cls):
     # Test input checks for the fit method
 
@@ -311,7 +321,9 @@ def test_discretenb_input_check_fit(cls):
 @pytest.mark.parametrize("cls", [BernoulliNB, MultinomialNB, CategoricalNB])
 def test_discretenb_input_check_partial_fit(cls):
     # check shape consistency
-    assert_raises(ValueError, cls().partial_fit, X2, y2[:-1], classes=np.unique(y2))
+    assert_raises(
+        ValueError, cls().partial_fit, X2, y2[:-1], classes=np.unique(y2)
+    )
 
     # classes is required for first call to partial fit
     assert_raises(ValueError, cls().partial_fit, X2, y2)
@@ -340,7 +352,9 @@ def test_discretenb_predict_proba():
 
     # test binary case (1-d output)
     y = [0, 0, 2]  # 2 is regression test for binary case, 02e673
-    for cls, X in zip([BernoulliNB, MultinomialNB], [X_bernoulli, X_multinomial]):
+    for cls, X in zip(
+        [BernoulliNB, MultinomialNB], [X_bernoulli, X_multinomial]
+    ):
         clf = cls().fit(X, y)
         assert clf.predict(X[-1:]) == 2
         assert clf.predict_proba([X[0]]).shape == (1, 2)
@@ -350,7 +364,9 @@ def test_discretenb_predict_proba():
 
     # test multiclass case (2-d output, must sum to one)
     y = [0, 1, 2]
-    for cls, X in zip([BernoulliNB, MultinomialNB], [X_bernoulli, X_multinomial]):
+    for cls, X in zip(
+        [BernoulliNB, MultinomialNB], [X_bernoulli, X_multinomial]
+    ):
         clf = cls().fit(X, y)
         assert clf.predict_proba(X[0:1]).shape == (1, 3)
         assert clf.predict_proba(X[:2]).shape == (2, 3)
@@ -383,7 +399,9 @@ def test_discretenb_provide_prior(cls):
 
     # Inconsistent number of classes with prior
     assert_raises(ValueError, clf.fit, [[0], [1], [2]], [0, 1, 2])
-    assert_raises(ValueError, clf.partial_fit, [[0], [1]], [0, 1], classes=[0, 1, 1])
+    assert_raises(
+        ValueError, clf.partial_fit, [[0], [1]], [0, 1], classes=[0, 1, 1]
+    )
 
 
 @pytest.mark.parametrize("cls", [BernoulliNB, MultinomialNB, CategoricalNB])
@@ -424,7 +442,9 @@ def test_discretenb_sample_weight_multiclass(cls):
 
     # Check sample weight using the partial_fit method
     clf = cls()
-    clf.partial_fit(X[:2], y[:2], classes=[0, 1, 2], sample_weight=sample_weight[:2])
+    clf.partial_fit(
+        X[:2], y[:2], classes=[0, 1, 2], sample_weight=sample_weight[:2]
+    )
     clf.partial_fit(X[2:3], y[2:3], sample_weight=sample_weight[2:3])
     clf.partial_fit(X[3:], y[3:], sample_weight=sample_weight[3:])
     assert_array_equal(clf.predict(X), [0, 1, 1, 2])
@@ -527,7 +547,9 @@ def test_mnb_sample_weight():
     clf.fit([[1, 2], [1, 2], [1, 0]], [0, 0, 1], sample_weight=[1, 1, 4])
     assert_array_equal(clf.predict([[1, 0]]), [1])
     positive_prior = np.exp(clf.intercept_[0])
-    assert_array_almost_equal([1 - positive_prior, positive_prior], [1 / 3.0, 2 / 3.0])
+    assert_array_almost_equal(
+        [1 - positive_prior, positive_prior], [1 / 3.0, 2 / 3.0]
+    )
 
 
 def test_bnb():
@@ -544,7 +566,12 @@ def test_bnb():
 
     # Features are Beijing, Chinese, Japan, Macao, Shanghai, and Tokyo
     X = np.array(
-        [[1, 1, 0, 0, 0, 0], [0, 1, 0, 0, 1, 0], [0, 1, 0, 1, 0, 0], [0, 1, 1, 0, 0, 1]]
+        [
+            [1, 1, 0, 0, 0, 0],
+            [0, 1, 0, 0, 1, 0],
+            [0, 1, 0, 1, 0, 0],
+            [0, 1, 1, 0, 0, 1],
+        ]
     )
 
     # Classes are China (0), Japan (1)
@@ -572,7 +599,9 @@ def test_bnb():
     X_test = np.array([[0, 1, 1, 0, 0, 1]])
 
     # Check the predictive probabilities are correct
-    unnorm_predict_proba = np.array([[0.005183999999999999, 0.02194787379972565]])
+    unnorm_predict_proba = np.array(
+        [[0.005183999999999999, 0.02194787379972565]]
+    )
     predict_proba = unnorm_predict_proba / np.sum(unnorm_predict_proba)
     assert_array_almost_equal(clf.predict_proba(X_test), predict_proba)
 
@@ -613,7 +642,12 @@ def test_cnb():
 
     # Features are Beijing, Chinese, Japan, Macao, Shanghai, and Tokyo.
     X = np.array(
-        [[1, 1, 0, 0, 0, 0], [0, 1, 0, 0, 1, 0], [0, 1, 0, 1, 0, 0], [0, 1, 1, 0, 0, 1]]
+        [
+            [1, 1, 0, 0, 0, 0],
+            [0, 1, 0, 0, 1, 0],
+            [0, 1, 0, 1, 0, 0],
+            [0, 1, 1, 0, 0, 1],
+        ]
     )
 
     # Classes are China (0), Japan (1).
@@ -757,7 +791,9 @@ def test_alpha():
     # Test for alpha < 0
     X = np.array([[1, 0], [1, 1]])
     y = np.array([0, 1])
-    expected_msg = "Smoothing parameter alpha = -1.0e-01. " "alpha should be > 0."
+    expected_msg = (
+        "Smoothing parameter alpha = -1.0e-01. " "alpha should be > 0."
+    )
     b_nb = BernoulliNB(alpha=-0.1)
     m_nb = MultinomialNB(alpha=-0.1)
     c_nb = CategoricalNB(alpha=-0.1)
@@ -795,7 +831,9 @@ def test_alpha_vector():
 
     # Test alpha non-negative
     alpha = np.array([1.0, -0.1])
-    expected_msg = "Smoothing parameter alpha = -1.0e-01. " "alpha should be > 0."
+    expected_msg = (
+        "Smoothing parameter alpha = -1.0e-01. " "alpha should be > 0."
+    )
     m_nb = MultinomialNB(alpha=alpha)
     assert_raise_message(ValueError, expected_msg, m_nb.fit, X, y)
 

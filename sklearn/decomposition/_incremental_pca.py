@@ -166,7 +166,9 @@ class IncrementalPCA(_BasePCA):
     """
 
     @_deprecate_positional_args
-    def __init__(self, n_components=None, *, whiten=False, copy=True, batch_size=None):
+    def __init__(
+        self, n_components=None, *, whiten=False, copy=True, batch_size=None
+    ):
         self.n_components = n_components
         self.whiten = whiten
         self.copy = copy
@@ -325,9 +327,13 @@ class IncrementalPCA(_BasePCA):
         self.mean_ = col_mean
         self.var_ = col_var
         self.explained_variance_ = explained_variance[: self.n_components_]
-        self.explained_variance_ratio_ = explained_variance_ratio[: self.n_components_]
+        self.explained_variance_ratio_ = explained_variance_ratio[
+            : self.n_components_
+        ]
         if self.n_components_ < n_features:
-            self.noise_variance_ = explained_variance[self.n_components_ :].mean()
+            self.noise_variance_ = explained_variance[
+                self.n_components_ :
+            ].mean()
         else:
             self.noise_variance_ = 0.0
         return self
@@ -365,7 +371,9 @@ class IncrementalPCA(_BasePCA):
             n_samples = X.shape[0]
             output = []
             for batch in gen_batches(
-                n_samples, self.batch_size_, min_batch_size=self.n_components or 0
+                n_samples,
+                self.batch_size_,
+                min_batch_size=self.n_components or 0,
             ):
                 output.append(super().transform(X[batch].toarray()))
             return np.vstack(output)

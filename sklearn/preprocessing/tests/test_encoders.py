@@ -32,7 +32,8 @@ def test_one_hot_encoder_sparse_dense():
 
     # check outcome
     assert_array_equal(
-        X_trans_sparse.toarray(), [[0.0, 1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 0.0, 1.0]]
+        X_trans_sparse.toarray(),
+        [[0.0, 1.0, 0.0, 1.0, 1.0], [1.0, 0.0, 1.0, 0.0, 1.0]],
     )
     assert_array_equal(X_trans_sparse.toarray(), X_trans_dense)
 
@@ -173,7 +174,9 @@ def test_one_hot_encoder_feature_names():
         feature_names,
     )
 
-    feature_names2 = enc.get_feature_names(["one", "two", "three", "four", "five"])
+    feature_names2 = enc.get_feature_names(
+        ["one", "two", "three", "four", "five"]
+    )
 
     assert_array_equal(
         [
@@ -287,7 +290,9 @@ def test_one_hot_encoder_inverse(sparse_, drop):
         # with an otherwise numerical output, still object if unknown
         X = [[2, 55], [1, 55], [3, 55]]
         enc = OneHotEncoder(
-            sparse=sparse_, categories=[[1, 2], [54, 56]], handle_unknown="ignore"
+            sparse=sparse_,
+            categories=[[1, 2], [54, 56]],
+            handle_unknown="ignore",
         )
         X_tr = enc.fit_transform(X)
         exp = np.array(X, dtype=object)
@@ -355,7 +360,11 @@ def test_X_is_not_1D_pandas(method):
             [["A", "B"], ["cat"]],
             np.object_,
         ),
-        (np.array([["A", "cat"], ["B", "cat"]]), [["A", "B"], ["cat"]], np.str_),
+        (
+            np.array([["A", "cat"], ["B", "cat"]]),
+            [["A", "B"], ["cat"]],
+            np.str_,
+        ),
     ],
     ids=["mixed", "numeric", "object", "string"],
 )
@@ -437,7 +446,9 @@ def test_one_hot_encoder_specified_categories_mixed_columns():
     # multiple columns
     X = np.array([["a", "b"], [0, 2]], dtype=object).T
     enc = OneHotEncoder(categories=[["a", "b", "c"], [0, 1, 2]])
-    exp = np.array([[1.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0, 1.0]])
+    exp = np.array(
+        [[1.0, 0.0, 0.0, 1.0, 0.0, 0.0], [0.0, 1.0, 0.0, 0.0, 0.0, 1.0]]
+    )
     assert_array_equal(enc.fit_transform(X).toarray(), exp)
     assert enc.categories_[0].tolist() == ["a", "b", "c"]
     assert np.issubdtype(enc.categories_[0].dtype, np.object_)
@@ -503,7 +514,9 @@ def test_one_hot_encoder_drop_equals_if_binary():
     [np.array([[1, np.nan]]).T, np.array([["a", np.nan]], dtype=object).T],
     ids=["numeric", "object"],
 )
-@pytest.mark.parametrize("as_data_frame", [False, True], ids=["array", "dataframe"])
+@pytest.mark.parametrize(
+    "as_data_frame", [False, True], ids=["array", "dataframe"]
+)
 @pytest.mark.parametrize("handle_unknown", ["error", "ignore"])
 def test_one_hot_encoder_raise_missing(X, as_data_frame, handle_unknown):
     if as_data_frame:
@@ -635,7 +648,9 @@ def test_ordinal_encoder_raise_categories_shape():
 def test_encoder_dtypes():
     # check that dtypes are preserved when determining categories
     enc = OneHotEncoder(categories="auto")
-    exp = np.array([[1.0, 0.0, 1.0, 0.0], [0.0, 1.0, 0.0, 1.0]], dtype="float64")
+    exp = np.array(
+        [[1.0, 0.0, 1.0, 0.0], [0.0, 1.0, 0.0, 1.0]], dtype="float64"
+    )
 
     for X in [
         np.array([[1, 2], [3, 4]], dtype="int64"),
@@ -649,7 +664,9 @@ def test_encoder_dtypes():
 
     X = [[1, 2], [3, 4]]
     enc.fit(X)
-    assert all([np.issubdtype(enc.categories_[i].dtype, np.integer) for i in range(2)])
+    assert all(
+        [np.issubdtype(enc.categories_[i].dtype, np.integer) for i in range(2)]
+    )
     assert_array_equal(enc.transform(X).toarray(), exp)
 
     X = [[1, "a"], [3, "b"]]
@@ -740,7 +757,9 @@ def test_invalid_drop_length(drop):
 
 
 @pytest.mark.parametrize("density", [True, False], ids=["sparse", "dense"])
-@pytest.mark.parametrize("drop", ["first", ["a", 2, "b"]], ids=["first", "manual"])
+@pytest.mark.parametrize(
+    "drop", ["first", ["a", 2, "b"]], ids=["first", "manual"]
+)
 def test_categories(density, drop):
     ohe_base = OneHotEncoder(sparse=density)
     ohe_test = OneHotEncoder(sparse=density, drop=drop)
@@ -769,6 +788,7 @@ def test_encoders_does_not_support_none_values(Encoder):
     values = [["a"], [None]]
     with pytest.raises(
         TypeError,
-        match="Encoders require their input to be " "uniformly strings or numbers.",
+        match="Encoders require their input to be "
+        "uniformly strings or numbers.",
     ):
         Encoder().fit(values)

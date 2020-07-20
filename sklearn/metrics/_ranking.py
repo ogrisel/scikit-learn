@@ -220,7 +220,8 @@ def average_precision_score(
         present_labels = np.unique(y_true)
         if len(present_labels) == 2 and pos_label not in present_labels:
             raise ValueError(
-                "pos_label=%r is invalid. Set it to a label in " "y_true." % pos_label
+                "pos_label=%r is invalid. Set it to a label in "
+                "y_true." % pos_label
             )
     average_precision = partial(
         _binary_uninterpolated_average_precision, pos_label=pos_label
@@ -506,10 +507,14 @@ def _multiclass_roc_auc_score(
         if len(classes) != y_score.shape[1]:
             raise ValueError(
                 "Number of given labels, {0}, not equal to the number "
-                "of columns in 'y_score', {1}".format(len(classes), y_score.shape[1])
+                "of columns in 'y_score', {1}".format(
+                    len(classes), y_score.shape[1]
+                )
             )
         if len(np.setdiff1d(y_true, classes)):
-            raise ValueError("'y_true' contains labels not in parameter 'labels'")
+            raise ValueError(
+                "'y_true' contains labels not in parameter 'labels'"
+            )
     else:
         classes = _unique(y_true)
         if len(classes) != y_score.shape[1]:
@@ -578,7 +583,9 @@ def _binary_clf_curve(y_true, y_score, pos_label=None, sample_weight=None):
     """
     # Check to make sure y_true is valid
     y_type = type_of_target(y_true)
-    if not (y_type == "binary" or (y_type == "multiclass" and pos_label is not None)):
+    if not (
+        y_type == "binary" or (y_type == "multiclass" and pos_label is not None)
+    ):
         raise ValueError("{0} format is not supported".format(y_type))
 
     check_consistent_length(y_true, y_score, sample_weight)
@@ -645,7 +652,9 @@ def _binary_clf_curve(y_true, y_score, pos_label=None, sample_weight=None):
 
 
 @_deprecate_positional_args
-def precision_recall_curve(y_true, probas_pred, *, pos_label=None, sample_weight=None):
+def precision_recall_curve(
+    y_true, probas_pred, *, pos_label=None, sample_weight=None
+):
     """Compute precision-recall pairs for different probability thresholds
 
     Note: this implementation is restricted to the binary classification task.
@@ -738,7 +747,12 @@ def precision_recall_curve(y_true, probas_pred, *, pos_label=None, sample_weight
 
 @_deprecate_positional_args
 def roc_curve(
-    y_true, y_score, *, pos_label=None, sample_weight=None, drop_intermediate=True
+    y_true,
+    y_score,
+    *,
+    pos_label=None,
+    sample_weight=None,
+    drop_intermediate=True,
 ):
     """Compute Receiver operating characteristic (ROC)
 
@@ -875,7 +889,9 @@ def roc_curve(
 
 
 @_deprecate_positional_args
-def label_ranking_average_precision_score(y_true, y_score, *, sample_weight=None):
+def label_ranking_average_precision_score(
+    y_true, y_score, *, sample_weight=None
+):
     """Compute ranking-based average precision
 
     Label ranking average precision (LRAP) is the average over each ground
@@ -1083,11 +1099,16 @@ def label_ranking_loss(y_true, y_score, *, sample_weight=None):
     loss = np.zeros(n_samples)
     for i, (start, stop) in enumerate(zip(y_true.indptr, y_true.indptr[1:])):
         # Sort and bin the label scores
-        unique_scores, unique_inverse = np.unique(y_score[i], return_inverse=True)
-        true_at_reversed_rank = np.bincount(
-            unique_inverse[y_true.indices[start:stop]], minlength=len(unique_scores)
+        unique_scores, unique_inverse = np.unique(
+            y_score[i], return_inverse=True
         )
-        all_at_reversed_rank = np.bincount(unique_inverse, minlength=len(unique_scores))
+        true_at_reversed_rank = np.bincount(
+            unique_inverse[y_true.indices[start:stop]],
+            minlength=len(unique_scores),
+        )
+        all_at_reversed_rank = np.bincount(
+            unique_inverse, minlength=len(unique_scores)
+        )
         false_at_reversed_rank = all_at_reversed_rank - true_at_reversed_rank
 
         # if the scores are ordered, it's possible to count the number of
@@ -1206,7 +1227,9 @@ def _tie_averaged_dcg(y_true, y_score, discount_cumsum):
     Berlin, Heidelberg.
 
     """
-    _, inv, counts = np.unique(-y_score, return_inverse=True, return_counts=True)
+    _, inv, counts = np.unique(
+        -y_score, return_inverse=True, return_counts=True
+    )
     ranked = np.zeros(len(counts))
     np.add.at(ranked, inv, y_true)
     ranked /= counts
@@ -1234,7 +1257,13 @@ def _check_dcg_target_type(y_true):
 
 @_deprecate_positional_args
 def dcg_score(
-    y_true, y_score, *, k=None, log_base=2, sample_weight=None, ignore_ties=False
+    y_true,
+    y_score,
+    *,
+    k=None,
+    log_base=2,
+    sample_weight=None,
+    ignore_ties=False,
 ):
     """Compute Discounted Cumulative Gain.
 
@@ -1393,7 +1422,9 @@ def _ndcg_sample_scores(y_true, y_score, k=None, ignore_ties=False):
 
 
 @_deprecate_positional_args
-def ndcg_score(y_true, y_score, *, k=None, sample_weight=None, ignore_ties=False):
+def ndcg_score(
+    y_true, y_score, *, k=None, sample_weight=None, ignore_ties=False
+):
     """Compute Normalized Discounted Cumulative Gain.
 
     Sum the true scores ranked in the order induced by the predicted scores,

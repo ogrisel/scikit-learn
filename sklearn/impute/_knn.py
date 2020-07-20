@@ -109,13 +109,17 @@ class KNNImputer(_BaseImputer):
         copy=True,
         add_indicator=False,
     ):
-        super().__init__(missing_values=missing_values, add_indicator=add_indicator)
+        super().__init__(
+            missing_values=missing_values, add_indicator=add_indicator
+        )
         self.n_neighbors = n_neighbors
         self.weights = weights
         self.metric = metric
         self.copy = copy
 
-    def _calc_impute(self, dist_pot_donors, n_neighbors, fit_X_col, mask_fit_X_col):
+    def _calc_impute(
+        self, dist_pot_donors, n_neighbors, fit_X_col, mask_fit_X_col
+    ):
         """Helper function to impute a single column.
 
         Parameters
@@ -181,7 +185,9 @@ class KNNImputer(_BaseImputer):
         else:
             force_all_finite = "allow-nan"
             if self.metric not in _NAN_METRICS and not callable(self.metric):
-                raise ValueError("The selected metric does not support NaN values")
+                raise ValueError(
+                    "The selected metric does not support NaN values"
+                )
         if self.n_neighbors <= 0:
             raise ValueError(
                 "Expected n_neighbors > 0. Got {}".format(self.n_neighbors)
@@ -293,9 +299,9 @@ class KNNImputer(_BaseImputer):
 
                     # receivers with at least one defined distance
                     receivers_idx = receivers_idx[~all_nan_dist_mask]
-                    dist_subset = dist_chunk[dist_idx_map[receivers_idx] - start][
-                        :, potential_donors_idx
-                    ]
+                    dist_subset = dist_chunk[
+                        dist_idx_map[receivers_idx] - start
+                    ][:, potential_donors_idx]
 
                 n_neighbors = min(self.n_neighbors, len(potential_donors_idx))
                 value = self._calc_impute(

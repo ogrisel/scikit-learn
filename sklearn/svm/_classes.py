@@ -2,7 +2,11 @@ import numpy as np
 
 from ._base import _fit_liblinear, BaseSVC, BaseLibSVM
 from ..base import BaseEstimator, RegressorMixin, OutlierMixin
-from ..linear_model._base import LinearClassifierMixin, SparseCoefMixin, LinearModel
+from ..linear_model._base import (
+    LinearClassifierMixin,
+    SparseCoefMixin,
+    LinearModel,
+)
 from ..utils.validation import _num_samples
 from ..utils.validation import _deprecate_positional_args
 from ..utils.multiclass import check_classification_targets
@@ -232,7 +236,9 @@ class LinearSVC(LinearClassifierMixin, SparseCoefMixin, BaseEstimator):
             An instance of the estimator.
         """
         if self.C < 0:
-            raise ValueError("Penalty term must be positive; got (C=%r)" % self.C)
+            raise ValueError(
+                "Penalty term must be positive; got (C=%r)" % self.C
+            )
 
         X, y = self._validate_data(
             X,
@@ -452,7 +458,9 @@ class LinearSVR(RegressorMixin, LinearModel):
             An instance of the estimator.
         """
         if self.C < 0:
-            raise ValueError("Penalty term must be positive; got (C=%r)" % self.C)
+            raise ValueError(
+                "Penalty term must be positive; got (C=%r)" % self.C
+            )
 
         X, y = self._validate_data(
             X,
@@ -1548,7 +1556,9 @@ class OneClassSVM(OutlierMixin, BaseLibSVM):
         If X is not a C-ordered contiguous array it is copied.
 
         """
-        super().fit(X, np.ones(_num_samples(X)), sample_weight=sample_weight, **params)
+        super().fit(
+            X, np.ones(_num_samples(X)), sample_weight=sample_weight, **params
+        )
         self.offset_ = -self._intercept_
         return self
 

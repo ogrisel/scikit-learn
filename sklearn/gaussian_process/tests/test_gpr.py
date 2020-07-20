@@ -12,7 +12,11 @@ from scipy.optimize import approx_fprime
 import pytest
 
 from sklearn.gaussian_process import GaussianProcessRegressor
-from sklearn.gaussian_process.kernels import RBF, ConstantKernel as C, WhiteKernel
+from sklearn.gaussian_process.kernels import (
+    RBF,
+    ConstantKernel as C,
+    WhiteKernel,
+)
 from sklearn.gaussian_process.kernels import DotProduct
 from sklearn.gaussian_process.tests._mini_sequence_kernel import MiniSeqKernel
 from sklearn.exceptions import ConvergenceWarning
@@ -41,7 +45,8 @@ kernels = [
     RBF(length_scale=1.0),
     fixed_kernel,
     RBF(length_scale=1.0, length_scale_bounds=(1e-3, 1e3)),
-    C(1.0, (1e-2, 1e2)) * RBF(length_scale=1.0, length_scale_bounds=(1e-3, 1e3)),
+    C(1.0, (1e-2, 1e2))
+    * RBF(length_scale=1.0, length_scale_bounds=(1e-3, 1e3)),
     C(1.0, (1e-2, 1e2)) * RBF(length_scale=1.0, length_scale_bounds=(1e-3, 1e3))
     + C(1e-5, (1e-5, 1e2)),
     C(0.1, (1e-2, 1e2)) * RBF(length_scale=1.0, length_scale_bounds=(1e-3, 1e3))
@@ -85,9 +90,9 @@ def test_lml_improving(kernel):
 
     # Test that hyperparameter-tuning improves log-marginal likelihood.
     gpr = GaussianProcessRegressor(kernel=kernel).fit(X, y)
-    assert gpr.log_marginal_likelihood(gpr.kernel_.theta) > gpr.log_marginal_likelihood(
-        kernel.theta
-    )
+    assert gpr.log_marginal_likelihood(
+        gpr.kernel_.theta
+    ) > gpr.log_marginal_likelihood(kernel.theta)
 
 
 @pytest.mark.parametrize("kernel", kernels)
@@ -95,7 +100,8 @@ def test_lml_precomputed(kernel):
     # Test that lml of optimized kernel is stored correctly.
     gpr = GaussianProcessRegressor(kernel=kernel).fit(X, y)
     assert (
-        gpr.log_marginal_likelihood(gpr.kernel_.theta) == gpr.log_marginal_likelihood()
+        gpr.log_marginal_likelihood(gpr.kernel_.theta)
+        == gpr.log_marginal_likelihood()
     )
 
 
@@ -144,7 +150,9 @@ def test_lml_gradient(kernel):
 
     lml, lml_gradient = gpr.log_marginal_likelihood(kernel.theta, True)
     lml_gradient_approx = approx_fprime(
-        kernel.theta, lambda theta: gpr.log_marginal_likelihood(theta, False), 1e-10
+        kernel.theta,
+        lambda theta: gpr.log_marginal_likelihood(theta, False),
+        1e-10,
     )
 
     assert_almost_equal(lml_gradient, lml_gradient_approx, 3)
@@ -229,12 +237,15 @@ def test_random_starts():
     )
 
     kernel = C(1.0, (1e-2, 1e2)) * RBF(
-        length_scale=[1.0] * n_features, length_scale_bounds=[(1e-4, 1e2)] * n_features
+        length_scale=[1.0] * n_features,
+        length_scale_bounds=[(1e-4, 1e2)] * n_features,
     ) + WhiteKernel(noise_level=1e-5, noise_level_bounds=(1e-5, 1e1))
     last_lml = -np.inf
     for n_restarts_optimizer in range(5):
         gp = GaussianProcessRegressor(
-            kernel=kernel, n_restarts_optimizer=n_restarts_optimizer, random_state=0,
+            kernel=kernel,
+            n_restarts_optimizer=n_restarts_optimizer,
+            random_state=0,
         ).fit(X, y)
         lml = gp.log_marginal_likelihood(gp.kernel_.theta)
         assert lml > last_lml - np.finfo(np.float32).eps
@@ -344,10 +355,14 @@ def test_y_multioutput():
     # of 1d GP and that second dimension is twice as large
     kernel = RBF(length_scale=1.0)
 
-    gpr = GaussianProcessRegressor(kernel=kernel, optimizer=None, normalize_y=False)
+    gpr = GaussianProcessRegressor(
+        kernel=kernel, optimizer=None, normalize_y=False
+    )
     gpr.fit(X, y)
 
-    gpr_2d = GaussianProcessRegressor(kernel=kernel, optimizer=None, normalize_y=False)
+    gpr_2d = GaussianProcessRegressor(
+        kernel=kernel, optimizer=None, normalize_y=False
+    )
     gpr_2d.fit(X, y_2d)
 
     y_pred_1d, y_std_1d = gpr.predict(X2, return_std=True)
@@ -389,7 +404,9 @@ def test_custom_optimizer(kernel):
         )
         for _ in range(50):
             theta = np.atleast_1d(
-                rng.uniform(np.maximum(-2, bounds[:, 0]), np.minimum(1, bounds[:, 1]))
+                rng.uniform(
+                    np.maximum(-2, bounds[:, 0]), np.minimum(1, bounds[:, 1])
+                )
             )
             f = obj_func(theta, eval_gradient=False)
             if f < func_min:
@@ -399,9 +416,9 @@ def test_custom_optimizer(kernel):
     gpr = GaussianProcessRegressor(kernel=kernel, optimizer=optimizer)
     gpr.fit(X, y)
     # Checks that optimizer improved marginal likelihood
-    assert gpr.log_marginal_likelihood(gpr.kernel_.theta) > gpr.log_marginal_likelihood(
-        gpr.kernel.theta
-    )
+    assert gpr.log_marginal_likelihood(
+        gpr.kernel_.theta
+    ) > gpr.log_marginal_likelihood(gpr.kernel.theta)
 
 
 def test_gpr_correct_error_message():
@@ -436,8 +453,12 @@ def test_duplicate_input(kernel):
     gpr_similar_inputs.fit(X_, y_)
 
     X_test = np.linspace(0, 10, 100)[:, None]
-    y_pred_equal, y_std_equal = gpr_equal_inputs.predict(X_test, return_std=True)
-    y_pred_similar, y_std_similar = gpr_similar_inputs.predict(X_test, return_std=True)
+    y_pred_equal, y_std_equal = gpr_equal_inputs.predict(
+        X_test, return_std=True
+    )
+    y_pred_similar, y_std_similar = gpr_similar_inputs.predict(
+        X_test, return_std=True
+    )
 
     assert_almost_equal(y_pred_equal, y_pred_similar)
     assert_almost_equal(y_std_equal, y_std_similar)

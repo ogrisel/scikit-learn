@@ -49,7 +49,9 @@ class BaseLoss(ABC):
     # (https://statweb.stanford.edu/~jhf/ftp/trebst.pdf) for the theory.
     need_update_leaves_values = False
 
-    def init_gradients_and_hessians(self, n_samples, prediction_dim, sample_weight):
+    def init_gradients_and_hessians(
+        self, n_samples, prediction_dim, sample_weight
+    ):
         """Return initial gradients and hessians.
 
         Unless hessians are constant, arrays are initialized with undefined
@@ -251,7 +253,9 @@ class LeastAbsoluteDeviation(BaseLoss):
                 gradients, hessians, y_true, raw_predictions, sample_weight
             )
 
-    def update_leaves_values(self, grower, y_true, raw_predictions, sample_weight):
+    def update_leaves_values(
+        self, grower, y_true, raw_predictions, sample_weight
+    ):
         # Update the values predicted by the tree with
         # median(y_true - raw_predictions).
         # See note about need_update_leaves_values in BaseLoss.
@@ -262,7 +266,9 @@ class LeastAbsoluteDeviation(BaseLoss):
         for leaf in grower.finalized_leaves:
             indices = leaf.sample_indices
             if sample_weight is None:
-                median_res = np.median(y_true[indices] - raw_predictions[indices])
+                median_res = np.median(
+                    y_true[indices] - raw_predictions[indices]
+                )
             else:
                 median_res = _weighted_percentile(
                     y_true[indices] - raw_predictions[indices],

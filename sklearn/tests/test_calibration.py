@@ -34,13 +34,19 @@ from sklearn.calibration import calibration_curve
 def test_calibration():
     """Test calibration objects with isotonic and sigmoid"""
     n_samples = 100
-    X, y = make_classification(n_samples=2 * n_samples, n_features=6, random_state=42)
+    X, y = make_classification(
+        n_samples=2 * n_samples, n_features=6, random_state=42
+    )
     sample_weight = np.random.RandomState(seed=42).uniform(size=y.size)
 
     X -= X.min()  # MultinomialNB only allows positive X
 
     # split train and test
-    X_train, y_train, sw_train = X[:n_samples], y[:n_samples], sample_weight[:n_samples]
+    X_train, y_train, sw_train = (
+        X[:n_samples],
+        y[:n_samples],
+        sample_weight[:n_samples],
+    )
     X_test, y_test = X[n_samples:], y[n_samples:]
 
     # Naive-Bayes
@@ -70,12 +76,16 @@ def test_calibration():
             # Check invariance against relabeling [0, 1] -> [1, 2]
             pc_clf.fit(this_X_train, y_train + 1, sample_weight=sw_train)
             prob_pos_pc_clf_relabeled = pc_clf.predict_proba(this_X_test)[:, 1]
-            assert_array_almost_equal(prob_pos_pc_clf, prob_pos_pc_clf_relabeled)
+            assert_array_almost_equal(
+                prob_pos_pc_clf, prob_pos_pc_clf_relabeled
+            )
 
             # Check invariance against relabeling [0, 1] -> [-1, 1]
             pc_clf.fit(this_X_train, 2 * y_train - 1, sample_weight=sw_train)
             prob_pos_pc_clf_relabeled = pc_clf.predict_proba(this_X_test)[:, 1]
-            assert_array_almost_equal(prob_pos_pc_clf, prob_pos_pc_clf_relabeled)
+            assert_array_almost_equal(
+                prob_pos_pc_clf, prob_pos_pc_clf_relabeled
+            )
 
             # Check invariance against relabeling [0, 1] -> [1, 0]
             pc_clf.fit(this_X_train, (y_train + 1) % 2, sample_weight=sw_train)
@@ -87,7 +97,9 @@ def test_calibration():
             else:
                 # Isotonic calibration is not invariant against relabeling
                 # but should improve in both cases
-                assert brier_score_loss(y_test, prob_pos_clf) > brier_score_loss(
+                assert brier_score_loss(
+                    y_test, prob_pos_clf
+                ) > brier_score_loss(
                     (y_test + 1) % 2, prob_pos_pc_clf_relabeled
                 )
 
@@ -130,10 +142,16 @@ def test_calibration_cv_splitter():
 
 def test_sample_weight():
     n_samples = 100
-    X, y = make_classification(n_samples=2 * n_samples, n_features=6, random_state=42)
+    X, y = make_classification(
+        n_samples=2 * n_samples, n_features=6, random_state=42
+    )
 
     sample_weight = np.random.RandomState(seed=42).uniform(size=len(y))
-    X_train, y_train, sw_train = X[:n_samples], y[:n_samples], sample_weight[:n_samples]
+    X_train, y_train, sw_train = (
+        X[:n_samples],
+        y[:n_samples],
+        sample_weight[:n_samples],
+    )
     X_test = X[n_samples:]
 
     for method in ["sigmoid", "isotonic"]:
@@ -182,13 +200,17 @@ def test_calibration_multiclass():
             e = np.exp(-y_pred)
             return e / e.sum(axis=1).reshape(-1, 1)
 
-        uncalibrated_log_loss = log_loss(y_test, softmax(clf.decision_function(X_test)))
+        uncalibrated_log_loss = log_loss(
+            y_test, softmax(clf.decision_function(X_test))
+        )
         calibrated_log_loss = log_loss(y_test, probas)
         assert uncalibrated_log_loss >= calibrated_log_loss
 
     # Test that calibration of a multiclass classifier decreases log-loss
     # for RandomForestClassifier
-    X, y = make_blobs(n_samples=100, n_features=2, random_state=42, cluster_std=3.0)
+    X, y = make_blobs(
+        n_samples=100, n_features=2, random_state=42, cluster_std=3.0
+    )
     X_train, y_train = X[::2], y[::2]
     X_test, y_test = X[1::2], y[1::2]
 
@@ -208,13 +230,19 @@ def test_calibration_multiclass():
 def test_calibration_prefit():
     """Test calibration for prefitted classifiers"""
     n_samples = 50
-    X, y = make_classification(n_samples=3 * n_samples, n_features=6, random_state=42)
+    X, y = make_classification(
+        n_samples=3 * n_samples, n_features=6, random_state=42
+    )
     sample_weight = np.random.RandomState(seed=42).uniform(size=y.size)
 
     X -= X.min()  # MultinomialNB only allows positive X
 
     # split train and test
-    X_train, y_train, sw_train = X[:n_samples], y[:n_samples], sample_weight[:n_samples]
+    X_train, y_train, sw_train = (
+        X[:n_samples],
+        y[:n_samples],
+        sample_weight[:n_samples],
+    )
     X_calib, y_calib, sw_calib = (
         X[n_samples : 2 * n_samples],
         y[n_samples : 2 * n_samples],
@@ -245,11 +273,13 @@ def test_calibration_prefit():
                 y_prob = pc_clf.predict_proba(this_X_test)
                 y_pred = pc_clf.predict(this_X_test)
                 prob_pos_pc_clf = y_prob[:, 1]
-                assert_array_equal(y_pred, np.array([0, 1])[np.argmax(y_prob, axis=1)])
-
-                assert brier_score_loss(y_test, prob_pos_clf) > brier_score_loss(
-                    y_test, prob_pos_pc_clf
+                assert_array_equal(
+                    y_pred, np.array([0, 1])[np.argmax(y_prob, axis=1)]
                 )
+
+                assert brier_score_loss(
+                    y_test, prob_pos_clf
+                ) > brier_score_loss(y_test, prob_pos_pc_clf)
 
 
 def test_sigmoid_calibration():
@@ -265,7 +295,9 @@ def test_sigmoid_calibration():
 
     # check that _SigmoidCalibration().fit only accepts 1d array or 2d column
     # arrays
-    assert_raises(ValueError, _SigmoidCalibration().fit, np.vstack((exF, exF)), exY)
+    assert_raises(
+        ValueError, _SigmoidCalibration().fit, np.vstack((exF, exF)), exY
+    )
 
 
 def test_calibration_curve():
@@ -308,11 +340,18 @@ def test_calibration_curve():
 def test_calibration_nan_imputer():
     """Test that calibration can accept nan"""
     X, y = make_classification(
-        n_samples=10, n_features=2, n_informative=2, n_redundant=0, random_state=42
+        n_samples=10,
+        n_features=2,
+        n_informative=2,
+        n_redundant=0,
+        random_state=42,
     )
     X[0, 0] = np.nan
     clf = Pipeline(
-        [("imputer", SimpleImputer()), ("rf", RandomForestClassifier(n_estimators=1))]
+        [
+            ("imputer", SimpleImputer()),
+            ("rf", RandomForestClassifier(n_estimators=1)),
+        ]
     )
     clf_c = CalibratedClassifierCV(clf, cv=2, method="isotonic")
     clf_c.fit(X, y)
@@ -323,7 +362,9 @@ def test_calibration_prob_sum():
     # Test that sum of probabilities is 1. A non-regression test for
     # issue #7796
     num_classes = 2
-    X, y = make_classification(n_samples=10, n_features=5, n_classes=num_classes)
+    X, y = make_classification(
+        n_samples=10, n_features=5, n_classes=num_classes
+    )
     clf = LinearSVC(C=1.0)
     clf_prob = CalibratedClassifierCV(clf, method="sigmoid", cv=LeaveOneOut())
     clf_prob.fit(X, y)
@@ -418,7 +459,9 @@ def test_calibration_pipeline(text_data, text_data_pipeline):
 )
 def test_calibration_attributes(clf, cv):
     # Check that `n_features_in_` and `classes_` attributes created properly
-    X, y = make_classification(n_samples=10, n_features=5, n_classes=2, random_state=7)
+    X, y = make_classification(
+        n_samples=10, n_features=5, n_classes=2, random_state=7
+    )
     if cv == "prefit":
         clf = clf.fit(X, y)
     calib_clf = CalibratedClassifierCV(clf, cv=cv)

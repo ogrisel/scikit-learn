@@ -101,7 +101,9 @@ def _fetch_dataset_from_openml(
     # fetch_openml function, and does various checks on the validity of the
     # result. Note that this function can be mocked (by invoking
     # _monkey_patch_webbased_functions before invoking this function)
-    data_by_name_id = fetch_openml(name=data_name, version=data_version, cache=False)
+    data_by_name_id = fetch_openml(
+        name=data_name, version=data_version, cache=False
+    )
     assert int(data_by_name_id.details["id"]) == data_id
 
     # Please note that cache=False is crucial, as the monkey patched files are
@@ -111,7 +113,9 @@ def _fetch_dataset_from_openml(
     # will be the same
 
     # fetch with dataset id
-    data_by_id = fetch_openml(data_id=data_id, cache=False, target_column=target_column)
+    data_by_id = fetch_openml(
+        data_id=data_id, cache=False, target_column=target_column
+    )
     assert data_by_id.details["name"] == data_name
     assert data_by_id.data.shape == (expected_observations, expected_features)
     if isinstance(target_column, str):
@@ -120,7 +124,10 @@ def _fetch_dataset_from_openml(
         assert data_by_id.target_names == [target_column]
     elif isinstance(target_column, list):
         # multi target, so target is array
-        assert data_by_id.target.shape == (expected_observations, len(target_column))
+        assert data_by_id.target.shape == (
+            expected_observations,
+            len(target_column),
+        )
         assert data_by_id.target_names == target_column
     assert data_by_id.data.dtype == expected_data_dtype
     assert data_by_id.target.dtype == expected_target_dtype
@@ -140,7 +147,9 @@ def _fetch_dataset_from_openml(
         data_by_id_default = fetch_openml(data_id=data_id, cache=False)
         np.testing.assert_allclose(data_by_id.data, data_by_id_default.data)
         if data_by_id.target.dtype == np.float64:
-            np.testing.assert_allclose(data_by_id.target, data_by_id_default.target)
+            np.testing.assert_allclose(
+                data_by_id.target, data_by_id_default.target
+            )
         else:
             assert np.array_equal(data_by_id.target, data_by_id_default.target)
 
@@ -199,7 +208,9 @@ def _monkey_patch_webbased_functions(context, data_id, gzip_response):
 
     def _file_name(url, suffix):
         return (
-            re.sub(r"\W", "-", url[len("https://openml.org/") :]) + suffix + path_suffix
+            re.sub(r"\W", "-", url[len("https://openml.org/") :])
+            + suffix
+            + path_suffix
         )
 
     def _mock_urlopen_data_description(url, has_gzip_header):
@@ -249,10 +260,16 @@ def _monkey_patch_webbased_functions(context, data_id, gzip_response):
             currdir, "data", "openml", str(data_id), _file_name(url, ".json")
         )
         # load the file itself, to simulate a http error
-        json_data = json.loads(read_fn(json_file_path, "rb").read().decode("utf-8"))
+        json_data = json.loads(
+            read_fn(json_file_path, "rb").read().decode("utf-8")
+        )
         if "error" in json_data:
             raise HTTPError(
-                url=None, code=412, msg="Simulated mock error", hdrs=None, fp=None
+                url=None,
+                code=412,
+                msg="Simulated mock error",
+                hdrs=None,
+                fp=None,
             )
 
         if has_gzip_header:
@@ -380,7 +397,9 @@ def test_fetch_openml_iris_multitarget_pandas(monkeypatch):
     frame_shape = (150, 5)
     target_column = ["petalwidth", "petallength"]
 
-    cat_dtype = CategoricalDtype(["Iris-setosa", "Iris-versicolor", "Iris-virginica"])
+    cat_dtype = CategoricalDtype(
+        ["Iris-setosa", "Iris-versicolor", "Iris-virginica"]
+    )
     data_dtypes = [np.float64, np.float64] + [cat_dtype]
     data_names = ["sepallength", "sepalwidth", "class"]
     target_dtypes = [np.float64, np.float64]
@@ -569,7 +588,9 @@ def test_fetch_openml_adultcensus_pandas_return_X_y(monkeypatch):
     target_column = "class"
 
     _monkey_patch_webbased_functions(monkeypatch, data_id, True)
-    X, y = fetch_openml(data_id=data_id, as_frame=True, cache=False, return_X_y=True)
+    X, y = fetch_openml(
+        data_id=data_id, as_frame=True, cache=False, return_X_y=True
+    )
     assert isinstance(X, pd.DataFrame)
     assert X.shape == data_shape
     n_categories = len(
@@ -1176,7 +1197,9 @@ def test_fetch_openml_cache(monkeypatch, gzip_response, tmpdir):
         data_id=data_id, cache=True, data_home=cache_directory, return_X_y=True
     )
 
-    monkeypatch.setattr(sklearn.datasets._openml, "urlopen", _mock_urlopen_raise)
+    monkeypatch.setattr(
+        sklearn.datasets._openml, "urlopen", _mock_urlopen_raise
+    )
 
     X_cached, y_cached = fetch_openml(
         data_id=data_id, cache=True, data_home=cache_directory, return_X_y=True
@@ -1193,7 +1216,9 @@ def test_fetch_openml_notarget(monkeypatch, gzip_response):
     expected_features = 5
 
     _monkey_patch_webbased_functions(monkeypatch, data_id, gzip_response)
-    data = fetch_openml(data_id=data_id, target_column=target_column, cache=False)
+    data = fetch_openml(
+        data_id=data_id, target_column=target_column, cache=False
+    )
     assert data.data.shape == (expected_observations, expected_features)
     assert data.target is None
 
@@ -1320,7 +1345,8 @@ def test_dataset_with_openml_error(monkeypatch, gzip_response):
     _monkey_patch_webbased_functions(monkeypatch, data_id, gzip_response)
     assert_warns_message(
         UserWarning,
-        "OpenML registered a problem with the dataset. It might be unusable. " "Error:",
+        "OpenML registered a problem with the dataset. It might be unusable. "
+        "Error:",
         fetch_openml,
         data_id=data_id,
         cache=False,
@@ -1333,7 +1359,8 @@ def test_dataset_with_openml_warning(monkeypatch, gzip_response):
     _monkey_patch_webbased_functions(monkeypatch, data_id, gzip_response)
     assert_warns_message(
         UserWarning,
-        "OpenML raised a warning on the dataset. It might be unusable. " "Warning:",
+        "OpenML raised a warning on the dataset. It might be unusable. "
+        "Warning:",
         fetch_openml,
         data_id=data_id,
         cache=False,
@@ -1401,7 +1428,8 @@ def test_fetch_openml_raises_illegal_argument():
 
     assert_raise_message(
         ValueError,
-        "Neither name nor data_id are provided. " "Please provide name or data_id.",
+        "Neither name nor data_id are provided. "
+        "Please provide name or data_id.",
         fetch_openml,
     )
 
@@ -1431,7 +1459,9 @@ def test_fetch_openml_verify_checksum(monkeypatch, as_frame, cache, tmpdir):
 
     # create a temporary modified arff file
     dataset_dir = os.path.join(currdir, "data", "openml", str(data_id))
-    original_data_path = os.path.join(dataset_dir, "data-v1-download-1666876.arff.gz")
+    original_data_path = os.path.join(
+        dataset_dir, "data-v1-download-1666876.arff.gz"
+    )
     corrupt_copy = os.path.join(tmpdir, "test_invalid_checksum.arff")
     with gzip.GzipFile(original_data_path, "rb") as orig_gzip, gzip.GzipFile(
         corrupt_copy, "wb"
@@ -1456,7 +1486,9 @@ def test_fetch_openml_verify_checksum(monkeypatch, as_frame, cache, tmpdir):
 
     # validate failed checksum
     with pytest.raises(ValueError) as exc:
-        sklearn.datasets.fetch_openml(data_id=data_id, cache=False, as_frame=as_frame)
+        sklearn.datasets.fetch_openml(
+            data_id=data_id, cache=False, as_frame=as_frame
+        )
     # exception message should have file-path
     assert exc.match("1666876")
 
@@ -1474,7 +1506,12 @@ def test_convert_arff_data_type():
     with pytest.raises(ValueError, match=msg):
         _convert_arff_data(arff, [0], [0], shape=None)
 
-    arff = {"data": list(range(2)), "description": "", "relation": "", "attributes": []}
+    arff = {
+        "data": list(range(2)),
+        "description": "",
+        "relation": "",
+        "attributes": [],
+    }
     msg = r"arff\['data'\] must be a generator when converting to pd.DataFrame"
     with pytest.raises(ValueError, match=msg):
         _convert_arff_data_dataframe(arff, ["a"], {})

@@ -19,7 +19,8 @@ def _check_params(X, metric, p, metric_params):
         if func_param != est_params[param_name]:
             raise ValueError(
                 "Got %s for %s, while the estimator has %s for "
-                "the same parameter." % (func_param, param_name, est_params[param_name])
+                "the same parameter."
+                % (func_param, param_name, est_params[param_name])
             )
 
 
@@ -411,7 +412,9 @@ class KNeighborsTransformer(KNeighborsMixin, TransformerMixin, NeighborsBase):
         return self.fit(X).transform(X)
 
 
-class RadiusNeighborsTransformer(RadiusNeighborsMixin, TransformerMixin, NeighborsBase):
+class RadiusNeighborsTransformer(
+    RadiusNeighborsMixin, TransformerMixin, NeighborsBase
+):
     """Transform X into a (weighted) graph of neighbors nearer than a radius
 
     The transformed data is a sparse graph as returned by

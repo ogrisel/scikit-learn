@@ -25,7 +25,9 @@ def test_binomial_deviance():
     bd = BinomialDeviance(2)
 
     # pred has the same BD for y in {0, 1}
-    assert bd(np.array([0.0]), np.array([0.0])) == bd(np.array([1.0]), np.array([0.0]))
+    assert bd(np.array([0.0]), np.array([0.0])) == bd(
+        np.array([1.0]), np.array([0.0])
+    )
 
     assert_almost_equal(
         bd(np.array([1.0, 1.0, 1.0]), np.array([100.0, 100.0, 100.0])), 0.0
@@ -178,7 +180,9 @@ def test_mdl_computation_weighted():
     expected_loss = 1.0909323
     # MultinomialDeviance loss computation with weights.
     loss = MultinomialDeviance(3)
-    assert loss(y_true, raw_predictions, weights) == pytest.approx(expected_loss)
+    assert loss(y_true, raw_predictions, weights) == pytest.approx(
+        expected_loss
+    )
 
 
 @pytest.mark.parametrize("n", [0, 1, 2])

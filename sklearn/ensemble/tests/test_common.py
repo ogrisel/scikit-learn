@@ -170,7 +170,10 @@ def test_ensemble_heterogeneous_estimators_name_validation(X, y, Ensemble):
 
     # raise an error when the name is not unique
     if issubclass(Ensemble, ClassifierMixin):
-        estimators = [("lr", LogisticRegression()), ("lr", LogisticRegression())]
+        estimators = [
+            ("lr", LogisticRegression()),
+            ("lr", LogisticRegression()),
+        ]
     else:
         estimators = [("lr", LinearRegression()), ("lr", LinearRegression())]
     ensemble = Ensemble(estimators=estimators)

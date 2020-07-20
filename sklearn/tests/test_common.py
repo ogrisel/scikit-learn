@@ -42,7 +42,8 @@ def test_all_estimator_no_base_class():
     # test that all_estimators doesn't find abstract classes.
     for name, Estimator in all_estimators():
         msg = (
-            "Base estimators such as {0} should not be included" " in all_estimators"
+            "Base estimators such as {0} should not be included"
+            " in all_estimators"
         ).format(name)
         assert not name.lower().startswith("base"), msg
 
@@ -97,7 +98,9 @@ def test_estimators(estimator, check, request):
 
 
 def test_check_estimator_generate_only():
-    all_instance_gen_checks = check_estimator(LogisticRegression(), generate_only=True)
+    all_instance_gen_checks = check_estimator(
+        LogisticRegression(), generate_only=True
+    )
     assert isgenerator(all_instance_gen_checks)
 
 
@@ -171,9 +174,9 @@ def test_import_all_consistency():
             continue
         package = __import__(modname, fromlist="dummy")
         for name in getattr(package, "__all__", ()):
-            assert hasattr(package, name), "Module '{0}' has no attribute '{1}'".format(
-                modname, name
-            )
+            assert hasattr(
+                package, name
+            ), "Module '{0}' has no attribute '{1}'".format(modname, name)
 
 
 def test_root_import_all_completeness():
@@ -199,7 +202,9 @@ def test_all_tests_are_importable():
     )
     lookup = {
         name: ispkg
-        for _, name, ispkg in pkgutil.walk_packages(sklearn.__path__, prefix="sklearn.")
+        for _, name, ispkg in pkgutil.walk_packages(
+            sklearn.__path__, prefix="sklearn."
+        )
     }
     missing_tests = [
         name

@@ -246,7 +246,8 @@ class TreeGrower:
                 )
             if np.any(monotonic_cst < -1) or np.any(monotonic_cst > 1):
                 raise ValueError(
-                    "monotonic_cst must be None or an array-like of " "-1, 0 or 1."
+                    "monotonic_cst must be None or an array-like of "
+                    "-1, 0 or 1."
                 )
 
         hessians_are_constant = hessians.shape[0] == 1
@@ -322,11 +323,13 @@ class TreeGrower:
             )
         if min_gain_to_split < 0:
             raise ValueError(
-                "min_gain_to_split={} " "must be positive.".format(min_gain_to_split)
+                "min_gain_to_split={} "
+                "must be positive.".format(min_gain_to_split)
             )
         if l2_regularization < 0:
             raise ValueError(
-                "l2_regularization={} must be " "positive.".format(l2_regularization)
+                "l2_regularization={} must be "
+                "positive.".format(l2_regularization)
             )
         if min_hessian_to_split < 0:
             raise ValueError(
@@ -473,7 +476,10 @@ class TreeGrower:
 
         self.n_nodes += 2
 
-        if self.max_leaf_nodes is not None and n_leaf_nodes == self.max_leaf_nodes:
+        if (
+            self.max_leaf_nodes is not None
+            and n_leaf_nodes == self.max_leaf_nodes
+        ):
             self._finalize_leaf(left_child_node)
             self._finalize_leaf(right_child_node)
             self._finalize_splittable_nodes()
@@ -586,7 +592,11 @@ class TreeGrower:
 
 
 def _fill_predictor_node_array(
-    predictor_nodes, grower_node, bin_thresholds, n_bins_non_missing, next_free_idx=0
+    predictor_nodes,
+    grower_node,
+    bin_thresholds,
+    n_bins_non_missing,
+    next_free_idx=0,
 ):
     """Helper used in make_predictor to set the TreePredictor fields."""
     node = predictor_nodes[next_free_idx]

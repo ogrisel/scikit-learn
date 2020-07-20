@@ -828,7 +828,11 @@ def stable_cumsum(arr, axis=None, rtol=1e-05, atol=1e-08):
     expected = np.sum(arr, axis=axis, dtype=np.float64)
     if not np.all(
         np.isclose(
-            out.take(-1, axis=axis), expected, rtol=rtol, atol=atol, equal_nan=True
+            out.take(-1, axis=axis),
+            expected,
+            rtol=rtol,
+            atol=atol,
+            equal_nan=True,
         )
     ):
         warnings.warn(

@@ -94,7 +94,9 @@ def _nipals_twoblocks_inner_loop(
         if np.dot(x_weights_diff.T, x_weights_diff) < tol or Y.shape[1] == 1:
             break
         if ite == max_iter:
-            warnings.warn("Maximum number of iterations reached", ConvergenceWarning)
+            warnings.warn(
+                "Maximum number of iterations reached", ConvergenceWarning
+            )
             break
         x_weights_old = x_weights
         ite += 1
@@ -136,7 +138,11 @@ def _center_scale_xy(X, Y, scale=True):
 
 
 class _PLS(
-    TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator, metaclass=ABCMeta
+    TransformerMixin,
+    RegressorMixin,
+    MultiOutputMixin,
+    BaseEstimator,
+    metaclass=ABCMeta,
 ):
     """Partial Least Squares (PLS)
 
@@ -305,7 +311,9 @@ class _PLS(
         q = Y.shape[1]
 
         if self.n_components < 1 or self.n_components > p:
-            raise ValueError("Invalid number of components: %d" % self.n_components)
+            raise ValueError(
+                "Invalid number of components: %d" % self.n_components
+            )
         if self.algorithm not in ("svd", "nipals"):
             raise ValueError(
                 "Got algorithm %s when only 'svd' "
@@ -319,9 +327,14 @@ class _PLS(
         if self.deflation_mode not in ["canonical", "regression"]:
             raise ValueError("The deflation mode is unknown")
         # Scale (in place)
-        X, Y, self.x_mean_, self.y_mean_, self.x_std_, self.y_std_ = _center_scale_xy(
-            X, Y, self.scale
-        )
+        (
+            X,
+            Y,
+            self.x_mean_,
+            self.y_mean_,
+            self.x_std_,
+            self.y_std_,
+        ) = _center_scale_xy(X, Y, self.scale)
         # Residuals (deflated) matrices
         Xk = X
         Yk = Y
@@ -388,11 +401,15 @@ class _PLS(
             Xk -= np.dot(x_scores, x_loadings.T)
             if self.deflation_mode == "canonical":
                 # - regress Yk's on y_score, then subtract rank-one approx.
-                y_loadings = np.dot(Yk.T, y_scores) / np.dot(y_scores.T, y_scores)
+                y_loadings = np.dot(Yk.T, y_scores) / np.dot(
+                    y_scores.T, y_scores
+                )
                 Yk -= np.dot(y_scores, y_loadings.T)
             if self.deflation_mode == "regression":
                 # - regress Yk's on x_score, then subtract rank-one approx.
-                y_loadings = np.dot(Yk.T, x_scores) / np.dot(x_scores.T, x_scores)
+                y_loadings = np.dot(Yk.T, x_scores) / np.dot(
+                    x_scores.T, x_scores
+                )
                 Yk -= np.dot(x_scores, y_loadings.T)
             # 3) Store weights, scores and loadings # Notation:
             self.x_scores_[:, k] = x_scores.ravel()  # T
@@ -408,12 +425,17 @@ class _PLS(
         # U = Y C(Q'C)^-1 = YC* (W* : q x k matrix)
         self.x_rotations_ = np.dot(
             self.x_weights_,
-            pinv2(np.dot(self.x_loadings_.T, self.x_weights_), check_finite=False),
+            pinv2(
+                np.dot(self.x_loadings_.T, self.x_weights_), check_finite=False
+            ),
         )
         if Y.shape[1] > 1:
             self.y_rotations_ = np.dot(
                 self.y_weights_,
-                pinv2(np.dot(self.y_loadings_.T, self.y_weights_), check_finite=False),
+                pinv2(
+                    np.dot(self.y_loadings_.T, self.y_weights_),
+                    check_finite=False,
+                ),
             )
         else:
             self.y_rotations_ = np.ones(1)
@@ -962,9 +984,14 @@ class PLSSVD(TransformerMixin, BaseEstimator):
             )
 
         # Scale (in place)
-        X, Y, self.x_mean_, self.y_mean_, self.x_std_, self.y_std_ = _center_scale_xy(
-            X, Y, self.scale
-        )
+        (
+            X,
+            Y,
+            self.x_mean_,
+            self.y_mean_,
+            self.x_std_,
+            self.y_std_,
+        ) = _center_scale_xy(X, Y, self.scale)
         # svd(X'Y)
         C = np.dot(X.T, Y)
 

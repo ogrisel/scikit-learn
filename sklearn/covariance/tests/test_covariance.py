@@ -54,14 +54,18 @@ def test_covariance():
     cov.fit(X_1d)
     assert_array_almost_equal(empirical_covariance(X_1d), cov.covariance_, 4)
     assert_almost_equal(cov.error_norm(empirical_covariance(X_1d)), 0)
-    assert_almost_equal(cov.error_norm(empirical_covariance(X_1d), norm="spectral"), 0)
+    assert_almost_equal(
+        cov.error_norm(empirical_covariance(X_1d), norm="spectral"), 0
+    )
 
     # test with one sample
     # Create X with 1 sample and 5 features
     X_1sample = np.arange(5).reshape(1, 5)
     cov = EmpiricalCovariance()
     assert_warns(UserWarning, cov.fit, X_1sample)
-    assert_array_almost_equal(cov.covariance_, np.zeros(shape=(5, 5), dtype=np.float64))
+    assert_array_almost_equal(
+        cov.covariance_, np.zeros(shape=(5, 5), dtype=np.float64)
+    )
 
     # test integer type
     X_integer = np.asarray([[0, 1], [1, 0]])
@@ -80,7 +84,9 @@ def test_shrunk_covariance():
     cov = ShrunkCovariance(shrinkage=0.5)
     cov.fit(X)
     assert_array_almost_equal(
-        shrunk_covariance(empirical_covariance(X), shrinkage=0.5), cov.covariance_, 4
+        shrunk_covariance(empirical_covariance(X), shrinkage=0.5),
+        cov.covariance_,
+        4,
     )
 
     # same test with shrinkage not provided
@@ -138,7 +144,9 @@ def test_ledoit_wolf():
     X_1d = X[:, 0].reshape((-1, 1))
     lw = LedoitWolf(assume_centered=True)
     lw.fit(X_1d)
-    lw_cov_from_mle, lw_shrinkage_from_mle = ledoit_wolf(X_1d, assume_centered=True)
+    lw_cov_from_mle, lw_shrinkage_from_mle = ledoit_wolf(
+        X_1d, assume_centered=True
+    )
     assert_array_almost_equal(lw_cov_from_mle, lw.covariance_, 4)
     assert_almost_equal(lw_shrinkage_from_mle, lw.shrinkage_)
     assert_array_almost_equal((X_1d ** 2).sum() / n_samples, lw.covariance_, 4)
@@ -180,7 +188,9 @@ def test_ledoit_wolf():
     X_1sample = np.arange(5).reshape(1, 5)
     lw = LedoitWolf()
     assert_warns(UserWarning, lw.fit, X_1sample)
-    assert_array_almost_equal(lw.covariance_, np.zeros(shape=(5, 5), dtype=np.float64))
+    assert_array_almost_equal(
+        lw.covariance_, np.zeros(shape=(5, 5), dtype=np.float64)
+    )
 
     # test shrinkage coeff on a simple data set (without saving precision)
     lw = LedoitWolf(store_precision=False)
@@ -248,7 +258,9 @@ def test_oas():
     shrinkage_ = oa.shrinkage_
     score_ = oa.score(X_centered)
     # compare shrunk covariance obtained from data and from MLE estimate
-    oa_cov_from_mle, oa_shrinkage_from_mle = oas(X_centered, assume_centered=True)
+    oa_cov_from_mle, oa_shrinkage_from_mle = oas(
+        X_centered, assume_centered=True
+    )
     assert_array_almost_equal(oa_cov_from_mle, oa.covariance_, 4)
     assert_almost_equal(oa_shrinkage_from_mle, oa.shrinkage_)
     # compare estimates given by OAS and ShrunkCovariance
@@ -300,7 +312,9 @@ def test_oas():
     X_1sample = np.arange(5).reshape(1, 5)
     oa = OAS()
     assert_warns(UserWarning, oa.fit, X_1sample)
-    assert_array_almost_equal(oa.covariance_, np.zeros(shape=(5, 5), dtype=np.float64))
+    assert_array_almost_equal(
+        oa.covariance_, np.zeros(shape=(5, 5), dtype=np.float64)
+    )
 
     # test shrinkage coeff on a simple data set (without saving precision)
     oa = OAS(store_precision=False)

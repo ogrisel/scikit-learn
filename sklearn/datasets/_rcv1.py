@@ -41,35 +41,40 @@ XY_METADATA = (
     RemoteFileMetadata(
         url="https://ndownloader.figshare.com/files/5976069",
         checksum=(
-            "ed40f7e418d10484091b059703eeb95a" "e3199fe042891dcec4be6696b9968374"
+            "ed40f7e418d10484091b059703eeb95a"
+            "e3199fe042891dcec4be6696b9968374"
         ),
         filename="lyrl2004_vectors_test_pt0.dat.gz",
     ),
     RemoteFileMetadata(
         url="https://ndownloader.figshare.com/files/5976066",
         checksum=(
-            "87700668ae45d45d5ca1ef6ae9bd81ab" "0f5ec88cc95dcef9ae7838f727a13aa6"
+            "87700668ae45d45d5ca1ef6ae9bd81ab"
+            "0f5ec88cc95dcef9ae7838f727a13aa6"
         ),
         filename="lyrl2004_vectors_test_pt1.dat.gz",
     ),
     RemoteFileMetadata(
         url="https://ndownloader.figshare.com/files/5976063",
         checksum=(
-            "48143ac703cbe33299f7ae9f4995db4" "9a258690f60e5debbff8995c34841c7f5"
+            "48143ac703cbe33299f7ae9f4995db4"
+            "9a258690f60e5debbff8995c34841c7f5"
         ),
         filename="lyrl2004_vectors_test_pt2.dat.gz",
     ),
     RemoteFileMetadata(
         url="https://ndownloader.figshare.com/files/5976060",
         checksum=(
-            "dfcb0d658311481523c6e6ca0c3f5a3" "e1d3d12cde5d7a8ce629a9006ec7dbb39"
+            "dfcb0d658311481523c6e6ca0c3f5a3"
+            "e1d3d12cde5d7a8ce629a9006ec7dbb39"
         ),
         filename="lyrl2004_vectors_test_pt3.dat.gz",
     ),
     RemoteFileMetadata(
         url="https://ndownloader.figshare.com/files/5976057",
         checksum=(
-            "5468f656d0ba7a83afc7ad44841cf9a5" "3048a5c083eedc005dcdb5cc768924ae"
+            "5468f656d0ba7a83afc7ad44841cf9a5"
+            "3048a5c083eedc005dcdb5cc768924ae"
         ),
         filename="lyrl2004_vectors_train.dat.gz",
     ),
@@ -79,7 +84,9 @@ XY_METADATA = (
 # http://jmlr.csail.mit.edu/papers/volume5/lewis04a/a08-topic-qrels/rcv1-v2.topics.qrels.gz
 TOPICS_METADATA = RemoteFileMetadata(
     url="https://ndownloader.figshare.com/files/5976048",
-    checksum=("2a98e5e5d8b770bded93afc8930d882" "99474317fe14181aee1466cc754d0d1c1"),
+    checksum=(
+        "2a98e5e5d8b770bded93afc8930d882" "99474317fe14181aee1466cc754d0d1c1"
+    ),
     filename="rcv1v2.topics.qrels.gz",
 )
 
@@ -182,7 +189,9 @@ def fetch_rcv1(
     topics_path = _pkl_filepath(rcv1_dir, "topics_names.pkl")
 
     # load data (X) and sample_id
-    if download_if_missing and (not exists(samples_path) or not exists(sample_id_path)):
+    if download_if_missing and (
+        not exists(samples_path) or not exists(sample_id_path)
+    ):
         files = []
         for each in XY_METADATA:
             logger.info("Downloading %s" % each.url)
@@ -288,7 +297,11 @@ def fetch_rcv1(
         return X, y
 
     return Bunch(
-        data=X, target=y, sample_id=sample_id, target_names=categories, DESCR=fdescr
+        data=X,
+        target=y,
+        sample_id=sample_id,
+        target_names=categories,
+        DESCR=fdescr,
     )
 
 

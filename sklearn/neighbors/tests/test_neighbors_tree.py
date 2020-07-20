@@ -79,7 +79,8 @@ def brute_force_neighbors(X, Y, k, metric, **kwargs):
 
 @pytest.mark.parametrize("Cls", [KDTree, BallTree])
 @pytest.mark.parametrize(
-    "kernel", ["gaussian", "tophat", "epanechnikov", "exponential", "linear", "cosine"]
+    "kernel",
+    ["gaussian", "tophat", "epanechnikov", "exponential", "linear", "cosine"],
 )
 @pytest.mark.parametrize("h", [0.01, 0.1, 1])
 @pytest.mark.parametrize("rtol", [0, 1e-5])
@@ -251,7 +252,9 @@ def test_nn_tree_query(Cls, metric, k, dualtree, breadth_first):
     kwargs = METRICS[metric]
 
     kdt = Cls(X, leaf_size=1, metric=metric, **kwargs)
-    dist1, ind1 = kdt.query(Y, k, dualtree=dualtree, breadth_first=breadth_first)
+    dist1, ind1 = kdt.query(
+        Y, k, dualtree=dualtree, breadth_first=breadth_first
+    )
     dist2, ind2 = brute_force_neighbors(X, Y, k, metric, **kwargs)
 
     # don't check indices here: if there are any duplicate distances,

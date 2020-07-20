@@ -270,7 +270,8 @@ def _determine_key_type(key, accept_slice=True):
     if isinstance(key, slice):
         if not accept_slice:
             raise TypeError(
-                "Only array-like or scalar are supported. " "A Python slice was given."
+                "Only array-like or scalar are supported. "
+                "A Python slice was given."
             )
         if key.start is None and key.stop is None:
             return None
@@ -427,12 +428,15 @@ def _get_column_indices(X, key):
                 col_idx = all_columns.get_loc(col)
                 if not isinstance(col_idx, numbers.Integral):
                     raise ValueError(
-                        f"Selected columns, {columns}, are not " "unique in dataframe"
+                        f"Selected columns, {columns}, are not "
+                        "unique in dataframe"
                     )
                 column_indices.append(col_idx)
 
         except KeyError as e:
-            raise ValueError("A given column is not a column of the dataframe") from e
+            raise ValueError(
+                "A given column is not a column of the dataframe"
+            ) from e
 
         return column_indices
     else:
@@ -443,7 +447,9 @@ def _get_column_indices(X, key):
         )
 
 
-def resample(*arrays, replace=True, n_samples=None, random_state=None, stratify=None):
+def resample(
+    *arrays, replace=True, n_samples=None, random_state=None, stratify=None
+):
     """Resample arrays or sparse matrices in a consistent way.
 
     The default strategy implements one step of the bootstrapping
@@ -569,7 +575,8 @@ def resample(*arrays, replace=True, n_samples=None, random_state=None, stratify=
         # Find the sorted list of instances for each class:
         # (np.unique above performs a sort, so code is O(n logn) already)
         class_indices = np.split(
-            np.argsort(y_indices, kind="mergesort"), np.cumsum(class_counts)[:-1]
+            np.argsort(y_indices, kind="mergesort"),
+            np.cumsum(class_counts)[:-1],
         )
 
         n_i = _approximate_mode(class_counts, max_n_samples, random_state)
@@ -577,7 +584,9 @@ def resample(*arrays, replace=True, n_samples=None, random_state=None, stratify=
         indices = []
 
         for i in range(n_classes):
-            indices_i = random_state.choice(class_indices[i], n_i[i], replace=replace)
+            indices_i = random_state.choice(
+                class_indices[i], n_i[i], replace=replace
+            )
             indices.extend(indices_i)
 
         indices = random_state.permutation(indices)
@@ -786,7 +795,9 @@ def gen_even_slices(n, n_packs, *, n_samples=None):
     """
     start = 0
     if n_packs < 1:
-        raise ValueError("gen_even_slices got n_packs=%s, must be >=1" % n_packs)
+        raise ValueError(
+            "gen_even_slices got n_packs=%s, must be >=1" % n_packs
+        )
     for pack_num in range(n_packs):
         this_n = n // n_packs
         if pack_num < n % n_packs:
@@ -934,7 +945,9 @@ def _print_elapsed_time(source, message=None):
     else:
         start = timeit.default_timer()
         yield
-        print(_message_with_time(source, message, timeit.default_timer() - start))
+        print(
+            _message_with_time(source, message, timeit.default_timer() - start)
+        )
 
 
 @_deprecate_positional_args
@@ -1169,12 +1182,17 @@ def all_estimators(type_filter=None):
             path=[root], prefix="sklearn."
         ):
             mod_parts = modname.split(".")
-            if any(part in modules_to_ignore for part in mod_parts) or "._" in modname:
+            if (
+                any(part in modules_to_ignore for part in mod_parts)
+                or "._" in modname
+            ):
                 continue
             module = import_module(modname)
             classes = inspect.getmembers(module, inspect.isclass)
             classes = [
-                (name, est_cls) for name, est_cls in classes if not name.startswith("_")
+                (name, est_cls)
+                for name, est_cls in classes
+                if not name.startswith("_")
             ]
 
             # TODO: Remove when FeatureHasher is implemented in PYPY

@@ -53,9 +53,13 @@ def check_clusterings(labels_true, labels_pred):
 
     # input checks
     if labels_true.ndim != 1:
-        raise ValueError("labels_true must be 1D: shape is %r" % (labels_true.shape,))
+        raise ValueError(
+            "labels_true must be 1D: shape is %r" % (labels_true.shape,)
+        )
     if labels_pred.ndim != 1:
-        raise ValueError("labels_pred must be 1D: shape is %r" % (labels_pred.shape,))
+        raise ValueError(
+            "labels_pred must be 1D: shape is %r" % (labels_pred.shape,)
+        )
     check_consistent_length(labels_true, labels_pred)
 
     return labels_true, labels_pred
@@ -73,7 +77,8 @@ def _generalized_average(U, V, average_method):
         return max(U, V)
     else:
         raise ValueError(
-            "'average_method' must be 'min', 'geometric', " "'arithmetic', or 'max'"
+            "'average_method' must be 'min', 'geometric', "
+            "'arithmetic', or 'max'"
         )
 
 
@@ -570,7 +575,9 @@ def v_measure_score(labels_true, labels_pred, *, beta=1.0):
       0.0...
 
     """
-    return homogeneity_completeness_v_measure(labels_true, labels_pred, beta=beta)[2]
+    return homogeneity_completeness_v_measure(
+        labels_true, labels_pred, beta=beta
+    )[2]
 
 
 @_deprecate_positional_args
@@ -645,7 +652,9 @@ def mutual_info_score(labels_true, labels_pred, *, contingency=None):
         # For a sparse matrix
         nzx, nzy, nz_val = sp.find(contingency)
     else:
-        raise ValueError("Unsupported type for 'contingency': %s" % type(contingency))
+        raise ValueError(
+            "Unsupported type for 'contingency': %s" % type(contingency)
+        )
 
     contingency_sum = contingency.sum()
     pi = np.ravel(contingency.sum(axis=1))
@@ -766,7 +775,9 @@ def adjusted_mutual_info_score(
     ):
         return 1.0
     contingency = contingency_matrix(labels_true, labels_pred, sparse=True)
-    contingency = contingency.astype(np.float64, **_astype_copy_false(contingency))
+    contingency = contingency.astype(
+        np.float64, **_astype_copy_false(contingency)
+    )
     # Calculate the MI for the two clusterings
     mi = mutual_info_score(labels_true, labels_pred, contingency=contingency)
     # Calculate the expected value for the mutual information
@@ -876,7 +887,9 @@ def normalized_mutual_info_score(
     ):
         return 1.0
     contingency = contingency_matrix(labels_true, labels_pred, sparse=True)
-    contingency = contingency.astype(np.float64, **_astype_copy_false(contingency))
+    contingency = contingency.astype(
+        np.float64, **_astype_copy_false(contingency)
+    )
     # Calculate the MI for the two clusterings
     mi = mutual_info_score(labels_true, labels_pred, contingency=contingency)
     # Calculate the expected value for the mutual information

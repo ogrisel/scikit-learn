@@ -79,7 +79,9 @@ iris.data = iris.data[perm]
 iris.target = iris.target[perm]
 
 # Make regression dataset
-X_reg, y_reg = datasets.make_regression(n_samples=500, n_features=10, random_state=1)
+X_reg, y_reg = datasets.make_regression(
+    n_samples=500, n_features=10, random_state=1
+)
 
 # also make a hastie_10_2 dataset
 hastie_X, hastie_y = datasets.make_hastie_10_2(n_samples=20, random_state=1)
@@ -143,14 +145,20 @@ def check_iris_criterion(name, criterion):
     clf = ForestClassifier(n_estimators=10, criterion=criterion, random_state=1)
     clf.fit(iris.data, iris.target)
     score = clf.score(iris.data, iris.target)
-    assert score > 0.9, "Failed with criterion %s and score = %f" % (criterion, score)
+    assert score > 0.9, "Failed with criterion %s and score = %f" % (
+        criterion,
+        score,
+    )
 
     clf = ForestClassifier(
         n_estimators=10, criterion=criterion, max_features=2, random_state=1
     )
     clf.fit(iris.data, iris.target)
     score = clf.score(iris.data, iris.target)
-    assert score > 0.5, "Failed with criterion %s and score = %f" % (criterion, score)
+    assert score > 0.5, "Failed with criterion %s and score = %f" % (
+        criterion,
+        score,
+    )
 
 
 @pytest.mark.parametrize("name", FOREST_CLASSIFIERS)
@@ -176,9 +184,10 @@ def check_regression_criterion(name, criterion):
     )
     reg.fit(X_reg, y_reg)
     score = reg.score(X_reg, y_reg)
-    assert (
-        score > 0.92
-    ), "Failed with max_features=6, criterion %s " "and score = %f" % (criterion, score)
+    assert score > 0.92, (
+        "Failed with max_features=6, criterion %s "
+        "and score = %f" % (criterion, score)
+    )
 
 
 @pytest.mark.parametrize("name", FOREST_REGRESSORS)
@@ -212,10 +221,12 @@ def check_probability(name):
         )
         clf.fit(iris.data, iris.target)
         assert_array_almost_equal(
-            np.sum(clf.predict_proba(iris.data), axis=1), np.ones(iris.data.shape[0])
+            np.sum(clf.predict_proba(iris.data), axis=1),
+            np.ones(iris.data.shape[0]),
         )
         assert_array_almost_equal(
-            clf.predict_proba(iris.data), np.exp(clf.predict_log_proba(iris.data))
+            clf.predict_proba(iris.data),
+            np.exp(clf.predict_log_proba(iris.data)),
         )
 
 
@@ -256,7 +267,9 @@ def check_importances(name, criterion, dtype, tolerance):
     assert np.all(importances >= 0.0)
 
     for scale in [0.5, 100]:
-        est = ForestEstimator(n_estimators=10, random_state=0, criterion=criterion)
+        est = ForestEstimator(
+            n_estimators=10, random_state=0, criterion=criterion
+        )
         est.fit(X, y, sample_weight=scale * sample_weight)
         importances_bis = est.feature_importances_
         assert np.abs(importances - importances_bis).mean() < tolerance
@@ -402,7 +415,10 @@ def check_oob_score(name, X, y, n_estimators=20):
 
     # Proper behavior
     est = FOREST_ESTIMATORS[name](
-        oob_score=True, random_state=0, n_estimators=n_estimators, bootstrap=True
+        oob_score=True,
+        random_state=0,
+        n_estimators=n_estimators,
+        bootstrap=True,
     )
     n_samples = X.shape[0]
     est.fit(X[: n_samples // 2, :], y[: n_samples // 2])
@@ -445,11 +461,17 @@ def check_oob_score_raise_error(name):
         for oob_score in [True, False]:
             assert_raises(TypeError, ForestEstimator, oob_score=oob_score)
 
-        assert_raises(NotImplementedError, ForestEstimator()._set_oob_score, X, y)
+        assert_raises(
+            NotImplementedError, ForestEstimator()._set_oob_score, X, y
+        )
 
     else:
         # Unfitted /  no bootstrap / no oob_score
-        for oob_score, bootstrap in [(True, False), (False, True), (False, False)]:
+        for oob_score, bootstrap in [
+            (True, False),
+            (False, True),
+            (False, False),
+        ]:
             est = ForestEstimator(
                 oob_score=oob_score, bootstrap=bootstrap, random_state=0
             )
@@ -457,7 +479,10 @@ def check_oob_score_raise_error(name):
 
         # No bootstrap
         assert_raises(
-            ValueError, ForestEstimator(oob_score=True, bootstrap=False).fit, X, y
+            ValueError,
+            ForestEstimator(oob_score=True, bootstrap=False).fit,
+            X,
+            y,
         )
 
 
@@ -712,7 +737,9 @@ def test_random_hasher():
 
     # test fit and transform:
     hasher = RandomTreesEmbedding(n_estimators=30, random_state=1)
-    assert_array_equal(hasher.fit(X).transform(X).toarray(), X_transformed.toarray())
+    assert_array_equal(
+        hasher.fit(X).transform(X).toarray(), X_transformed.toarray()
+    )
 
     # one leaf active per data point per forest
     assert X_transformed.shape[0] == X.shape[0]
@@ -739,9 +766,9 @@ def test_parallel_train():
     y_train = rng.randint(0, 2, n_samples)
 
     clfs = [
-        RandomForestClassifier(n_estimators=20, n_jobs=n_jobs, random_state=12345).fit(
-            X_train, y_train
-        )
+        RandomForestClassifier(
+            n_estimators=20, n_jobs=n_jobs, random_state=12345
+        ).fit(X_train, y_train)
         for n_jobs in [1, 2, 3, 8, 16, 32]
     ]
 
@@ -770,7 +797,9 @@ def test_distribution():
 
         uniques[tree] += 1
 
-    uniques = sorted([(1.0 * count / n_trees, tree) for tree, count in uniques.items()])
+    uniques = sorted(
+        [(1.0 * count / n_trees, tree) for tree, count in uniques.items()]
+    )
 
     # On a single variable problem where X_0 has 4 equiprobable values, there
     # are 5 ways to build a random tree. The more compact (0,1/0,0/--0,2/--) of
@@ -838,14 +867,18 @@ def check_min_samples_split(name):
     node_idx = est.estimators_[0].tree_.children_left != -1
     node_samples = est.estimators_[0].tree_.n_node_samples[node_idx]
 
-    assert np.min(node_samples) > len(X) * 0.5 - 1, "Failed with {0}".format(name)
+    assert np.min(node_samples) > len(X) * 0.5 - 1, "Failed with {0}".format(
+        name
+    )
 
     est = ForestEstimator(min_samples_split=0.5, n_estimators=1, random_state=0)
     est.fit(X, y)
     node_idx = est.estimators_[0].tree_.children_left != -1
     node_samples = est.estimators_[0].tree_.n_node_samples[node_idx]
 
-    assert np.min(node_samples) > len(X) * 0.5 - 1, "Failed with {0}".format(name)
+    assert np.min(node_samples) > len(X) * 0.5 - 1, "Failed with {0}".format(
+        name
+    )
 
 
 @pytest.mark.parametrize("name", FOREST_ESTIMATORS)
@@ -877,7 +910,9 @@ def check_min_samples_leaf(name):
     node_counts = np.bincount(out)
     # drop inner nodes
     leaf_count = node_counts[node_counts != 0]
-    assert np.min(leaf_count) > len(X) * 0.25 - 1, "Failed with {0}".format(name)
+    assert np.min(leaf_count) > len(X) * 0.25 - 1, "Failed with {0}".format(
+        name
+    )
 
 
 @pytest.mark.parametrize("name", FOREST_ESTIMATORS)
@@ -936,7 +971,9 @@ def check_sparse_input(name, X, X_sparse, y):
         )
 
     if name in FOREST_CLASSIFIERS:
-        assert_array_almost_equal(sparse.predict_proba(X), dense.predict_proba(X))
+        assert_array_almost_equal(
+            sparse.predict_proba(X), dense.predict_proba(X)
+        )
         assert_array_almost_equal(
             sparse.predict_log_proba(X), dense.predict_log_proba(X)
         )
@@ -1014,7 +1051,9 @@ def test_memory_layout(name, dtype):
 @ignore_warnings
 def check_1d_input(name, X, X_2d, y):
     ForestEstimator = FOREST_ESTIMATORS[name]
-    assert_raises(ValueError, ForestEstimator(n_estimators=1, random_state=0).fit, X, y)
+    assert_raises(
+        ValueError, ForestEstimator(n_estimators=1, random_state=0).fit, X, y
+    )
 
     est = ForestEstimator(random_state=0)
     est.fit(X_2d, y)
@@ -1116,7 +1155,9 @@ def check_class_weight_errors(name):
     assert_raises(ValueError, clf.fit, X, _y)
 
     # Warning warm_start with preset
-    clf = ForestClassifier(class_weight="balanced", warm_start=True, random_state=0)
+    clf = ForestClassifier(
+        class_weight="balanced", warm_start=True, random_state=0
+    )
     assert_warns(UserWarning, clf.fit, X, y)
     assert_warns(UserWarning, clf.fit, X, _y)
 
@@ -1143,7 +1184,9 @@ def check_warm_start(name, random_state=42):
     for n_estimators in [5, 10]:
         if est_ws is None:
             est_ws = ForestEstimator(
-                n_estimators=n_estimators, random_state=random_state, warm_start=True
+                n_estimators=n_estimators,
+                random_state=random_state,
+                warm_start=True,
             )
         else:
             est_ws.set_params(n_estimators=n_estimators)
@@ -1160,7 +1203,9 @@ def check_warm_start(name, random_state=42):
     )
 
     assert_array_equal(
-        est_ws.apply(X), est_no_ws.apply(X), err_msg="Failed with {0}".format(name)
+        est_ws.apply(X),
+        est_no_ws.apply(X),
+        err_msg="Failed with {0}".format(name),
     )
 
 
@@ -1173,7 +1218,9 @@ def check_warm_start_clear(name):
     # Test if fit clears state and grows a new forest when warm_start==False.
     X, y = hastie_X, hastie_y
     ForestEstimator = FOREST_ESTIMATORS[name]
-    est = ForestEstimator(n_estimators=5, max_depth=1, warm_start=False, random_state=1)
+    est = ForestEstimator(
+        n_estimators=5, max_depth=1, warm_start=False, random_state=1
+    )
     est.fit(X, y)
 
     est_2 = ForestEstimator(
@@ -1211,7 +1258,9 @@ def check_warm_start_equal_n_estimators(name):
     # same forest and raises a warning.
     X, y = hastie_X, hastie_y
     ForestEstimator = FOREST_ESTIMATORS[name]
-    est = ForestEstimator(n_estimators=5, max_depth=3, warm_start=True, random_state=1)
+    est = ForestEstimator(
+        n_estimators=5, max_depth=3, warm_start=True, random_state=1
+    )
     est.fit(X, y)
 
     est_2 = ForestEstimator(
@@ -1302,7 +1351,9 @@ def check_decision_path(name):
     X, y = hastie_X, hastie_y
     n_samples = X.shape[0]
     ForestEstimator = FOREST_ESTIMATORS[name]
-    est = ForestEstimator(n_estimators=5, max_depth=1, warm_start=False, random_state=1)
+    est = ForestEstimator(
+        n_estimators=5, max_depth=1, warm_start=False, random_state=1
+    )
     est.fit(X, y)
     indicator, n_nodes_ptr = est.decision_path(X)
 
@@ -1426,9 +1477,21 @@ def test_forest_degenerate_feature_importances():
             ValueError,
             "`max_samples` must be in range 1 to 6 but got value 1000000000",
         ),
-        (1.0, ValueError, r"`max_samples` must be in range \(0, 1\) but got value 1.0"),
-        (2.0, ValueError, r"`max_samples` must be in range \(0, 1\) but got value 2.0"),
-        (0.0, ValueError, r"`max_samples` must be in range \(0, 1\) but got value 0.0"),
+        (
+            1.0,
+            ValueError,
+            r"`max_samples` must be in range \(0, 1\) but got value 1.0",
+        ),
+        (
+            2.0,
+            ValueError,
+            r"`max_samples` must be in range \(0, 1\) but got value 2.0",
+        ),
+        (
+            0.0,
+            ValueError,
+            r"`max_samples` must be in range \(0, 1\) but got value 0.0",
+        ),
         (
             np.nan,
             ValueError,
@@ -1442,7 +1505,8 @@ def test_forest_degenerate_feature_importances():
         (
             "str max_samples?!",
             TypeError,
-            r"`max_samples` should be int or float, but got " r"type '\<class 'str'\>'",
+            r"`max_samples` should be int or float, but got "
+            r"type '\<class 'str'\>'",
         ),
         (
             np.ones(2),
@@ -1468,7 +1532,9 @@ def test_forest_y_sparse():
         est.fit(X, y)
 
 
-@pytest.mark.parametrize("ForestClass", [RandomForestClassifier, RandomForestRegressor])
+@pytest.mark.parametrize(
+    "ForestClass", [RandomForestClassifier, RandomForestRegressor]
+)
 def test_little_tree_with_small_max_samples(ForestClass):
     rng = np.random.RandomState(1)
 

@@ -185,7 +185,9 @@ def as_float_array(X, *, copy=True, force_all_finite=True):
 
 def _is_arraylike(x):
     """Returns whether the input is array-like"""
-    return hasattr(x, "__len__") or hasattr(x, "shape") or hasattr(x, "__array__")
+    return (
+        hasattr(x, "__len__") or hasattr(x, "shape") or hasattr(x, "__array__")
+    )
 
 
 def _num_samples(x):
@@ -204,7 +206,8 @@ def _num_samples(x):
     if hasattr(x, "shape") and x.shape is not None:
         if len(x.shape) == 0:
             raise TypeError(
-                "Singleton array %r cannot be considered" " a valid collection." % x
+                "Singleton array %r cannot be considered"
+                " a valid collection." % x
             )
         # Check that shape is returning an integer or default to len
         # Dask dataframes may not return numeric shape[0] value
@@ -402,11 +405,14 @@ def _ensure_sparse_format(
     if force_all_finite:
         if not hasattr(spmatrix, "data"):
             warnings.warn(
-                "Can't check %s sparse matrix for nan or inf." % spmatrix.format,
+                "Can't check %s sparse matrix for nan or inf."
+                % spmatrix.format,
                 stacklevel=2,
             )
         else:
-            _assert_all_finite(spmatrix.data, allow_nan=force_all_finite == "allow-nan")
+            _assert_all_finite(
+                spmatrix.data, allow_nan=force_all_finite == "allow-nan"
+            )
 
     return spmatrix
 
@@ -542,7 +548,10 @@ def check_array(
         with suppress(ImportError):
             from pandas.api.types import is_sparse
 
-            if not hasattr(array, "sparse") and array.dtypes.apply(is_sparse).any():
+            if (
+                not hasattr(array, "sparse")
+                and array.dtypes.apply(is_sparse).any()
+            ):
                 warnings.warn(
                     "pandas.DataFrame with sparse columns found."
                     "It will be converted to a dense numpy array."
@@ -651,7 +660,9 @@ def check_array(
                     # then conversion float -> int would be disallowed.
                     array = np.asarray(array, order=order)
                     if array.dtype.kind == "f":
-                        _assert_all_finite(array, allow_nan=False, msg_dtype=dtype)
+                        _assert_all_finite(
+                            array, allow_nan=False, msg_dtype=dtype
+                        )
                     array = array.astype(dtype, casting="unsafe", copy=False)
                 else:
                     array = np.asarray(array, order=order, dtype=dtype)
@@ -889,7 +900,11 @@ def check_X_y(
     )
     if multi_output:
         y = check_array(
-            y, accept_sparse="csr", force_all_finite=True, ensure_2d=False, dtype=None
+            y,
+            accept_sparse="csr",
+            force_all_finite=True,
+            ensure_2d=False,
+            dtype=None,
         )
     else:
         y = column_or_1d(y, warn=True)
@@ -934,7 +949,8 @@ def column_or_1d(y, *, warn=False):
         return np.ravel(y)
 
     raise ValueError(
-        "y should be a 1d array, " "got an array of shape {} instead.".format(shape)
+        "y should be a 1d array, "
+        "got an array of shape {} instead.".format(shape)
     )
 
 
@@ -956,7 +972,8 @@ def check_random_state(seed):
     if isinstance(seed, np.random.RandomState):
         return seed
     raise ValueError(
-        "%r cannot be used to seed a numpy.random.RandomState" " instance" % seed
+        "%r cannot be used to seed a numpy.random.RandomState"
+        " instance" % seed
     )
 
 
@@ -988,7 +1005,9 @@ def has_fit_parameter(estimator, parameter):
 
 
 @_deprecate_positional_args
-def check_symmetric(array, *, tol=1e-10, raise_warning=True, raise_exception=False):
+def check_symmetric(
+    array, *, tol=1e-10, raise_warning=True, raise_exception=False
+):
     """Make sure that array is 2D, square and symmetric.
 
     If the array is not symmetric, then a symmetrized version is returned.
@@ -1016,7 +1035,8 @@ def check_symmetric(array, *, tol=1e-10, raise_warning=True, raise_exception=Fal
     """
     if (array.ndim != 2) or (array.shape[0] != array.shape[1]):
         raise ValueError(
-            "array must be 2-dimensional and square. " "shape = {0}".format(array.shape)
+            "array must be 2-dimensional and square. "
+            "shape = {0}".format(array.shape)
         )
 
     if sp.issparse(array):
@@ -1109,7 +1129,9 @@ def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
         attrs = all_or_any([hasattr(estimator, attr) for attr in attributes])
     else:
         attrs = [
-            v for v in vars(estimator) if v.endswith("_") and not v.startswith("__")
+            v
+            for v in vars(estimator)
+            if v.endswith("_") and not v.startswith("__")
         ]
 
     if not attrs:
@@ -1176,7 +1198,9 @@ def check_scalar(x, name, target_type, *, min_val=None, max_val=None):
 
     if not isinstance(x, target_type):
         raise TypeError(
-            "`{}` must be an instance of {}, not {}.".format(name, target_type, type(x))
+            "`{}` must be an instance of {}, not {}.".format(
+                name, target_type, type(x)
+            )
         )
 
     if min_val is not None and x < min_val:
@@ -1337,7 +1361,8 @@ def _check_psd_eigenvalues(lambdas, enable_warnings=False):
                     "maximum positive). Either the matrix is not "
                     "PSD, or there was an issue while computing the"
                     " eigendecomposition of the matrix. Negative "
-                    "eigenvalues will be replaced with 0." % (-min_eig / max_eig),
+                    "eigenvalues will be replaced with 0."
+                    % (-min_eig / max_eig),
                     PositiveSpectrumWarning,
                 )
             lambdas[lambdas < 0] = 0
@@ -1399,7 +1424,11 @@ def _check_sample_weight(sample_weight, X, dtype=None):
         if dtype is None:
             dtype = [np.float64, np.float32]
         sample_weight = check_array(
-            sample_weight, accept_sparse=False, ensure_2d=False, dtype=dtype, order="C"
+            sample_weight,
+            accept_sparse=False,
+            ensure_2d=False,
+            dtype=dtype,
+            order="C",
         )
         if sample_weight.ndim != 1:
             raise ValueError("Sample weights must be 1D array or scalar")
@@ -1448,7 +1477,8 @@ def _allclose_dense_sparse(x, y, rtol=1e-7, atol=1e-9):
     elif not sp.issparse(x) and not sp.issparse(y):
         return np.allclose(x, y, rtol=rtol, atol=atol)
     raise ValueError(
-        "Can only compare two sparse matrices, not a sparse " "matrix and an array"
+        "Can only compare two sparse matrices, not a sparse "
+        "matrix and an array"
     )
 
 
@@ -1475,9 +1505,9 @@ def _check_fit_params(X, fit_params, indices=None):
 
     fit_params_validated = {}
     for param_key, param_value in fit_params.items():
-        if not _is_arraylike(param_value) or _num_samples(param_value) != _num_samples(
-            X
-        ):
+        if not _is_arraylike(param_value) or _num_samples(
+            param_value
+        ) != _num_samples(X):
             # Non-indexable pass-through (for now for backward-compatibility).
             # https://github.com/scikit-learn/scikit-learn/issues/15805
             fit_params_validated[param_key] = param_value

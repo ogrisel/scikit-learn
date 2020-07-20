@@ -324,7 +324,8 @@ def test_extract_patches_strided():
             slice(i, i + j, None) for i, j in zip(last_patch, patch_size)
         )
         assert (
-            patches[(-1, None, None) * ndim] == image[last_patch_slices].squeeze()
+            patches[(-1, None, None) * ndim]
+            == image[last_patch_slices].squeeze()
         ).all()
 
 

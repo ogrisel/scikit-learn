@@ -126,7 +126,10 @@ def test_iris():
         assert clf.decision_function(iris.data).shape[1] == len(classes)
 
         score = clf.score(iris.data, iris.target)
-        assert score > 0.9, "Failed with algorithm %s and score = %f" % (alg, score)
+        assert score > 0.9, "Failed with algorithm %s and score = %f" % (
+            alg,
+            score,
+        )
 
         # Check we used multiple estimators
         assert len(clf.estimators_) > 1
@@ -139,7 +142,9 @@ def test_iris():
     # ae7adc880d624615a34bafdb1d75ef67051b8200,
     # predict_proba returned SAMME.R values for SAMME.
     clf_samme.algorithm = "SAMME.R"
-    assert_array_less(0, np.abs(clf_samme.predict_proba(iris.data) - prob_samme))
+    assert_array_less(
+        0, np.abs(clf_samme.predict_proba(iris.data) - prob_samme)
+    )
 
 
 @pytest.mark.parametrize("loss", ["linear", "square", "exponential"])
@@ -153,7 +158,9 @@ def test_diabetes(loss):
     # Check we used multiple estimators
     assert len(reg.estimators_) > 1
     # Check for distinct random states (see issue #7408)
-    assert len(set(est.random_state for est in reg.estimators_)) == len(reg.estimators_)
+    assert len(set(est.random_state for est in reg.estimators_)) == len(
+        reg.estimators_
+    )
 
 
 @pytest.mark.parametrize("algorithm", ["SAMME", "SAMME.R"])
@@ -172,7 +179,10 @@ def test_staged_predict(algorithm):
     staged_probas = [p for p in clf.staged_predict_proba(iris.data)]
     score = clf.score(iris.data, iris.target, sample_weight=iris_weights)
     staged_scores = [
-        s for s in clf.staged_score(iris.data, iris.target, sample_weight=iris_weights)
+        s
+        for s in clf.staged_score(
+            iris.data, iris.target, sample_weight=iris_weights
+        )
     ]
 
     assert len(staged_predictions) == 10
@@ -188,7 +198,9 @@ def test_staged_predict(algorithm):
 
     predictions = clf.predict(diabetes.data)
     staged_predictions = [p for p in clf.staged_predict(diabetes.data)]
-    score = clf.score(diabetes.data, diabetes.target, sample_weight=diabetes_weights)
+    score = clf.score(
+        diabetes.data, diabetes.target, sample_weight=diabetes_weights
+    )
     staged_scores = [
         s
         for s in clf.staged_score(
@@ -215,7 +227,9 @@ def test_gridsearch():
     clf.fit(iris.data, iris.target)
 
     # AdaBoost regression
-    boost = AdaBoostRegressor(base_estimator=DecisionTreeRegressor(), random_state=0)
+    boost = AdaBoostRegressor(
+        base_estimator=DecisionTreeRegressor(), random_state=0
+    )
     parameters = {"n_estimators": (1, 2), "base_estimator__max_depth": (1, 2)}
     clf = GridSearchCV(boost, parameters)
     clf.fit(diabetes.data, diabetes.target)
@@ -273,12 +287,20 @@ def test_importances():
 
 def test_error():
     # Test that it gives proper exception on deficient input.
-    assert_raises(ValueError, AdaBoostClassifier(learning_rate=-1).fit, X, y_class)
-
-    assert_raises(ValueError, AdaBoostClassifier(algorithm="foo").fit, X, y_class)
+    assert_raises(
+        ValueError, AdaBoostClassifier(learning_rate=-1).fit, X, y_class
+    )
 
     assert_raises(
-        ValueError, AdaBoostClassifier().fit, X, y_class, sample_weight=np.asarray([-1])
+        ValueError, AdaBoostClassifier(algorithm="foo").fit, X, y_class
+    )
+
+    assert_raises(
+        ValueError,
+        AdaBoostClassifier().fit,
+        X,
+        y_class,
+        sample_weight=np.asarray([-1]),
     )
 
 
@@ -306,7 +328,9 @@ def test_base_estimator():
     X_fail = [[1, 1], [1, 1], [1, 1], [1, 1]]
     y_fail = ["foo", "bar", 1, 2]
     clf = AdaBoostClassifier(SVC(), algorithm="SAMME")
-    assert_raises_regexp(ValueError, "worse than random", clf.fit, X_fail, y_fail)
+    assert_raises_regexp(
+        ValueError, "worse than random", clf.fit, X_fail, y_fail
+    )
 
 
 def test_sparse_classification():
@@ -329,7 +353,13 @@ def test_sparse_classification():
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
 
-    for sparse_format in [csc_matrix, csr_matrix, lil_matrix, coo_matrix, dok_matrix]:
+    for sparse_format in [
+        csc_matrix,
+        csr_matrix,
+        lil_matrix,
+        coo_matrix,
+        dok_matrix,
+    ]:
         X_train_sparse = sparse_format(X_train)
         X_test_sparse = sparse_format(X_test)
 
@@ -373,7 +403,9 @@ def test_sparse_classification():
         assert_array_almost_equal(sparse_results, dense_results)
 
         # staged_decision_function
-        sparse_results = sparse_classifier.staged_decision_function(X_test_sparse)
+        sparse_results = sparse_classifier.staged_decision_function(
+            X_test_sparse
+        )
         dense_results = dense_classifier.staged_decision_function(X_test)
         for sprase_res, dense_res in zip(sparse_results, dense_results):
             assert_array_almost_equal(sprase_res, dense_res)
@@ -420,7 +452,13 @@ def test_sparse_regression():
 
     X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
 
-    for sparse_format in [csc_matrix, csr_matrix, lil_matrix, coo_matrix, dok_matrix]:
+    for sparse_format in [
+        csc_matrix,
+        csr_matrix,
+        lil_matrix,
+        coo_matrix,
+        dok_matrix,
+    ]:
         X_train_sparse = sparse_format(X_train)
         X_test_sparse = sparse_format(X_test)
 

@@ -76,7 +76,8 @@ def _fit_binary(estimator, X, y, classes=None):
             else:
                 c = y[0]
             warnings.warn(
-                "Label %s is present in all training examples." % str(classes[c])
+                "Label %s is present in all training examples."
+                % str(classes[c])
             )
         estimator = _ConstantPredictor().fit(X, unique_y)
     else:
@@ -109,7 +110,8 @@ def _check_estimator(estimator):
         estimator, "predict_proba"
     ):
         raise ValueError(
-            "The base estimator should implement " "decision_function or predict_proba!"
+            "The base estimator should implement "
+            "decision_function or predict_proba!"
         )
 
 
@@ -131,7 +133,9 @@ class _ConstantPredictor(BaseEstimator):
     def predict_proba(self, X):
         check_is_fitted(self)
 
-        return np.repeat([np.hstack([1 - self.y_, self.y_])], X.shape[0], axis=0)
+        return np.repeat(
+            [np.hstack([1 - self.y_, self.y_])], X.shape[0], axis=0
+        )
 
 
 class OneVsRestClassifier(
@@ -306,11 +310,13 @@ class OneVsRestClassifier(
         if _check_partial_fit_first_call(self, classes):
             if not hasattr(self.estimator, "partial_fit"):
                 raise ValueError(
-                    ("Base estimator {0}, doesn't have " "partial_fit method").format(
-                        self.estimator
-                    )
+                    (
+                        "Base estimator {0}, doesn't have " "partial_fit method"
+                    ).format(self.estimator)
                 )
-            self.estimators_ = [clone(self.estimator) for _ in range(self.n_classes_)]
+            self.estimators_ = [
+                clone(self.estimator) for _ in range(self.n_classes_)
+            ]
 
             # A sparse LabelBinarizer, with sparse_output=True, has been
             # shown to outperform or match a dense label binarizer in all
@@ -322,7 +328,8 @@ class OneVsRestClassifier(
         if len(np.setdiff1d(y, self.classes_)):
             raise ValueError(
                 (
-                    "Mini-batch contains {0} while classes " + "must be subset of {1}"
+                    "Mini-batch contains {0} while classes "
+                    + "must be subset of {1}"
                 ).format(np.unique(y), self.classes_)
             )
 
@@ -363,9 +370,9 @@ class OneVsRestClassifier(
                 argmaxima[maxima == pred] = i
             return self.classes_[argmaxima]
         else:
-            if hasattr(self.estimators_[0], "decision_function") and is_classifier(
-                self.estimators_[0]
-            ):
+            if hasattr(
+                self.estimators_[0], "decision_function"
+            ) and is_classifier(self.estimators_[0]):
                 thresh = 0
             else:
                 thresh = 0.5
@@ -376,7 +383,8 @@ class OneVsRestClassifier(
                 indptr.append(len(indices))
             data = np.ones(len(indices), dtype=int)
             indicator = sp.csc_matrix(
-                (data, indices, indptr), shape=(n_samples, len(self.estimators_))
+                (data, indices, indptr),
+                shape=(n_samples, len(self.estimators_)),
             )
             return self.label_binarizer_.inverse_transform(indicator)
 
@@ -457,7 +465,9 @@ class OneVsRestClassifier(
     def coef_(self):
         check_is_fitted(self)
         if not hasattr(self.estimators_[0], "coef_"):
-            raise AttributeError("Base estimator doesn't have a coef_ attribute.")
+            raise AttributeError(
+                "Base estimator doesn't have a coef_ attribute."
+            )
         coefs = [e.coef_ for e in self.estimators_]
         if sp.issparse(coefs[0]):
             return sp.vstack(coefs)
@@ -467,7 +477,9 @@ class OneVsRestClassifier(
     def intercept_(self):
         check_is_fitted(self)
         if not hasattr(self.estimators_[0], "intercept_"):
-            raise AttributeError("Base estimator doesn't have an intercept_ attribute.")
+            raise AttributeError(
+                "Base estimator doesn't have an intercept_ attribute."
+            )
         return np.array([e.intercept_.ravel() for e in self.estimators_])
 
     @property
@@ -610,7 +622,8 @@ class OneVsOneClassifier(MetaEstimatorMixin, ClassifierMixin, BaseEstimator):
         self.classes_ = np.unique(y)
         if len(self.classes_) == 1:
             raise ValueError(
-                "OneVsOneClassifier can not be fit when only one" " class is present."
+                "OneVsOneClassifier can not be fit when only one"
+                " class is present."
             )
         n_classes = self.classes_.shape[0]
         estimators_indices = list(
@@ -618,7 +631,11 @@ class OneVsOneClassifier(MetaEstimatorMixin, ClassifierMixin, BaseEstimator):
                 *(
                     Parallel(n_jobs=self.n_jobs)(
                         delayed(_fit_ovo_binary)(
-                            self.estimator, X, y, self.classes_[i], self.classes_[j]
+                            self.estimator,
+                            X,
+                            y,
+                            self.classes_[i],
+                            self.classes_[j],
                         )
                         for i in range(n_classes)
                         for j in range(i + 1, n_classes)
@@ -628,7 +645,9 @@ class OneVsOneClassifier(MetaEstimatorMixin, ClassifierMixin, BaseEstimator):
         )
 
         self.estimators_ = estimators_indices[0]
-        self.pairwise_indices_ = estimators_indices[1] if self._pairwise else None
+        self.pairwise_indices_ = (
+            estimators_indices[1] if self._pairwise else None
+        )
 
         return self
 
@@ -841,7 +860,9 @@ class OutputCodeClassifier(MetaEstimatorMixin, ClassifierMixin, BaseEstimator):
     """
 
     @_deprecate_positional_args
-    def __init__(self, estimator, *, code_size=1.5, random_state=None, n_jobs=None):
+    def __init__(
+        self, estimator, *, code_size=1.5, random_state=None, n_jobs=None
+    ):
         self.estimator = estimator
         self.code_size = code_size
         self.random_state = random_state
@@ -865,7 +886,8 @@ class OutputCodeClassifier(MetaEstimatorMixin, ClassifierMixin, BaseEstimator):
         X, y = self._validate_data(X, y, accept_sparse=True)
         if self.code_size <= 0:
             raise ValueError(
-                "code_size should be greater than 0, got {0}" "".format(self.code_size)
+                "code_size should be greater than 0, got {0}"
+                "".format(self.code_size)
             )
 
         _check_estimator(self.estimator)
@@ -889,11 +911,13 @@ class OutputCodeClassifier(MetaEstimatorMixin, ClassifierMixin, BaseEstimator):
         classes_index = {c: i for i, c in enumerate(self.classes_)}
 
         Y = np.array(
-            [self.code_book_[classes_index[y[i]]] for i in range(X.shape[0])], dtype=int
+            [self.code_book_[classes_index[y[i]]] for i in range(X.shape[0])],
+            dtype=int,
         )
 
         self.estimators_ = Parallel(n_jobs=self.n_jobs)(
-            delayed(_fit_binary)(self.estimator, X, Y[:, i]) for i in range(Y.shape[1])
+            delayed(_fit_binary)(self.estimator, X, Y[:, i])
+            for i in range(Y.shape[1])
         )
 
         return self

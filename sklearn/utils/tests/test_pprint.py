@@ -433,7 +433,9 @@ GridSearchCV(cv=3, error_score='raise-deprecating',
     expected = expected[1:]  # remove first \n
     repr_ = pp.pformat(gspipline)
     # Remove address of '<function chi2 at 0x.....>' for reproducibility
-    repr_ = re.sub("function chi2 at 0x.*>", "function chi2 at some_address>", repr_)
+    repr_ = re.sub(
+        "function chi2 at 0x.*>", "function chi2 at some_address>", repr_
+    )
     assert repr_ == expected
 
 

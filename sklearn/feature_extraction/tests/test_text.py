@@ -180,7 +180,9 @@ def test_word_analyzer_unigrams(Vectorizer):
     assert wa(text) == expected
 
     # with custom tokenizer
-    wa = Vectorizer(tokenizer=split_tokenize, strip_accents="ascii").build_analyzer()
+    wa = Vectorizer(
+        tokenizer=split_tokenize, strip_accents="ascii"
+    ).build_analyzer()
     text = "J'ai mangé du kangourou  ce midi, " "c'était pas très bon."
     expected = [
         "j'ai",
@@ -555,7 +557,9 @@ def test_vectorizer():
 
 
 def test_tfidf_vectorizer_setters():
-    tv = TfidfVectorizer(norm="l2", use_idf=False, smooth_idf=False, sublinear_tf=False)
+    tv = TfidfVectorizer(
+        norm="l2", use_idf=False, smooth_idf=False, sublinear_tf=False
+    )
     tv.norm = "l1"
     assert tv._tfidf.norm == "l1"
     tv.use_idf = True
@@ -780,7 +784,9 @@ def test_count_binary_occurrences():
     assert_array_equal([[1, 1, 1, 0, 0], [1, 1, 0, 1, 1]], X)
 
     # check the ability to change the dtype
-    vect = CountVectorizer(analyzer="char", max_df=1.0, binary=True, dtype=np.float32)
+    vect = CountVectorizer(
+        analyzer="char", max_df=1.0, binary=True, dtype=np.float32
+    )
     X_sparse = vect.fit_transform(test_data)
     assert X_sparse.dtype == np.float32
 
@@ -806,7 +812,11 @@ def test_hashed_binary_occurrences():
 
     # check the ability to change the dtype
     vect = HashingVectorizer(
-        analyzer="char", alternate_sign=False, binary=True, norm=None, dtype=np.float64
+        analyzer="char",
+        alternate_sign=False,
+        binary=True,
+        norm=None,
+        dtype=np.float64,
     )
     X = vect.transform(test_data)
     assert X.dtype == np.float64
@@ -1087,7 +1097,9 @@ def test_pickling_transformer():
     s = pickle.dumps(orig)
     copy = pickle.loads(s)
     assert type(copy) == orig.__class__
-    assert_array_equal(copy.fit_transform(X).toarray(), orig.fit_transform(X).toarray())
+    assert_array_equal(
+        copy.fit_transform(X).toarray(), orig.fit_transform(X).toarray()
+    )
 
 
 def test_transformer_idf_setter():
@@ -1169,7 +1181,9 @@ def test_vectorizer_vocab_clone():
     "Vectorizer", (CountVectorizer, TfidfVectorizer, HashingVectorizer)
 )
 def test_vectorizer_string_object_as_input(Vectorizer):
-    message = "Iterable over raw text documents expected, " "string object received."
+    message = (
+        "Iterable over raw text documents expected, " "string object received."
+    )
     vec = Vectorizer()
     assert_raise_message(ValueError, message, vec.fit_transform, "hello world!")
     assert_raise_message(ValueError, message, vec.fit, "hello world!")
@@ -1204,7 +1218,9 @@ def test_tfidf_transformer_sparse():
         (np.float64, np.float64, False),
     ],
 )
-def test_tfidf_vectorizer_type(vectorizer_dtype, output_dtype, warning_expected):
+def test_tfidf_vectorizer_type(
+    vectorizer_dtype, output_dtype, warning_expected
+):
     X = np.array(["numpy", "scipy", "sklearn"])
     vectorizer = TfidfVectorizer(dtype=vectorizer_dtype)
 
@@ -1239,17 +1255,23 @@ def test_vectorizers_invalid_ngram_range(vec):
         pytest.xfail(reason="HashingVectorizer is not supported on PyPy")
 
     assert_raise_message(ValueError, message, vec.fit, ["good news everyone"])
-    assert_raise_message(ValueError, message, vec.fit_transform, ["good news everyone"])
+    assert_raise_message(
+        ValueError, message, vec.fit_transform, ["good news everyone"]
+    )
 
     if isinstance(vec, HashingVectorizer):
-        assert_raise_message(ValueError, message, vec.transform, ["good news everyone"])
+        assert_raise_message(
+            ValueError, message, vec.transform, ["good news everyone"]
+        )
 
 
 def _check_stop_words_consistency(estimator):
     stop_words = estimator.get_stop_words()
     tokenize = estimator.build_tokenizer()
     preprocess = estimator.build_preprocessor()
-    return estimator._check_stop_words_consistency(stop_words, preprocess, tokenize)
+    return estimator._check_stop_words_consistency(
+        stop_words, preprocess, tokenize
+    )
 
 
 @fails_if_pypy
@@ -1262,7 +1284,9 @@ def test_vectorizer_stop_words_inconsistent():
     )
     for vec in [CountVectorizer(), TfidfVectorizer(), HashingVectorizer()]:
         vec.set_params(stop_words=["you've", "you", "you'll", "AND"])
-        assert_warns_message(UserWarning, message, vec.fit_transform, ["hello world"])
+        assert_warns_message(
+            UserWarning, message, vec.fit_transform, ["hello world"]
+        )
         # reset stop word validation
         del vec._stop_words_id
         assert _check_stop_words_consistency(vec) is False
@@ -1273,7 +1297,9 @@ def test_vectorizer_stop_words_inconsistent():
 
     # Test caching of inconsistency assessment
     vec.set_params(stop_words=["you've", "you", "you'll", "blah", "AND"])
-    assert_warns_message(UserWarning, message, vec.fit_transform, ["hello world"])
+    assert_warns_message(
+        UserWarning, message, vec.fit_transform, ["hello world"]
+    )
 
 
 @skip_if_32bit
@@ -1325,7 +1351,8 @@ def test_stop_word_validation_custom_preprocessor(Estimator):
     assert _check_stop_words_consistency(vec) == "error"
 
     vec = Estimator(
-        tokenizer=lambda doc: re.compile(r"\w{1,}").findall(doc), stop_words=["and"]
+        tokenizer=lambda doc: re.compile(r"\w{1,}").findall(doc),
+        stop_words=["and"],
     )
     assert _check_stop_words_consistency(vec) is True
 
@@ -1345,7 +1372,9 @@ def test_callable_analyzer_error(Estimator, input_type, err_type, err_msg):
         pytest.xfail("HashingVectorizer is not supported on PyPy")
     data = ["this is text, not file or filename"]
     with pytest.raises(err_type, match=err_msg):
-        Estimator(analyzer=lambda x: x.split(), input=input_type).fit_transform(data)
+        Estimator(analyzer=lambda x: x.split(), input=input_type).fit_transform(
+            data
+        )
 
 
 @pytest.mark.parametrize(

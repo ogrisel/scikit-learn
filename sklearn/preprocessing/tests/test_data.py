@@ -83,7 +83,9 @@ def _check_dim_1axis(a):
     return np.asarray(a).shape[0]
 
 
-def assert_correct_incr(i, batch_start, batch_stop, n, chunk_size, n_samples_seen):
+def assert_correct_incr(
+    i, batch_start, batch_stop, n, chunk_size, n_samples_seen
+):
     if batch_stop != n:
         assert (i + 1) * chunk_size == n_samples_seen
     else:
@@ -133,7 +135,18 @@ def test_polynomial_feature_names():
     poly = PolynomialFeatures(degree=2, include_bias=True).fit(X)
     feature_names = poly.get_feature_names()
     assert_array_equal(
-        ["1", "x0", "x1", "x2", "x0^2", "x0 x1", "x0 x2", "x1^2", "x1 x2", "x2^2"],
+        [
+            "1",
+            "x0",
+            "x1",
+            "x2",
+            "x0^2",
+            "x0 x1",
+            "x0 x2",
+            "x1^2",
+            "x1 x2",
+            "x2^2",
+        ],
         feature_names,
     )
 
@@ -245,7 +258,9 @@ def test_polynomial_features_csr_X(deg, include_bias, interaction_only, dtype):
         (3, False, True, np.float64),
     ],
 )
-def test_polynomial_features_csr_X_floats(deg, include_bias, interaction_only, dtype):
+def test_polynomial_features_csr_X_floats(
+    deg, include_bias, interaction_only, dtype
+):
     X_csr = sparse_random(1000, 10, 0.5, random_state=0).tocsr()
     X = X_csr.toarray()
 
@@ -277,12 +292,16 @@ def test_polynomial_features_csr_X_floats(deg, include_bias, interaction_only, d
         (2, 3, False),
     ],
 )
-def test_polynomial_features_csr_X_zero_row(zero_row_index, deg, interaction_only):
+def test_polynomial_features_csr_X_zero_row(
+    zero_row_index, deg, interaction_only
+):
     X_csr = sparse_random(3, 10, 1.0, random_state=0).tocsr()
     X_csr[zero_row_index, :] = 0.0
     X = X_csr.toarray()
 
-    est = PolynomialFeatures(deg, include_bias=False, interaction_only=interaction_only)
+    est = PolynomialFeatures(
+        deg, include_bias=False, interaction_only=interaction_only
+    )
     Xt_csr = est.fit_transform(X_csr)
     Xt_dense = est.fit_transform(X)
 
@@ -353,12 +372,18 @@ def test_standard_scaler_1d():
         if _check_dim_1axis(X) == 1:
             assert_almost_equal(scaler.mean_, X.ravel())
             assert_almost_equal(scaler.scale_, np.ones(n_features))
-            assert_array_almost_equal(X_scaled.mean(axis=0), np.zeros_like(n_features))
-            assert_array_almost_equal(X_scaled.std(axis=0), np.zeros_like(n_features))
+            assert_array_almost_equal(
+                X_scaled.mean(axis=0), np.zeros_like(n_features)
+            )
+            assert_array_almost_equal(
+                X_scaled.std(axis=0), np.zeros_like(n_features)
+            )
         else:
             assert_almost_equal(scaler.mean_, X.mean())
             assert_almost_equal(scaler.scale_, X.std())
-            assert_array_almost_equal(X_scaled.mean(axis=0), np.zeros_like(n_features))
+            assert_array_almost_equal(
+                X_scaled.mean(axis=0), np.zeros_like(n_features)
+            )
             assert_array_almost_equal(X_scaled.mean(axis=0), 0.0)
             assert_array_almost_equal(X_scaled.std(axis=0), 1.0)
         assert scaler.n_samples_seen_ == X.shape[0]
@@ -433,7 +458,9 @@ def test_standard_scaler_numerical_stability():
     assert_array_almost_equal(x_big_scaled, np.zeros(10))
     assert_array_almost_equal(x_big_scaled, x_small_scaled)
 
-    x_big_centered = assert_warns_message(UserWarning, w, scale, x_big, with_std=False)
+    x_big_centered = assert_warns_message(
+        UserWarning, w, scale, x_big, with_std=False
+    )
     assert_array_almost_equal(x_big_centered, np.zeros(10))
     assert_array_almost_equal(x_big_centered, x_small_scaled)
 
@@ -541,7 +568,9 @@ def test_minmax_scaler_partial_fit():
         assert_array_almost_equal(scaler_batch.data_min_, scaler_incr.data_min_)
         assert_array_almost_equal(scaler_batch.data_max_, scaler_incr.data_max_)
         assert scaler_batch.n_samples_seen_ == scaler_incr.n_samples_seen_
-        assert_array_almost_equal(scaler_batch.data_range_, scaler_incr.data_range_)
+        assert_array_almost_equal(
+            scaler_batch.data_range_, scaler_incr.data_range_
+        )
         assert_array_almost_equal(scaler_batch.scale_, scaler_incr.scale_)
         assert_array_almost_equal(scaler_batch.min_, scaler_incr.min_)
 
@@ -553,7 +582,9 @@ def test_minmax_scaler_partial_fit():
         assert_array_almost_equal(scaler_batch.data_min_, scaler_incr.data_min_)
         assert_array_almost_equal(scaler_batch.data_max_, scaler_incr.data_max_)
         assert scaler_batch.n_samples_seen_ == scaler_incr.n_samples_seen_
-        assert_array_almost_equal(scaler_batch.data_range_, scaler_incr.data_range_)
+        assert_array_almost_equal(
+            scaler_batch.data_range_, scaler_incr.data_range_
+        )
         assert_array_almost_equal(scaler_batch.scale_, scaler_incr.scale_)
         assert_array_almost_equal(scaler_batch.min_, scaler_incr.min_)
 
@@ -601,7 +632,9 @@ def test_standard_scaler_partial_fit():
                 np.ones(n_features, dtype=np.float64), scaler_incr.scale_
             )
         else:
-            assert_array_almost_equal(np.var(X[batch0], axis=0), scaler_incr.var_)
+            assert_array_almost_equal(
+                np.var(X[batch0], axis=0), scaler_incr.var_
+            )
             assert_array_almost_equal(
                 np.std(X[batch0], axis=0), scaler_incr.scale_
             )  # no constants
@@ -760,7 +793,11 @@ def test_min_max_scaler_zero_variance_features():
     assert_array_almost_equal(X, X_trans_inv)
 
     X_trans_new = scaler.transform(X_new)
-    X_expected_0_1_new = [[+0.0, 1.0, 0.500], [-1.0, 0.0, 0.083], [+0.0, 0.0, 1.333]]
+    X_expected_0_1_new = [
+        [+0.0, 1.0, 0.500],
+        [-1.0, 0.0, 0.083],
+        [+0.0, 0.0, 1.333],
+    ]
     assert_array_almost_equal(X_trans_new, X_expected_0_1_new, decimal=2)
 
     # not default params
@@ -794,8 +831,12 @@ def test_min_max_scaler_1d():
             X = np.array(X)  # cast only after scaling done
 
         if _check_dim_1axis(X) == 1:
-            assert_array_almost_equal(X_scaled.min(axis=0), np.zeros(n_features))
-            assert_array_almost_equal(X_scaled.max(axis=0), np.zeros(n_features))
+            assert_array_almost_equal(
+                X_scaled.min(axis=0), np.zeros(n_features)
+            )
+            assert_array_almost_equal(
+                X_scaled.max(axis=0), np.zeros(n_features)
+            )
         else:
             assert_array_almost_equal(X_scaled.min(axis=0), 0.0)
             assert_array_almost_equal(X_scaled.max(axis=0), 1.0)
@@ -896,7 +937,8 @@ def test_scaler_without_centering():
 )
 def test_scaler_n_samples_seen_with_nan(with_mean, with_std, array_constructor):
     X = np.array(
-        [[0, 1, 3], [np.nan, 6, 10], [5, 4, np.nan], [8, 0, np.nan]], dtype=np.float64
+        [[0, 1, 3], [np.nan, 6, 10], [5, 4, np.nan], [8, 0, np.nan]],
+        dtype=np.float64,
     )
     X = array_constructor(X)
 
@@ -1103,13 +1145,17 @@ def test_robust_scaler_error_sparse():
 
 @pytest.mark.parametrize("with_centering", [True, False])
 @pytest.mark.parametrize("with_scaling", [True, False])
-@pytest.mark.parametrize("X", [np.random.randn(10, 3), sparse.rand(10, 3, density=0.5)])
+@pytest.mark.parametrize(
+    "X", [np.random.randn(10, 3), sparse.rand(10, 3, density=0.5)]
+)
 def test_robust_scaler_attributes(X, with_centering, with_scaling):
     # check consistent type of attributes
     if with_centering and sparse.issparse(X):
         pytest.skip("RobustScaler cannot center sparse matrix")
 
-    scaler = RobustScaler(with_centering=with_centering, with_scaling=with_scaling)
+    scaler = RobustScaler(
+        with_centering=with_centering, with_scaling=with_scaling
+    )
     scaler.fit(X)
 
     if with_centering:
@@ -1151,7 +1197,9 @@ def test_robust_scaler_2d_arrays():
 
 
 @pytest.mark.parametrize("density", [0, 0.05, 0.1, 0.5, 1])
-@pytest.mark.parametrize("strictly_signed", ["positive", "negative", "zeros", None])
+@pytest.mark.parametrize(
+    "strictly_signed", ["positive", "negative", "zeros", None]
+)
 def test_robust_scaler_equivalence_dense_sparse(density, strictly_signed):
     # Check the equivalence of the fitting with dense and sparse matrices
     X_sparse = sparse.rand(1000, 5, density=density).tocsc()
@@ -1218,7 +1266,9 @@ def test_quantile_transform_iris():
     X_trans_inv = transformer.inverse_transform(X_trans)
     assert_array_almost_equal(X, X_trans_inv)
     # normal output distribution
-    transformer = QuantileTransformer(n_quantiles=30, output_distribution="normal")
+    transformer = QuantileTransformer(
+        n_quantiles=30, output_distribution="normal"
+    )
     X_trans = transformer.fit_transform(X)
     X_trans_inv = transformer.inverse_transform(X_trans)
     assert_array_almost_equal(X, X_trans_inv)
@@ -1272,7 +1322,10 @@ def test_quantile_transform_check_error():
         transformer.transform(X_neg)
 
     X_bad_feat = np.transpose(
-        [[0, 25, 50, 0, 0, 0, 75, 0, 0, 100], [0, 0, 2.6, 4.1, 0, 0, 2.3, 0, 9.5, 0.1]]
+        [
+            [0, 25, 50, 0, 0, 0, 75, 0, 0, 100],
+            [0, 0, 2.6, 4.1, 0, 0, 2.3, 0, 9.5, 0.1],
+        ]
     )
     err_msg = (
         "X does not have the same number of features as the previously"
@@ -1315,7 +1368,9 @@ def test_quantile_transform_check_error():
     with pytest.raises(ValueError, match=err_msg):
         transformer.inverse_transform(X_tran)
     # check that an error is raised if input is scalar
-    with pytest.raises(ValueError, match="Expected 2D array, got scalar array instead"):
+    with pytest.raises(
+        ValueError, match="Expected 2D array, got scalar array instead"
+    ):
         transformer.transform(10)
     # check that a warning is raised is n_quantiles > n_samples
     transformer = QuantileTransformer(n_quantiles=100)
@@ -1496,7 +1551,9 @@ def test_quantile_transform_sparse_toy():
 
 
 def test_quantile_transform_axis1():
-    X = np.array([[0, 25, 50, 75, 100], [2, 4, 6, 8, 10], [2.6, 4.1, 2.3, 9.5, 0.1]])
+    X = np.array(
+        [[0, 25, 50, 75, 100], [2, 4, 6, 8, 10], [2.6, 4.1, 2.3, 9.5, 0.1]]
+    )
 
     X_trans_a0 = quantile_transform(X.T, axis=0, n_quantiles=5)
     X_trans_a1 = quantile_transform(X, axis=1, n_quantiles=5)
@@ -1510,11 +1567,13 @@ def test_quantile_transform_bounds():
     X_sparse = sparse.csc_matrix(X_dense)
 
     # check sparse and dense are consistent
-    X_trans = QuantileTransformer(n_quantiles=3, random_state=0).fit_transform(X_dense)
-    assert_array_almost_equal(X_trans, X_dense)
-    X_trans_sp = QuantileTransformer(n_quantiles=3, random_state=0).fit_transform(
-        X_sparse
+    X_trans = QuantileTransformer(n_quantiles=3, random_state=0).fit_transform(
+        X_dense
     )
+    assert_array_almost_equal(X_trans, X_dense)
+    X_trans_sp = QuantileTransformer(
+        n_quantiles=3, random_state=0
+    ).fit_transform(X_sparse)
     assert_array_almost_equal(X_trans_sp.A, X_dense)
     assert_array_almost_equal(X_trans, X_trans_sp.A)
 
@@ -1530,14 +1589,16 @@ def test_quantile_transform_bounds():
     X = np.random.random((1000, 1))
     transformer = QuantileTransformer()
     transformer.fit(X)
-    assert transformer.transform([[-10]]) == transformer.transform([[np.min(X)]])
+    assert transformer.transform([[-10]]) == transformer.transform(
+        [[np.min(X)]]
+    )
     assert transformer.transform([[10]]) == transformer.transform([[np.max(X)]])
-    assert transformer.inverse_transform([[-10]]) == transformer.inverse_transform(
-        [[np.min(transformer.references_)]]
-    )
-    assert transformer.inverse_transform([[10]]) == transformer.inverse_transform(
-        [[np.max(transformer.references_)]]
-    )
+    assert transformer.inverse_transform(
+        [[-10]]
+    ) == transformer.inverse_transform([[np.min(transformer.references_)]])
+    assert transformer.inverse_transform(
+        [[10]]
+    ) == transformer.inverse_transform([[np.max(transformer.references_)]])
 
 
 def test_quantile_transform_and_inverse():
@@ -1551,7 +1612,9 @@ def test_quantile_transform_and_inverse():
 
 
 def test_quantile_transform_nan():
-    X = np.array([[np.nan, 0, 0, 1], [np.nan, np.nan, 0, 0.5], [np.nan, 1, 1, 0]])
+    X = np.array(
+        [[np.nan, 0, 0, 1], [np.nan, np.nan, 0, 0.5], [np.nan, 1, 1, 0]]
+    )
 
     transformer = QuantileTransformer(n_quantiles=10, random_state=42)
     transformer.fit_transform(X)
@@ -1671,7 +1734,11 @@ def test_robust_scaler_zero_variance_features():
     # make sure new data gets transformed correctly
     X_new = [[+0.0, 2.0, 0.5], [-1.0, 1.0, 0.0], [+0.0, 1.0, 1.5]]
     X_trans_new = scaler.transform(X_new)
-    X_expected_new = [[+0.0, 1.0, +0.0], [-1.0, 0.0, -0.83333], [+0.0, 0.0, +1.66667]]
+    X_expected_new = [
+        [+0.0, 1.0, +0.0],
+        [-1.0, 0.0, -0.83333],
+        [+0.0, 0.0, +1.66667],
+    ]
     assert_array_almost_equal(X_trans_new, X_expected_new, decimal=3)
 
 
@@ -1680,12 +1747,14 @@ def test_robust_scaler_unit_variance():
     # outliers
     rng = np.random.RandomState(42)
     X = rng.randn(1000000, 1)
-    X_with_outliers = np.vstack([X, np.ones((100, 1)) * 100, np.ones((100, 1)) * -100])
+    X_with_outliers = np.vstack(
+        [X, np.ones((100, 1)) * 100, np.ones((100, 1)) * -100]
+    )
 
     quantile_range = (1, 99)
-    robust_scaler = RobustScaler(quantile_range=quantile_range, unit_variance=True).fit(
-        X_with_outliers
-    )
+    robust_scaler = RobustScaler(
+        quantile_range=quantile_range, unit_variance=True
+    ).fit(X_with_outliers)
     X_trans = robust_scaler.transform(X)
 
     assert robust_scaler.center_ == pytest.approx(0, abs=1e-3)
@@ -1712,7 +1781,11 @@ def test_maxabs_scaler_zero_variance_features():
     # make sure new data gets transformed correctly
     X_new = [[+0.0, 2.0, 0.5], [-1.0, 1.0, 0.0], [+0.0, 1.0, 1.5]]
     X_trans_new = scaler.transform(X_new)
-    X_expected_new = [[+0.0, 2.0, 1.0 / 3.0], [-1.0, 1.0, 0.0], [+0.0, 1.0, 1.0]]
+    X_expected_new = [
+        [+0.0, 2.0, 1.0 / 3.0],
+        [-1.0, 1.0, 0.0],
+        [+0.0, 1.0, 1.0],
+    ]
 
     assert_array_almost_equal(X_trans_new, X_expected_new, decimal=2)
 
@@ -1782,7 +1855,9 @@ def test_maxabs_scaler_1d():
             X = np.array(X)  # cast only after scaling done
 
         if _check_dim_1axis(X) == 1:
-            assert_array_almost_equal(np.abs(X_scaled.max(axis=0)), np.ones(n_features))
+            assert_array_almost_equal(
+                np.abs(X_scaled.max(axis=0)), np.ones(n_features)
+            )
         else:
             assert_array_almost_equal(np.abs(X_scaled.max(axis=0)), 1.0)
         assert scaler.n_samples_seen_ == X.shape[0]
@@ -1825,15 +1900,21 @@ def test_maxabs_scaler_partial_fit():
             scaler_incr_csc = scaler_incr_csc.partial_fit(X_csc)
 
         assert_array_almost_equal(scaler_batch.max_abs_, scaler_incr.max_abs_)
-        assert_array_almost_equal(scaler_batch.max_abs_, scaler_incr_csr.max_abs_)
-        assert_array_almost_equal(scaler_batch.max_abs_, scaler_incr_csc.max_abs_)
+        assert_array_almost_equal(
+            scaler_batch.max_abs_, scaler_incr_csr.max_abs_
+        )
+        assert_array_almost_equal(
+            scaler_batch.max_abs_, scaler_incr_csc.max_abs_
+        )
         assert scaler_batch.n_samples_seen_ == scaler_incr.n_samples_seen_
         assert scaler_batch.n_samples_seen_ == scaler_incr_csr.n_samples_seen_
         assert scaler_batch.n_samples_seen_ == scaler_incr_csc.n_samples_seen_
         assert_array_almost_equal(scaler_batch.scale_, scaler_incr.scale_)
         assert_array_almost_equal(scaler_batch.scale_, scaler_incr_csr.scale_)
         assert_array_almost_equal(scaler_batch.scale_, scaler_incr_csc.scale_)
-        assert_array_almost_equal(scaler_batch.transform(X), scaler_incr.transform(X))
+        assert_array_almost_equal(
+            scaler_batch.transform(X), scaler_incr.transform(X)
+        )
 
         # Test std after 1 step
         batch0 = slice(0, chunk_size)
@@ -1843,7 +1924,9 @@ def test_maxabs_scaler_partial_fit():
         assert_array_almost_equal(scaler_batch.max_abs_, scaler_incr.max_abs_)
         assert scaler_batch.n_samples_seen_ == scaler_incr.n_samples_seen_
         assert_array_almost_equal(scaler_batch.scale_, scaler_incr.scale_)
-        assert_array_almost_equal(scaler_batch.transform(X), scaler_incr.transform(X))
+        assert_array_almost_equal(
+            scaler_batch.transform(X), scaler_incr.transform(X)
+        )
 
         # Test std until the end of partial fits, and
         scaler_batch = MaxAbsScaler().fit(X)
@@ -2030,7 +2113,9 @@ def test_normalize():
     # Test normalize function
     # Only tests functionality not used by the tests for Normalizer.
     X = np.random.RandomState(37).randn(3, 2)
-    assert_array_equal(normalize(X, copy=False), normalize(X.T, axis=0, copy=False).T)
+    assert_array_equal(
+        normalize(X, copy=False), normalize(X.T, axis=0, copy=False).T
+    )
     with pytest.raises(ValueError):
         normalize([[0]], axis=2)
     with pytest.raises(ValueError):
@@ -2231,7 +2316,9 @@ def test_fit_cold_start():
 
 
 def test_quantile_transform_valid_axis():
-    X = np.array([[0, 25, 50, 75, 100], [2, 4, 6, 8, 10], [2.6, 4.1, 2.3, 9.5, 0.1]])
+    X = np.array(
+        [[0, 25, 50, 75, 100], [2, 4, 6, 8, 10], [2.6, 4.1, 2.3, 9.5, 0.1]]
+    )
 
     with pytest.raises(
         ValueError, match="axis should be either equal " "to 0 or 1. Got axis=2"
@@ -2268,7 +2355,9 @@ def test_power_transformer_1d():
         pt = PowerTransformer(method="box-cox", standardize=standardize)
 
         X_trans = pt.fit_transform(X)
-        X_trans_func = power_transform(X, method="box-cox", standardize=standardize)
+        X_trans_func = power_transform(
+            X, method="box-cox", standardize=standardize
+        )
 
         X_expected, lambda_expected = stats.boxcox(X.flatten())
 
@@ -2292,7 +2381,9 @@ def test_power_transformer_2d():
         pt = PowerTransformer(method="box-cox", standardize=standardize)
 
         X_trans_class = pt.fit_transform(X)
-        X_trans_func = power_transform(X, method="box-cox", standardize=standardize)
+        X_trans_func = power_transform(
+            X, method="box-cox", standardize=standardize
+        )
 
         for X_trans in [X_trans_class, X_trans_func]:
             for j in range(X_trans.shape[1]):
@@ -2340,7 +2431,9 @@ def test_power_transformer_boxcox_strictly_positive_exception():
         power_transform(np.zeros(X_2d.shape), method="box-cox")
 
 
-@pytest.mark.parametrize("X", [X_2d, np.abs(X_2d), -np.abs(X_2d), np.zeros(X_2d.shape)])
+@pytest.mark.parametrize(
+    "X", [X_2d, np.abs(X_2d), -np.abs(X_2d), np.zeros(X_2d.shape)]
+)
 def test_power_transformer_yeojohnson_any_input(X):
     # Yeo-Johnson method should support any kind of input
     power_transform(X, method="yeo-johnson")
@@ -2421,7 +2514,9 @@ def test_optimization_power_transformer(method, lmbda):
     pt = PowerTransformer(method=method, standardize=False)
     X_inv_trans = pt.fit_transform(X_inv)
 
-    assert_almost_equal(0, np.linalg.norm(X - X_inv_trans) / n_samples, decimal=2)
+    assert_almost_equal(
+        0, np.linalg.norm(X - X_inv_trans) / n_samples, decimal=2
+    )
     assert_almost_equal(0, X_inv_trans.mean(), decimal=1)
     assert_almost_equal(1, X_inv_trans.std(), decimal=1)
 
@@ -2429,7 +2524,23 @@ def test_optimization_power_transformer(method, lmbda):
 def test_yeo_johnson_darwin_example():
     # test from original paper "A new family of power transformations to
     # improve normality or symmetry" by Yeo and Johnson.
-    X = [6.1, -8.4, 1.0, 2.0, 0.7, 2.9, 3.5, 5.1, 1.8, 3.6, 7.0, 3.0, 9.3, 7.5, -6.0]
+    X = [
+        6.1,
+        -8.4,
+        1.0,
+        2.0,
+        0.7,
+        2.9,
+        3.5,
+        5.1,
+        1.8,
+        3.6,
+        7.0,
+        3.0,
+        9.3,
+        7.5,
+        -6.0,
+    ]
     X = np.array(X).reshape(-1, 1)
     lmbda = PowerTransformer(method="yeo-johnson").fit(X).lambdas_
     assert np.allclose(lmbda, 1.305, atol=1e-3)
@@ -2554,5 +2665,12 @@ def test_minmax_scaler_clip(feature_range):
     X_transformed = scaler.transform(X_test)
     assert_allclose(
         X_transformed,
-        [[feature_range[0], feature_range[0], feature_range[1], feature_range[1]]],
+        [
+            [
+                feature_range[0],
+                feature_range[0],
+                feature_range[1],
+                feature_range[1],
+            ]
+        ],
     )

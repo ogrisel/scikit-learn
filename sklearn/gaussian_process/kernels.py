@@ -50,7 +50,8 @@ def _check_length_scale(X, length_scale):
 
 class Hyperparameter(
     namedtuple(
-        "Hyperparameter", ("name", "value_type", "bounds", "n_elements", "fixed")
+        "Hyperparameter",
+        ("name", "value_type", "bounds", "n_elements", "fixed"),
     )
 ):
     """A kernel hyperparameter's specification in form of a namedtuple.
@@ -178,7 +179,10 @@ class Kernel(metaclass=ABCMeta):
         init_sign = signature(init)
         args, varargs = [], []
         for parameter in init_sign.parameters.values():
-            if parameter.kind != parameter.VAR_KEYWORD and parameter.name != "self":
+            if (
+                parameter.kind != parameter.VAR_KEYWORD
+                and parameter.name != "self"
+            ):
                 args.append(parameter.name)
             if parameter.kind == parameter.VAR_POSITIONAL:
                 varargs.append(parameter.name)
@@ -371,7 +375,8 @@ class Kernel(metaclass=ABCMeta):
 
     def __repr__(self):
         return "{0}({1})".format(
-            self.__class__.__name__, ", ".join(map("{0:.3g}".format, self.theta))
+            self.__class__.__name__,
+            ", ".join(map("{0:.3g}".format, self.theta)),
         )
 
     @abstractmethod
@@ -613,7 +618,9 @@ class CompoundKernel(Kernel):
                 K_grad.append(K_grad_single[..., np.newaxis])
             return np.dstack(K), np.concatenate(K_grad, 3)
         else:
-            return np.dstack([kernel(X, Y, eval_gradient) for kernel in self.kernels])
+            return np.dstack(
+                [kernel(X, Y, eval_gradient) for kernel in self.kernels]
+            )
 
     def __eq__(self, b):
         if type(self) != type(b) or len(self.kernels) != len(b.kernels):
@@ -1125,7 +1132,9 @@ class Exponentiation(Kernel):
         """
         if eval_gradient:
             K, K_gradient = self.kernel(X, Y, eval_gradient=True)
-            K_gradient *= self.exponent * K[:, :, np.newaxis] ** (self.exponent - 1)
+            K_gradient *= self.exponent * K[:, :, np.newaxis] ** (
+                self.exponent - 1
+            )
             return K ** self.exponent, K_gradient
         else:
             K = self.kernel(X, Y, eval_gradient=False)
@@ -1218,7 +1227,9 @@ class ConstantKernel(StationaryKernelMixin, GenericKernelMixin, Kernel):
 
     @property
     def hyperparameter_constant_value(self):
-        return Hyperparameter("constant_value", "numeric", self.constant_value_bounds)
+        return Hyperparameter(
+            "constant_value", "numeric", self.constant_value_bounds
+        )
 
     def __call__(self, X, Y=None, eval_gradient=False):
         """Return the kernel k(X, Y) and optionally its gradient.
@@ -1386,7 +1397,8 @@ class WhiteKernel(StationaryKernelMixin, GenericKernelMixin, Kernel):
                 if not self.hyperparameter_noise_level.fixed:
                     return (
                         K,
-                        self.noise_level * np.eye(_num_samples(X))[:, :, np.newaxis],
+                        self.noise_level
+                        * np.eye(_num_samples(X))[:, :, np.newaxis],
                     )
                 else:
                     return K, np.empty((_num_samples(X), _num_samples(X), 0))
@@ -1413,7 +1425,9 @@ class WhiteKernel(StationaryKernelMixin, GenericKernelMixin, Kernel):
             Diagonal of kernel k(X, X)
         """
         return np.full(
-            _num_samples(X), self.noise_level, dtype=np.array(self.noise_level).dtype
+            _num_samples(X),
+            self.noise_level,
+            dtype=np.array(self.noise_level).dtype,
         )
 
     def __repr__(self):
@@ -1502,7 +1516,9 @@ class RBF(StationaryKernelMixin, NormalizedKernelMixin, Kernel):
                 self.length_scale_bounds,
                 len(self.length_scale),
             )
-        return Hyperparameter("length_scale", "numeric", self.length_scale_bounds)
+        return Hyperparameter(
+            "length_scale", "numeric", self.length_scale_bounds
+        )
 
     def __call__(self, X, Y=None, eval_gradient=False):
         """Return the kernel k(X, Y) and optionally its gradient.
@@ -1541,8 +1557,12 @@ class RBF(StationaryKernelMixin, NormalizedKernelMixin, Kernel):
             np.fill_diagonal(K, 1)
         else:
             if eval_gradient:
-                raise ValueError("Gradient can only be evaluated when Y is None.")
-            dists = cdist(X / length_scale, Y / length_scale, metric="sqeuclidean")
+                raise ValueError(
+                    "Gradient can only be evaluated when Y is None."
+                )
+            dists = cdist(
+                X / length_scale, Y / length_scale, metric="sqeuclidean"
+            )
             K = np.exp(-0.5 * dists)
 
         if eval_gradient:
@@ -1554,9 +1574,9 @@ class RBF(StationaryKernelMixin, NormalizedKernelMixin, Kernel):
                 return K, K_gradient
             elif self.anisotropic:
                 # We need to recompute the pairwise dimension-wise distances
-                K_gradient = (X[:, np.newaxis, :] - X[np.newaxis, :, :]) ** 2 / (
-                    length_scale ** 2
-                )
+                K_gradient = (
+                    X[:, np.newaxis, :] - X[np.newaxis, :, :]
+                ) ** 2 / (length_scale ** 2)
                 K_gradient *= K[..., np.newaxis]
                 return K, K_gradient
         else:
@@ -1654,7 +1674,9 @@ class Matern(RBF):
             [0.8086..., 0.0693..., 0.1220...]])
     """
 
-    def __init__(self, length_scale=1.0, length_scale_bounds=(1e-5, 1e5), nu=1.5):
+    def __init__(
+        self, length_scale=1.0, length_scale_bounds=(1e-5, 1e5), nu=1.5
+    ):
         super().__init__(length_scale, length_scale_bounds)
         self.nu = nu
 
@@ -1691,8 +1713,12 @@ class Matern(RBF):
             dists = pdist(X / length_scale, metric="euclidean")
         else:
             if eval_gradient:
-                raise ValueError("Gradient can only be evaluated when Y is None.")
-            dists = cdist(X / length_scale, Y / length_scale, metric="euclidean")
+                raise ValueError(
+                    "Gradient can only be evaluated when Y is None."
+                )
+            dists = cdist(
+                X / length_scale, Y / length_scale, metric="euclidean"
+            )
 
         if self.nu == 0.5:
             K = np.exp(-dists)
@@ -1737,7 +1763,9 @@ class Matern(RBF):
                 )
                 K_gradient[~np.isfinite(K_gradient)] = 0
             elif self.nu == 1.5:
-                K_gradient = 3 * D * np.exp(-np.sqrt(3 * D.sum(-1)))[..., np.newaxis]
+                K_gradient = (
+                    3 * D * np.exp(-np.sqrt(3 * D.sum(-1)))[..., np.newaxis]
+                )
             elif self.nu == 2.5:
                 tmp = np.sqrt(5 * D.sum(-1))[..., np.newaxis]
                 K_gradient = 5.0 / 3.0 * D * (tmp + 1) * np.exp(-tmp)
@@ -1847,7 +1875,9 @@ class RationalQuadratic(StationaryKernelMixin, NormalizedKernelMixin, Kernel):
 
     @property
     def hyperparameter_length_scale(self):
-        return Hyperparameter("length_scale", "numeric", self.length_scale_bounds)
+        return Hyperparameter(
+            "length_scale", "numeric", self.length_scale_bounds
+        )
 
     @property
     def hyperparameter_alpha(self):
@@ -1893,14 +1923,20 @@ class RationalQuadratic(StationaryKernelMixin, NormalizedKernelMixin, Kernel):
             np.fill_diagonal(K, 1)
         else:
             if eval_gradient:
-                raise ValueError("Gradient can only be evaluated when Y is None.")
+                raise ValueError(
+                    "Gradient can only be evaluated when Y is None."
+                )
             dists = cdist(X, Y, metric="sqeuclidean")
-            K = (1 + dists / (2 * self.alpha * self.length_scale ** 2)) ** -self.alpha
+            K = (
+                1 + dists / (2 * self.alpha * self.length_scale ** 2)
+            ) ** -self.alpha
 
         if eval_gradient:
             # gradient with respect to length_scale
             if not self.hyperparameter_length_scale.fixed:
-                length_scale_gradient = dists * K / (self.length_scale ** 2 * base)
+                length_scale_gradient = (
+                    dists * K / (self.length_scale ** 2 * base)
+                )
                 length_scale_gradient = length_scale_gradient[:, :, np.newaxis]
             else:  # l is kept fixed
                 length_scale_gradient = np.empty((K.shape[0], K.shape[1], 0))
@@ -1995,7 +2031,9 @@ class ExpSineSquared(StationaryKernelMixin, NormalizedKernelMixin, Kernel):
     @property
     def hyperparameter_length_scale(self):
         """Returns the length scale"""
-        return Hyperparameter("length_scale", "numeric", self.length_scale_bounds)
+        return Hyperparameter(
+            "length_scale", "numeric", self.length_scale_bounds
+        )
 
     @property
     def hyperparameter_periodicity(self):
@@ -2036,24 +2074,35 @@ class ExpSineSquared(StationaryKernelMixin, NormalizedKernelMixin, Kernel):
             K = np.exp(-2 * (sin_of_arg / self.length_scale) ** 2)
         else:
             if eval_gradient:
-                raise ValueError("Gradient can only be evaluated when Y is None.")
+                raise ValueError(
+                    "Gradient can only be evaluated when Y is None."
+                )
             dists = cdist(X, Y, metric="euclidean")
             K = np.exp(
-                -2 * (np.sin(np.pi / self.periodicity * dists) / self.length_scale) ** 2
+                -2
+                * (np.sin(np.pi / self.periodicity * dists) / self.length_scale)
+                ** 2
             )
 
         if eval_gradient:
             cos_of_arg = np.cos(arg)
             # gradient with respect to length_scale
             if not self.hyperparameter_length_scale.fixed:
-                length_scale_gradient = 4 / self.length_scale ** 2 * sin_of_arg ** 2 * K
+                length_scale_gradient = (
+                    4 / self.length_scale ** 2 * sin_of_arg ** 2 * K
+                )
                 length_scale_gradient = length_scale_gradient[:, :, np.newaxis]
             else:  # length_scale is kept fixed
                 length_scale_gradient = np.empty((K.shape[0], K.shape[1], 0))
             # gradient with respect to p
             if not self.hyperparameter_periodicity.fixed:
                 periodicity_gradient = (
-                    4 * arg / self.length_scale ** 2 * cos_of_arg * sin_of_arg * K
+                    4
+                    * arg
+                    / self.length_scale ** 2
+                    * cos_of_arg
+                    * sin_of_arg
+                    * K
                 )
                 periodicity_gradient = periodicity_gradient[:, :, np.newaxis]
             else:  # p is kept fixed
@@ -2166,7 +2215,9 @@ class DotProduct(Kernel):
             K = np.inner(X, X) + self.sigma_0 ** 2
         else:
             if eval_gradient:
-                raise ValueError("Gradient can only be evaluated when Y is None.")
+                raise ValueError(
+                    "Gradient can only be evaluated when Y is None."
+                )
             K = np.inner(X, Y) + self.sigma_0 ** 2
 
         if eval_gradient:
@@ -2203,7 +2254,9 @@ class DotProduct(Kernel):
         return False
 
     def __repr__(self):
-        return "{0}(sigma_0={1:.3g})".format(self.__class__.__name__, self.sigma_0)
+        return "{0}(sigma_0={1:.3g})".format(
+            self.__class__.__name__, self.sigma_0
+        )
 
 
 # adapted from scipy/optimize/optimize.py for functions with 2d output

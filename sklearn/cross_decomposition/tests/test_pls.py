@@ -79,15 +79,23 @@ def test_pls():
     # Check that rotations on training data lead to scores
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Xr = plsca.transform(X)
-    assert_array_almost_equal(Xr, plsca.x_scores_, err_msg="rotation on X failed")
+    assert_array_almost_equal(
+        Xr, plsca.x_scores_, err_msg="rotation on X failed"
+    )
     Xr, Yr = plsca.transform(X, Y)
-    assert_array_almost_equal(Xr, plsca.x_scores_, err_msg="rotation on X failed")
-    assert_array_almost_equal(Yr, plsca.y_scores_, err_msg="rotation on Y failed")
+    assert_array_almost_equal(
+        Xr, plsca.x_scores_, err_msg="rotation on X failed"
+    )
+    assert_array_almost_equal(
+        Yr, plsca.y_scores_, err_msg="rotation on Y failed"
+    )
 
     # Check that inverse_transform works
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     Xreconstructed = plsca.inverse_transform(Xr)
-    assert_array_almost_equal(Xreconstructed, X, err_msg="inverse_transform failed")
+    assert_array_almost_equal(
+        Xreconstructed, X, err_msg="inverse_transform failed"
+    )
 
     # "Non regression test" on canonical PLS
     # --------------------------------------
@@ -209,8 +217,12 @@ def test_pls():
     latents = np.array([l1, l1, l2, l2]).T
     X = latents + rng.normal(size=4 * n).reshape((n, 4))
     Y = latents + rng.normal(size=4 * n).reshape((n, 4))
-    X = np.concatenate((X, rng.normal(size=p_noise * n).reshape(n, p_noise)), axis=1)
-    Y = np.concatenate((Y, rng.normal(size=q_noise * n).reshape(n, q_noise)), axis=1)
+    X = np.concatenate(
+        (X, rng.normal(size=p_noise * n).reshape(n, p_noise)), axis=1
+    )
+    Y = np.concatenate(
+        (Y, rng.normal(size=q_noise * n).reshape(n, q_noise)), axis=1
+    )
 
     pls_ca = pls_.PLSCanonical(n_components=3)
     pls_ca.fit(X, Y)
@@ -358,7 +370,9 @@ def test_convergence_fail():
     d = load_linnerud()
     X = d.data
     Y = d.target
-    pls_bynipals = pls_.PLSCanonical(n_components=X.shape[1], max_iter=2, tol=1e-10)
+    pls_bynipals = pls_.PLSCanonical(
+        n_components=X.shape[1], max_iter=2, tol=1e-10
+    )
     assert_warns(ConvergenceWarning, pls_bynipals.fit, X, Y)
 
 
@@ -399,7 +413,9 @@ def test_predict_transform_copy():
     clf.fit(X, Y)
     # check that results are identical with copy
     assert_array_almost_equal(clf.predict(X), clf.predict(X.copy(), copy=False))
-    assert_array_almost_equal(clf.transform(X), clf.transform(X.copy(), copy=False))
+    assert_array_almost_equal(
+        clf.transform(X), clf.transform(X.copy(), copy=False)
+    )
 
     # check also if passing Y
     assert_array_almost_equal(
@@ -426,7 +442,9 @@ def test_scale_and_stability():
     # From bug #2821
     # Test with X2, T2 s.t. clf.x_score[:, 1] == 0, clf.y_score[:, 1] == 0
     # This test robustness of algorithm when dealing with value close to 0
-    X2 = np.array([[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [2.0, 2.0, 2.0], [3.0, 5.0, 4.0]])
+    X2 = np.array(
+        [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [2.0, 2.0, 2.0], [3.0, 5.0, 4.0]]
+    )
     Y2 = np.array([[0.1, -0.2], [0.9, 1.1], [6.2, 5.9], [11.9, 12.3]])
 
     for (X, Y) in [(X1, Y1), (X2, Y2)]:
@@ -438,7 +456,12 @@ def test_scale_and_stability():
         X_s = (X - X.mean(axis=0)) / X_std
         Y_s = (Y - Y.mean(axis=0)) / Y_std
 
-        for clf in [CCA(), pls_.PLSCanonical(), pls_.PLSRegression(), pls_.PLSSVD()]:
+        for clf in [
+            CCA(),
+            pls_.PLSCanonical(),
+            pls_.PLSRegression(),
+            pls_.PLSSVD(),
+        ]:
             clf.set_params(scale=True)
             X_score, Y_score = clf.fit_transform(X, Y)
             clf.set_params(scale=False)
@@ -458,7 +481,9 @@ def test_pls_errors():
     Y = d.target
     for clf in [pls_.PLSCanonical(), pls_.PLSRegression(), pls_.PLSSVD()]:
         clf.n_components = 4
-        assert_raise_message(ValueError, "Invalid number of components", clf.fit, X, Y)
+        assert_raise_message(
+            ValueError, "Invalid number of components", clf.fit, X, Y
+        )
 
 
 def test_pls_scaling():

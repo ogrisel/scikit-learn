@@ -35,7 +35,9 @@ from ..utils.validation import column_or_1d
 from ..utils.validation import _deprecate_positional_args
 
 
-class _BaseStacking(TransformerMixin, _BaseHeterogeneousEnsemble, metaclass=ABCMeta):
+class _BaseStacking(
+    TransformerMixin, _BaseHeterogeneousEnsemble, metaclass=ABCMeta
+):
     """Base class for stacking method."""
 
     @abstractmethod
@@ -164,7 +166,9 @@ class _BaseStacking(TransformerMixin, _BaseHeterogeneousEnsemble, metaclass=ABCM
         est_fitted_idx = 0
         for name_est, org_est in zip(names, all_estimators):
             if org_est != "drop":
-                self.named_estimators_[name_est] = self.estimators_[est_fitted_idx]
+                self.named_estimators_[name_est] = self.estimators_[
+                    est_fitted_idx
+                ]
                 est_fitted_idx += 1
             else:
                 self.named_estimators_[name_est] = "drop"
@@ -184,7 +188,9 @@ class _BaseStacking(TransformerMixin, _BaseHeterogeneousEnsemble, metaclass=ABCM
             for name, est, meth in zip(names, all_estimators, stack_method)
         ]
         fit_params = (
-            {"sample_weight": sample_weight} if sample_weight is not None else None
+            {"sample_weight": sample_weight}
+            if sample_weight is not None
+            else None
         )
         predictions = Parallel(n_jobs=self.n_jobs)(
             delayed(cross_val_predict)(
@@ -223,7 +229,8 @@ class _BaseStacking(TransformerMixin, _BaseHeterogeneousEnsemble, metaclass=ABCM
             check_is_fitted(self)
         except NotFittedError as nfe:
             raise AttributeError(
-                f"{self.__class__.__name__} object has no attribute " f"n_features_in_"
+                f"{self.__class__.__name__} object has no attribute "
+                f"n_features_in_"
             ) from nfe
         return self.estimators_[0].n_features_in_
 
@@ -260,12 +267,18 @@ class _BaseStacking(TransformerMixin, _BaseHeterogeneousEnsemble, metaclass=ABCM
         """
 
         check_is_fitted(self)
-        return self.final_estimator_.predict(self.transform(X), **predict_params)
+        return self.final_estimator_.predict(
+            self.transform(X), **predict_params
+        )
 
     def _sk_visual_block_(self, final_estimator):
         names, estimators = zip(*self.estimators)
-        parallel = _VisualBlock("parallel", estimators, names=names, dash_wrapped=False)
-        serial = _VisualBlock("serial", (parallel, final_estimator), dash_wrapped=False)
+        parallel = _VisualBlock(
+            "parallel", estimators, names=names, dash_wrapped=False
+        )
+        serial = _VisualBlock(
+            "serial", (parallel, final_estimator), dash_wrapped=False
+        )
         return _VisualBlock("serial", [serial])
 
 

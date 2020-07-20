@@ -336,7 +336,14 @@ _errstr = "Mode is unknown or incompatible with input array shape."
 
 
 def toimage(
-    arr, high=255, low=0, cmin=None, cmax=None, pal=None, mode=None, channel_axis=None
+    arr,
+    high=255,
+    low=0,
+    cmin=None,
+    cmax=None,
+    pal=None,
+    mode=None,
+    channel_axis=None,
 ):
     """Takes a numpy array and returns a PIL image.
 
@@ -374,9 +381,13 @@ def toimage(
     if iscomplexobj(data):
         raise ValueError("Cannot convert a complex-valued array.")
     shape = list(data.shape)
-    valid = len(shape) == 2 or ((len(shape) == 3) and ((3 in shape) or (4 in shape)))
+    valid = len(shape) == 2 or (
+        (len(shape) == 3) and ((3 in shape) or (4 in shape))
+    )
     if not valid:
-        raise ValueError("'arr' does not have a suitable array shape for " "any mode.")
+        raise ValueError(
+            "'arr' does not have a suitable array shape for " "any mode."
+        )
     if len(shape) == 2:
         shape = (shape[1], shape[0])  # columns show up first
         if mode == "F":

@@ -226,7 +226,8 @@ class _VectorizerMixin:
 
         if doc is np.nan:
             raise ValueError(
-                "np.nan is an invalid document, expected byte or " "unicode string."
+                "np.nan is an invalid document, expected byte or "
+                "unicode string."
             )
 
         return doc
@@ -337,7 +338,9 @@ class _VectorizerMixin:
                 'Invalid value for "strip_accents": %s' % self.strip_accents
             )
 
-        return partial(_preprocess, accent_function=strip_accents, lower=self.lowercase)
+        return partial(
+            _preprocess, accent_function=strip_accents, lower=self.lowercase
+        )
 
     def build_tokenizer(self):
         """Return a function that splits a string into a sequence of tokens.
@@ -413,7 +416,9 @@ class _VectorizerMixin:
         """
 
         if callable(self.analyzer):
-            return partial(_analyze, analyzer=self.analyzer, decoder=self.decode)
+            return partial(
+                _analyze, analyzer=self.analyzer, decoder=self.decode
+            )
 
         preprocess = self.build_preprocessor()
 
@@ -470,9 +475,9 @@ class _VectorizerMixin:
                     raise ValueError("Vocabulary contains repeated indices.")
                 for i in range(len(vocabulary)):
                     if i not in indices:
-                        msg = "Vocabulary of size %d doesn't contain index " "%d." % (
-                            len(vocabulary),
-                            i,
+                        msg = (
+                            "Vocabulary of size %d doesn't contain index "
+                            "%d." % (len(vocabulary), i,)
                         )
                         raise ValueError(msg)
             if not vocabulary:
@@ -498,7 +503,8 @@ class _VectorizerMixin:
         if min_n > max_m:
             raise ValueError(
                 "Invalid value for ngram_range=%s "
-                "lower boundary larger than the upper boundary." % str(self.ngram_range)
+                "lower boundary larger than the upper boundary."
+                % str(self.ngram_range)
             )
 
     def _warn_for_unused_params(self):
@@ -775,7 +781,8 @@ class HashingVectorizer(TransformerMixin, _VectorizerMixin, BaseEstimator):
         # triggers a parameter validation
         if isinstance(X, str):
             raise ValueError(
-                "Iterable over raw text documents expected, " "string object received."
+                "Iterable over raw text documents expected, "
+                "string object received."
             )
 
         self._warn_for_unused_params()
@@ -801,7 +808,8 @@ class HashingVectorizer(TransformerMixin, _VectorizerMixin, BaseEstimator):
         """
         if isinstance(X, str):
             raise ValueError(
-                "Iterable over raw text documents expected, " "string object received."
+                "Iterable over raw text documents expected, "
+                "string object received."
             )
 
         self._validate_params()
@@ -1090,7 +1098,10 @@ class CountVectorizer(_VectorizerMixin, BaseEstimator):
             raise ValueError("negative value for max_df or min_df")
         self.max_features = max_features
         if max_features is not None:
-            if not isinstance(max_features, numbers.Integral) or max_features <= 0:
+            if (
+                not isinstance(max_features, numbers.Integral)
+                or max_features <= 0
+            ):
                 raise ValueError(
                     "max_features=%r, neither a positive integer nor None"
                     % max_features
@@ -1194,7 +1205,8 @@ class CountVectorizer(_VectorizerMixin, BaseEstimator):
             vocabulary = dict(vocabulary)
             if not vocabulary:
                 raise ValueError(
-                    "empty vocabulary; perhaps the documents only" " contain stop words"
+                    "empty vocabulary; perhaps the documents only"
+                    " contain stop words"
                 )
 
         if indptr[-1] > np.iinfo(np.int32).max:  # = 2**31 - 1
@@ -1259,7 +1271,8 @@ class CountVectorizer(_VectorizerMixin, BaseEstimator):
         # TfidfVectorizer.
         if isinstance(raw_documents, str):
             raise ValueError(
-                "Iterable over raw text documents expected, " "string object received."
+                "Iterable over raw text documents expected, "
+                "string object received."
             )
 
         self._validate_params()
@@ -1276,13 +1289,19 @@ class CountVectorizer(_VectorizerMixin, BaseEstimator):
         if not self.fixed_vocabulary_:
             n_doc = X.shape[0]
             max_doc_count = (
-                max_df if isinstance(max_df, numbers.Integral) else max_df * n_doc
+                max_df
+                if isinstance(max_df, numbers.Integral)
+                else max_df * n_doc
             )
             min_doc_count = (
-                min_df if isinstance(min_df, numbers.Integral) else min_df * n_doc
+                min_df
+                if isinstance(min_df, numbers.Integral)
+                else min_df * n_doc
             )
             if max_doc_count < min_doc_count:
-                raise ValueError("max_df corresponds to < documents than min_df")
+                raise ValueError(
+                    "max_df corresponds to < documents than min_df"
+                )
             X, self.stop_words_ = self._limit_features(
                 X, vocabulary, max_doc_count, min_doc_count, max_features
             )
@@ -1311,7 +1330,8 @@ class CountVectorizer(_VectorizerMixin, BaseEstimator):
         """
         if isinstance(raw_documents, str):
             raise ValueError(
-                "Iterable over raw text documents expected, " "string object received."
+                "Iterable over raw text documents expected, "
+                "string object received."
             )
         self._check_vocabulary()
 
@@ -1350,7 +1370,8 @@ class CountVectorizer(_VectorizerMixin, BaseEstimator):
         inverse_vocabulary = terms[np.argsort(indices)]
 
         return [
-            inverse_vocabulary[X[i, :].nonzero()[1]].ravel() for i in range(n_samples)
+            inverse_vocabulary[X[i, :].nonzero()[1]].ravel()
+            for i in range(n_samples)
         ]
 
     def get_feature_names(self):
@@ -1364,7 +1385,9 @@ class CountVectorizer(_VectorizerMixin, BaseEstimator):
 
         self._check_vocabulary()
 
-        return [t for t, i in sorted(self.vocabulary_.items(), key=itemgetter(1))]
+        return [
+            t for t, i in sorted(self.vocabulary_.items(), key=itemgetter(1))
+        ]
 
     def _more_tags(self):
         return {"X_types": ["string"]}
@@ -1484,7 +1507,9 @@ class TfidfTransformer(TransformerMixin, BaseEstimator):
     """
 
     @_deprecate_positional_args
-    def __init__(self, *, norm="l2", use_idf=True, smooth_idf=True, sublinear_tf=False):
+    def __init__(
+        self, *, norm="l2", use_idf=True, smooth_idf=True, sublinear_tf=False
+    ):
         self.norm = norm
         self.use_idf = use_idf
         self.smooth_idf = smooth_idf
@@ -1555,7 +1580,9 @@ class TfidfTransformer(TransformerMixin, BaseEstimator):
             # idf_ being a property, the automatic attributes detection
             # does not work as usual and we need to specify the attribute
             # name:
-            check_is_fitted(self, attributes=["idf_"], msg="idf vector is not fitted")
+            check_is_fitted(
+                self, attributes=["idf_"], msg="idf vector is not fitted"
+            )
 
             expected_n_features = self._idf_diag.shape[0]
             if n_features != expected_n_features:
@@ -1842,7 +1869,10 @@ class TfidfVectorizer(CountVectorizer):
         )
 
         self._tfidf = TfidfTransformer(
-            norm=norm, use_idf=use_idf, smooth_idf=smooth_idf, sublinear_tf=sublinear_tf
+            norm=norm,
+            use_idf=use_idf,
+            smooth_idf=smooth_idf,
+            sublinear_tf=sublinear_tf,
         )
 
     # Broadcast the TF-IDF parameters to the underlying transformer instance
@@ -1891,7 +1921,8 @@ class TfidfVectorizer(CountVectorizer):
             if len(self.vocabulary_) != len(value):
                 raise ValueError(
                     "idf length = %d must be equal "
-                    "to vocabulary size = %d" % (len(value), len(self.vocabulary))
+                    "to vocabulary size = %d"
+                    % (len(value), len(self.vocabulary))
                 )
         self._tfidf.idf_ = value
 

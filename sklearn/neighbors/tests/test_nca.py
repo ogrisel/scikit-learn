@@ -49,7 +49,9 @@ def test_simple_example():
     )
     nca.fit(X, y)
     X_t = nca.transform(X)
-    assert_array_equal(pairwise_distances(X_t).argsort()[:, 1], np.array([2, 3, 0, 1]))
+    assert_array_equal(
+        pairwise_distances(X_t).argsort()[:, 1], np.array([2, 3, 0, 1])
+    )
 
 
 def test_toy_example_collapse_points():
@@ -85,7 +87,9 @@ def test_toy_example_collapse_points():
             )
 
     loss_storer = LossStorer(X, y)
-    nca = NeighborhoodComponentsAnalysis(random_state=42, callback=loss_storer.callback)
+    nca = NeighborhoodComponentsAnalysis(
+        random_state=42, callback=loss_storer.callback
+    )
     X_t = nca.fit_transform(X, y)
     print(X_t)
     # test that points are collapsed into one point
@@ -177,7 +181,10 @@ def test_transformation_dimensions():
     # Fail if transformation input dimension does not match inputs dimensions
     transformation = np.array([[1, 2], [3, 4]])
     assert_raises(
-        ValueError, NeighborhoodComponentsAnalysis(init=transformation).fit, X, y
+        ValueError,
+        NeighborhoodComponentsAnalysis(init=transformation).fit,
+        X,
+        y,
     )
 
     # Fail if transformation output dimension is larger than
@@ -185,7 +192,10 @@ def test_transformation_dimensions():
     transformation = np.array([[1, 2], [3, 4], [5, 6]])
     # len(transformation) > len(transformation[0])
     assert_raises(
-        ValueError, NeighborhoodComponentsAnalysis(init=transformation).fit, X, y
+        ValueError,
+        NeighborhoodComponentsAnalysis(init=transformation).fit,
+        X,
+        y,
     )
 
     # Pass otherwise
@@ -208,7 +218,9 @@ def test_n_components():
         "The preferred dimensionality of the "
         "projected space `n_components` ({}) does not match "
         "the output dimensionality of the given "
-        "linear transformation `init` ({})!".format(n_components, init.shape[0]),
+        "linear transformation `init` ({})!".format(
+            n_components, init.shape[0]
+        ),
         nca.fit,
         X,
         y,
@@ -300,7 +312,9 @@ def test_init_transformation():
         "The preferred dimensionality of the "
         "projected space `n_components` ({}) does not match "
         "the output dimensionality of the given "
-        "linear transformation `init` ({})!".format(n_components, init.shape[0]),
+        "linear transformation `init` ({})!".format(
+            n_components, init.shape[0]
+        ),
         nca.fit,
         X,
         y,
@@ -394,8 +408,12 @@ def test_warm_start_effectiveness():
     nca_cold.fit(iris_data, iris_target)
     transformation_cold_plus_one = nca_cold.components_
 
-    diff_warm = np.sum(np.abs(transformation_warm_plus_one - transformation_warm))
-    diff_cold = np.sum(np.abs(transformation_cold_plus_one - transformation_cold))
+    diff_warm = np.sum(
+        np.abs(transformation_warm_plus_one - transformation_warm)
+    )
+    diff_cold = np.sum(
+        np.abs(transformation_cold_plus_one - transformation_cold)
+    )
     assert diff_warm < 3.0, (
         "Transformer changed significantly after one "
         "iteration even though it was warm-started."
@@ -437,9 +455,13 @@ def test_verbose(init_name, capsys):
         assert re.match(msgs[init_name], lines[0])
         lines = lines[1:]
     assert lines[0] == "[NeighborhoodComponentsAnalysis]"
-    header = "{:>10} {:>20} {:>10}".format("Iteration", "Objective Value", "Time(s)")
+    header = "{:>10} {:>20} {:>10}".format(
+        "Iteration", "Objective Value", "Time(s)"
+    )
     assert lines[1] == "[NeighborhoodComponentsAnalysis] {}".format(header)
-    assert lines[2] == ("[NeighborhoodComponentsAnalysis] {}".format("-" * len(header)))
+    assert lines[2] == (
+        "[NeighborhoodComponentsAnalysis] {}".format("-" * len(header))
+    )
     for line in lines[3:-2]:
         # The following regex will match for instance:
         # '[NeighborhoodComponentsAnalysis]  0    6.988936e+01   0.01'
@@ -526,7 +548,9 @@ def test_callback(capsys):
         print("{} iterations remaining...".format(rem_iter))
 
     # assert that my_cb is called
-    nca = NeighborhoodComponentsAnalysis(max_iter=max_iter, callback=my_cb, verbose=1)
+    nca = NeighborhoodComponentsAnalysis(
+        max_iter=max_iter, callback=my_cb, verbose=1
+    )
     nca.fit(iris_data, iris_target)
     out, _ = capsys.readouterr()
 

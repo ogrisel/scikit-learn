@@ -93,7 +93,9 @@ def test_assert_raise_message():
         "test",
     )
 
-    assert_raises(AssertionError, assert_raise_message, ValueError, "test", _no_raise)
+    assert_raises(
+        AssertionError, assert_raise_message, ValueError, "test", _no_raise
+    )
 
     # multiple exceptions in a tuple
     assert_raises(
@@ -117,19 +119,25 @@ def test_ignore_warning():
 
     # Check the function directly
     assert_no_warnings(ignore_warnings(_warning_function))
-    assert_no_warnings(ignore_warnings(_warning_function, category=DeprecationWarning))
-    assert_warns(
-        DeprecationWarning, ignore_warnings(_warning_function, category=UserWarning)
+    assert_no_warnings(
+        ignore_warnings(_warning_function, category=DeprecationWarning)
     )
     assert_warns(
-        UserWarning, ignore_warnings(_multiple_warning_function, category=FutureWarning)
+        DeprecationWarning,
+        ignore_warnings(_warning_function, category=UserWarning),
+    )
+    assert_warns(
+        UserWarning,
+        ignore_warnings(_multiple_warning_function, category=FutureWarning),
     )
     assert_warns(
         DeprecationWarning,
         ignore_warnings(_multiple_warning_function, category=UserWarning),
     )
     assert_no_warnings(
-        ignore_warnings(_warning_function, category=(DeprecationWarning, UserWarning))
+        ignore_warnings(
+            _warning_function, category=(DeprecationWarning, UserWarning)
+        )
     )
 
     # Check the decorator
@@ -202,7 +210,9 @@ def test_ignore_warning():
     match = "'obj' should be a callable.+you should use 'category=UserWarning'"
 
     with pytest.raises(ValueError, match=match):
-        silence_warnings_func = ignore_warnings(warning_class)(_warning_function)
+        silence_warnings_func = ignore_warnings(warning_class)(
+            _warning_function
+        )
         silence_warnings_func()
 
     with pytest.raises(ValueError, match=match):
@@ -551,7 +561,8 @@ def test_check_docstring_parameters():
             "+ []",
         ],
         [
-            "In function: " + "sklearn.utils.tests.test_testing.MockMetaEstimator.fit",
+            "In function: "
+            + "sklearn.utils.tests.test_testing.MockMetaEstimator.fit",
             "Parameters in function docstring have less items w.r.t. function"
             " signature, first missing item: X",
             "Full diff:",
@@ -657,4 +668,6 @@ def test_create_memmap_backed_data(monkeypatch):
 )
 def test_convert_container(constructor_name, container_type):
     container = [0, 1]
-    assert isinstance(_convert_container(container, constructor_name), container_type)
+    assert isinstance(
+        _convert_container(container, constructor_name), container_type
+    )

@@ -54,7 +54,8 @@ def test_transform_target_regressor_error():
     regr = TransformedTargetRegressor(func=np.exp)
     with pytest.raises(
         ValueError,
-        match="When 'func' is provided, " "'inverse_func' must also be provided",
+        match="When 'func' is provided, "
+        "'inverse_func' must also be provided",
     ):
         regr.fit(X, y)
 
@@ -130,7 +131,8 @@ def test_transform_target_regressor_functions_multioutput():
 
 
 @pytest.mark.parametrize(
-    "X,y", [friedman, (friedman[0], np.vstack((friedman[1], friedman[1] ** 2 + 1)).T)]
+    "X,y",
+    [friedman, (friedman[0], np.vstack((friedman[1], friedman[1] ** 2 + 1)).T)],
 )
 def test_transform_target_regressor_1d_transformer(X, y):
     # All transformer in scikit-learn expect 2D data. FunctionTransformer with
@@ -161,7 +163,8 @@ def test_transform_target_regressor_1d_transformer(X, y):
 
 
 @pytest.mark.parametrize(
-    "X,y", [friedman, (friedman[0], np.vstack((friedman[1], friedman[1] ** 2 + 1)).T)]
+    "X,y",
+    [friedman, (friedman[0], np.vstack((friedman[1], friedman[1] ** 2 + 1)).T)],
 )
 def test_transform_target_regressor_2d_transformer(X, y):
     # Check consistency with transformer accepting only 2D array and a 1D/2D y
@@ -333,7 +336,8 @@ class DummyRegressorWithExtraFitParams(DummyRegressor):
 def test_transform_target_regressor_pass_fit_parameters():
     X, y = friedman
     regr = TransformedTargetRegressor(
-        regressor=DummyRegressorWithExtraFitParams(), transformer=DummyTransformer()
+        regressor=DummyRegressorWithExtraFitParams(),
+        transformer=DummyTransformer(),
     )
 
     regr.fit(X, y, check_input=False)
@@ -344,7 +348,8 @@ def test_transform_target_regressor_route_pipeline():
     X, y = friedman
 
     regr = TransformedTargetRegressor(
-        regressor=DummyRegressorWithExtraFitParams(), transformer=DummyTransformer()
+        regressor=DummyRegressorWithExtraFitParams(),
+        transformer=DummyTransformer(),
     )
     estimators = [("normalize", StandardScaler()), ("est", regr)]
 

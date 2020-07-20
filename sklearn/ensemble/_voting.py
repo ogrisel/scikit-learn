@@ -52,7 +52,11 @@ class _BaseVoting(TransformerMixin, _BaseHeterogeneousEnsemble):
         """Get the weights of not `None` estimators."""
         if self.weights is None:
             return None
-        return [w for est, w in zip(self.estimators, self.weights) if est[1] != "drop"]
+        return [
+            w
+            for est, w in zip(self.estimators, self.weights)
+            if est[1] != "drop"
+        ]
 
     def _predict(self, X):
         """Collect results from clf.predict calls."""
@@ -63,7 +67,9 @@ class _BaseVoting(TransformerMixin, _BaseHeterogeneousEnsemble):
         """Get common fit operations."""
         names, clfs = self._validate_estimators()
 
-        if self.weights is not None and len(self.weights) != len(self.estimators):
+        if self.weights is not None and len(self.weights) != len(
+            self.estimators
+        ):
             raise ValueError(
                 "Number of `estimators` and weights must be equal"
                 "; got %d weights, %d estimators"
@@ -261,7 +267,8 @@ class VotingClassifier(ClassifierMixin, _BaseVoting):
         check_classification_targets(y)
         if isinstance(y, np.ndarray) and len(y.shape) > 1 and y.shape[1] > 1:
             raise NotImplementedError(
-                "Multilabel and multi-output" " classification is not supported."
+                "Multilabel and multi-output"
+                " classification is not supported."
             )
 
         if self.voting not in ("soft", "hard"):
@@ -295,7 +302,9 @@ class VotingClassifier(ClassifierMixin, _BaseVoting):
         else:  # 'hard' voting
             predictions = self._predict(X)
             maj = np.apply_along_axis(
-                lambda x: np.argmax(np.bincount(x, weights=self._weights_not_none)),
+                lambda x: np.argmax(
+                    np.bincount(x, weights=self._weights_not_none)
+                ),
                 axis=1,
                 arr=predictions,
             )
@@ -486,7 +495,9 @@ class VotingRegressor(RegressorMixin, _BaseVoting):
             The predicted values.
         """
         check_is_fitted(self)
-        return np.average(self._predict(X), axis=1, weights=self._weights_not_none)
+        return np.average(
+            self._predict(X), axis=1, weights=self._weights_not_none
+        )
 
     def transform(self, X):
         """Return predictions for X for each estimator.

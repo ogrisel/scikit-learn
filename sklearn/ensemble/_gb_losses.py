@@ -182,7 +182,8 @@ class RegressionLossFunction(LossFunction, metaclass=ABCMeta):
     def __init__(self, n_classes):
         if n_classes != 1:
             raise ValueError(
-                "``n_classes`` must be 1 for regression but " "was %r" % n_classes
+                "``n_classes`` must be 1 for regression but "
+                "was %r" % n_classes
             )
         super().__init__(n_classes)
 
@@ -444,7 +445,9 @@ class HuberLossFunction(RegressionLossFunction):
             lin_loss = np.sum(gamma * (np.abs(diff[~gamma_mask]) - gamma / 2))
             loss = (sq_loss + lin_loss) / y.shape[0]
         else:
-            sq_loss = np.sum(0.5 * sample_weight[gamma_mask] * diff[gamma_mask] ** 2)
+            sq_loss = np.sum(
+                0.5 * sample_weight[gamma_mask] * diff[gamma_mask] ** 2
+            )
             lin_loss = np.sum(
                 gamma
                 * sample_weight[~gamma_mask]
@@ -453,7 +456,9 @@ class HuberLossFunction(RegressionLossFunction):
             loss = (sq_loss + lin_loss) / sample_weight.sum()
         return loss
 
-    def negative_gradient(self, y, raw_predictions, sample_weight=None, **kargs):
+    def negative_gradient(
+        self, y, raw_predictions, sample_weight=None, **kargs
+    ):
         """Compute the negative gradient.
 
         Parameters
@@ -473,7 +478,9 @@ class HuberLossFunction(RegressionLossFunction):
         if sample_weight is None:
             gamma = np.percentile(np.abs(diff), self.alpha * 100)
         else:
-            gamma = _weighted_percentile(np.abs(diff), sample_weight, self.alpha * 100)
+            gamma = _weighted_percentile(
+                np.abs(diff), sample_weight, self.alpha * 100
+            )
         gamma_mask = np.abs(diff) <= gamma
         residual = np.zeros((y.shape[0],), dtype=np.float64)
         residual[gamma_mask] = diff[gamma_mask]
@@ -501,7 +508,8 @@ class HuberLossFunction(RegressionLossFunction):
         median = _weighted_percentile(diff, sample_weight, percentile=50)
         diff_minus_median = diff - median
         tree.value[leaf, 0] = median + np.mean(
-            np.sign(diff_minus_median) * np.minimum(np.abs(diff_minus_median), gamma)
+            np.sign(diff_minus_median)
+            * np.minimum(np.abs(diff_minus_median), gamma)
         )
 
 
@@ -639,7 +647,9 @@ class ClassificationLossFunction(LossFunction, metaclass=ABCMeta):
         estimator : object
             The init estimator to check.
         """
-        if not (hasattr(estimator, "fit") and hasattr(estimator, "predict_proba")):
+        if not (
+            hasattr(estimator, "fit") and hasattr(estimator, "predict_proba")
+        ):
             raise ValueError(
                 "The init parameter must be a valid estimator "
                 "and support both fit and predict_proba."
@@ -743,7 +753,9 @@ class BinomialDeviance(ClassificationLossFunction):
         sample_weight = sample_weight.take(terminal_region, axis=0)
 
         numerator = np.sum(sample_weight * residual)
-        denominator = np.sum(sample_weight * (y - residual) * (1 - y + residual))
+        denominator = np.sum(
+            sample_weight * (y - residual) * (1 - y + residual)
+        )
 
         # prevents overflow and division by zero
         if abs(denominator) < 1e-150:
@@ -788,7 +800,9 @@ class MultinomialDeviance(ClassificationLossFunction):
     def __init__(self, n_classes):
         if n_classes < 3:
             raise ValueError(
-                "{0:s} requires more than 2 classes.".format(self.__class__.__name__)
+                "{0:s} requires more than 2 classes.".format(
+                    self.__class__.__name__
+                )
             )
         super().__init__(n_classes)
 
@@ -816,7 +830,8 @@ class MultinomialDeviance(ClassificationLossFunction):
             Y[:, k] = y == k
 
         return np.average(
-            -1 * (Y * raw_predictions).sum(axis=1) + logsumexp(raw_predictions, axis=1),
+            -1 * (Y * raw_predictions).sum(axis=1)
+            + logsumexp(raw_predictions, axis=1),
             weights=sample_weight,
         )
 
@@ -859,7 +874,9 @@ class MultinomialDeviance(ClassificationLossFunction):
         numerator = np.sum(sample_weight * residual)
         numerator *= (self.K - 1) / self.K
 
-        denominator = np.sum(sample_weight * (y - residual) * (1 - y + residual))
+        denominator = np.sum(
+            sample_weight * (y - residual) * (1 - y + residual)
+        )
 
         # prevents overflow and division by zero
         if abs(denominator) < 1e-150:
@@ -870,7 +887,8 @@ class MultinomialDeviance(ClassificationLossFunction):
     def _raw_prediction_to_proba(self, raw_predictions):
         return np.nan_to_num(
             np.exp(
-                raw_predictions - (logsumexp(raw_predictions, axis=1)[:, np.newaxis])
+                raw_predictions
+                - (logsumexp(raw_predictions, axis=1)[:, np.newaxis])
             )
         )
 

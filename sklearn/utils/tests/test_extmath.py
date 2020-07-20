@@ -188,7 +188,9 @@ def test_row_norms(dtype):
             Xcsr.indices = Xcsr.indices.astype(csr_index_dtype, copy=False)
         assert Xcsr.indices.dtype == csr_index_dtype
         assert Xcsr.indptr.dtype == csr_index_dtype
-        assert_array_almost_equal(sq_norm, row_norms(Xcsr, squared=True), precision)
+        assert_array_almost_equal(
+            sq_norm, row_norms(Xcsr, squared=True), precision
+        )
         assert_array_almost_equal(np.sqrt(sq_norm), row_norms(Xcsr), precision)
 
 
@@ -217,7 +219,11 @@ def test_randomized_svd_low_rank_with_noise():
         # compute the singular values of X using the fast approximate
         # method without the iterated power method
         _, sa, _ = randomized_svd(
-            X, k, n_iter=0, power_iteration_normalizer=normalizer, random_state=0
+            X,
+            k,
+            n_iter=0,
+            power_iteration_normalizer=normalizer,
+            random_state=0,
         )
 
         # the approximation does not tolerate the noise:
@@ -256,7 +262,9 @@ def test_randomized_svd_infinite_rank():
     for normalizer in ["auto", "none", "LU", "QR"]:
         # compute the singular values of X using the fast approximate method
         # without the iterated power method
-        _, sa, _ = randomized_svd(X, k, n_iter=0, power_iteration_normalizer=normalizer)
+        _, sa, _ = randomized_svd(
+            X, k, n_iter=0, power_iteration_normalizer=normalizer
+        )
 
         # the approximation does not tolerate the noise:
         assert np.abs(s[:k] - sa).max() > 0.1
@@ -290,7 +298,9 @@ def test_randomized_svd_transpose_consistency():
 
     U1, s1, V1 = randomized_svd(X, k, n_iter=3, transpose=False, random_state=0)
     U2, s2, V2 = randomized_svd(X, k, n_iter=3, transpose=True, random_state=0)
-    U3, s3, V3 = randomized_svd(X, k, n_iter=3, transpose="auto", random_state=0)
+    U3, s3, V3 = randomized_svd(
+        X, k, n_iter=3, transpose="auto", random_state=0
+    )
     U4, s4, V4 = linalg.svd(X, full_matrices=False)
 
     assert_almost_equal(s1, s4[:k], decimal=3)
@@ -511,7 +521,9 @@ def test_incremental_mean_and_variance_ignore_nan():
     old_variances = np.array([4225.0, 4225.0, 4225.0, 4225.0])
     old_sample_count = np.array([2, 2, 2, 2], dtype=np.int32)
 
-    X = np.array([[170, 170, 170, 170], [430, 430, 430, 430], [300, 300, 300, 300]])
+    X = np.array(
+        [[170, 170, 170, 170], [430, 430, 430, 430], [300, 300, 300, 300]]
+    )
 
     X_nan = np.array(
         [
@@ -560,7 +572,9 @@ def test_incremental_variance_numerical_stability():
     # Naive online implementation
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Online_algorithm
     # This works only for chunks for size 1
-    def naive_mean_variance_update(x, last_mean, last_variance, last_sample_count):
+    def naive_mean_variance_update(
+        x, last_mean, last_variance, last_sample_count
+    ):
         updated_sample_count = last_sample_count + 1
         samples_ratio = last_sample_count / float(updated_sample_count)
         updated_mean = x / updated_sample_count + last_mean * samples_ratio
@@ -624,12 +638,21 @@ def test_incremental_variance_ddof():
                 incremental_variances = batch.var(axis=0)
                 # Assign this twice so that the test logic is consistent
                 incremental_count = batch.shape[0]
-                sample_count = np.full(batch.shape[1], batch.shape[0], dtype=np.int32)
+                sample_count = np.full(
+                    batch.shape[1], batch.shape[0], dtype=np.int32
+                )
             else:
                 result = _incremental_mean_and_var(
-                    batch, incremental_means, incremental_variances, sample_count
+                    batch,
+                    incremental_means,
+                    incremental_variances,
+                    sample_count,
                 )
-                (incremental_means, incremental_variances, incremental_count) = result
+                (
+                    incremental_means,
+                    incremental_variances,
+                    incremental_count,
+                ) = result
                 sample_count += batch.shape[0]
 
             calculated_means = np.mean(X[:j], axis=0)

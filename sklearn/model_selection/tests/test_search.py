@@ -130,7 +130,9 @@ def assert_grid_iter_equals_getitem(grid):
     assert list(grid) == [grid[i] for i in range(len(grid))]
 
 
-@pytest.mark.parametrize("klass", [ParameterGrid, partial(ParameterSampler, n_iter=10)])
+@pytest.mark.parametrize(
+    "klass", [ParameterGrid, partial(ParameterSampler, n_iter=10)]
+)
 @pytest.mark.parametrize(
     "input, error_type, error_message",
     [
@@ -167,7 +169,8 @@ def test_parameter_grid():
         # tuple + chain transforms {"a": 1, "b": 2} to ("a", 1, "b", 2)
         points = set(tuple(chain(*(sorted(p.items())))) for p in grid2)
         assert points == set(
-            ("bar", x, "foo", y) for x, y in product(params2["bar"], params2["foo"])
+            ("bar", x, "foo", y)
+            for x, y in product(params2["bar"], params2["foo"])
         )
     assert_grid_iter_equals_getitem(grid2)
 
@@ -195,7 +198,9 @@ def test_grid_search():
     sys.stdout = old_stdout
     assert grid_search.best_estimator_.foo_param == 2
 
-    assert_array_equal(grid_search.cv_results_["param_foo_param"].data, [1, 2, 3])
+    assert_array_equal(
+        grid_search.cv_results_["param_foo_param"].data, [1, 2, 3]
+    )
 
     # Smoke test the score etc:
     grid_search.score(X, y)
@@ -231,7 +236,9 @@ def test_SearchCV_with_fit_params(SearchCV):
     X = np.arange(100).reshape(10, 10)
     y = np.array([0] * 5 + [1] * 5)
     clf = CheckingClassifier(expected_fit_params=["spam", "eggs"])
-    searcher = SearchCV(clf, {"foo_param": [1, 2, 3]}, cv=2, error_score="raise")
+    searcher = SearchCV(
+        clf, {"foo_param": [1, 2, 3]}, cv=2, error_score="raise"
+    )
 
     # The CheckingClassifier generates an assertion error if
     # a parameter is missing or has length != len(X).
@@ -255,7 +262,9 @@ def test_grid_search_no_score():
     grid_search = GridSearchCV(clf, {"C": Cs}, scoring="accuracy")
     grid_search.fit(X, y)
 
-    grid_search_no_score = GridSearchCV(clf_no_score, {"C": Cs}, scoring="accuracy")
+    grid_search_no_score = GridSearchCV(
+        clf_no_score, {"C": Cs}, scoring="accuracy"
+    )
     # smoketest grid search
     grid_search_no_score.fit(X, y)
 
@@ -266,11 +275,15 @@ def test_grid_search_no_score():
 
     # giving no scoring function raises an error
     grid_search_no_score = GridSearchCV(clf_no_score, {"C": Cs})
-    assert_raise_message(TypeError, "no scoring", grid_search_no_score.fit, [[1]])
+    assert_raise_message(
+        TypeError, "no scoring", grid_search_no_score.fit, [[1]]
+    )
 
 
 def test_grid_search_score_method():
-    X, y = make_classification(n_samples=100, n_classes=2, flip_y=0.2, random_state=0)
+    X, y = make_classification(
+        n_samples=100, n_classes=2, flip_y=0.2, random_state=0
+    )
     clf = LinearSVC(random_state=0)
     grid = {"C": [0.1]}
 
@@ -317,7 +330,11 @@ def test_grid_search_groups():
     for cv in group_cvs:
         gs = GridSearchCV(clf, grid, cv=cv)
         assert_raise_message(
-            ValueError, "The 'groups' parameter should not be None.", gs.fit, X, y
+            ValueError,
+            "The 'groups' parameter should not be None.",
+            gs.fit,
+            X,
+            y,
         )
         gs.fit(X, y, groups=groups)
 
@@ -336,7 +353,9 @@ def test_classes__property():
 
     grid_search = GridSearchCV(LinearSVC(random_state=0), {"C": Cs})
     grid_search.fit(X, y)
-    assert_array_equal(grid_search.best_estimator_.classes_, grid_search.classes_)
+    assert_array_equal(
+        grid_search.best_estimator_.classes_, grid_search.classes_
+    )
 
     # Test that regressors do not have a classes_ attribute
     grid_search = GridSearchCV(Ridge(), {"alpha": [1.0, 2.0]})
@@ -348,7 +367,9 @@ def test_classes__property():
     assert not hasattr(grid_search, "classes_")
 
     # Test that the grid searcher has no classes_ attribute without a refit
-    grid_search = GridSearchCV(LinearSVC(random_state=0), {"C": Cs}, refit=False)
+    grid_search = GridSearchCV(
+        LinearSVC(random_state=0), {"C": Cs}, refit=False
+    )
     grid_search.fit(X, y)
     assert not hasattr(grid_search, "classes_")
 
@@ -369,7 +390,9 @@ def test_no_refit():
     # Test that GSCV can be used for model selection alone without refitting
     clf = MockClassifier()
     for scoring in [None, ["accuracy", "precision"]]:
-        grid_search = GridSearchCV(clf, {"foo_param": [1, 2, 3]}, refit=False, cv=3)
+        grid_search = GridSearchCV(
+            clf, {"foo_param": [1, 2, 3]}, refit=False, cv=3
+        )
         grid_search.fit(X, y)
         assert (
             not hasattr(grid_search, "best_estimator_")
@@ -403,7 +426,10 @@ def test_no_refit():
             "For multi-metric scoring, the "
             "parameter refit must be set to a scorer key",
             GridSearchCV(
-                clf, {}, refit=refit, scoring={"acc": "accuracy", "prec": "precision"}
+                clf,
+                {},
+                refit=refit,
+                scoring={"acc": "accuracy", "prec": "precision"},
             ).fit,
             X,
             y,
@@ -602,7 +628,10 @@ def test_refit():
     y = np.array([0] * 5 + [1] * 5)
 
     clf = GridSearchCV(
-        BrokenClassifier(), [{"parameter": [0, 1]}], scoring="precision", refit=True
+        BrokenClassifier(),
+        [{"parameter": [0, 1]}],
+        scoring="precision",
+        refit=True,
     )
     clf.fit(X, y)
 
@@ -672,7 +701,9 @@ def test_refit_callable_invalid_type():
         scoring="precision",
         refit=refit_callable_invalid_type,
     )
-    with pytest.raises(TypeError, match="best_index_ returned is not an integer"):
+    with pytest.raises(
+        TypeError, match="best_index_ returned is not an integer"
+    ):
         clf.fit(X, y)
 
 
@@ -819,7 +850,10 @@ def test_unsupervised_grid_search():
     scoring = ["adjusted_rand_score", "fowlkes_mallows_score"]
     for refit in ["adjusted_rand_score", "fowlkes_mallows_score"]:
         grid_search = GridSearchCV(
-            km, param_grid=dict(n_clusters=[2, 3, 4]), scoring=scoring, refit=refit
+            km,
+            param_grid=dict(n_clusters=[2, 3, 4]),
+            scoring=scoring,
+            refit=refit,
         )
         grid_search.fit(X, y)
         # Both ARI and FMS can find the right number :)
@@ -827,7 +861,9 @@ def test_unsupervised_grid_search():
 
     # Single metric evaluation unsupervised
     grid_search = GridSearchCV(
-        km, param_grid=dict(n_clusters=[2, 3, 4]), scoring="fowlkes_mallows_score"
+        km,
+        param_grid=dict(n_clusters=[2, 3, 4]),
+        scoring="fowlkes_mallows_score",
     )
     grid_search.fit(X, y)
     assert grid_search.best_params_["n_clusters"] == 3
@@ -844,7 +880,9 @@ def test_gridsearch_no_predict():
     def custom_scoring(estimator, X):
         return 42 if estimator.bandwidth == 0.1 else 0
 
-    X, _ = make_blobs(cluster_std=0.1, random_state=1, centers=[[0, 1], [1, 0], [0, 0]])
+    X, _ = make_blobs(
+        cluster_std=0.1, random_state=1, centers=[[0, 1], [1, 0], [0, 0]]
+    )
     search = GridSearchCV(
         KernelDensity(),
         param_grid=dict(bandwidth=[0.01, 0.1, 1]),
@@ -884,9 +922,13 @@ def test_param_sampler():
 def check_cv_results_array_types(search, param_keys, score_keys):
     # Check if the search `cv_results`'s array are of correct types
     cv_results = search.cv_results_
-    assert all(isinstance(cv_results[param], np.ma.MaskedArray) for param in param_keys)
+    assert all(
+        isinstance(cv_results[param], np.ma.MaskedArray) for param in param_keys
+    )
     assert all(cv_results[key].dtype == object for key in param_keys)
-    assert not any(isinstance(cv_results[key], np.ma.MaskedArray) for key in score_keys)
+    assert not any(
+        isinstance(cv_results[key], np.ma.MaskedArray) for key in score_keys
+    )
     assert all(
         cv_results[key].dtype == np.float64
         for key in score_keys
@@ -904,7 +946,9 @@ def check_cv_results_keys(cv_results, param_keys, score_keys, n_cand):
     assert_array_equal(
         sorted(cv_results.keys()), sorted(param_keys + score_keys + ("params",))
     )
-    assert all(cv_results[key].shape == (n_cand,) for key in param_keys + score_keys)
+    assert all(
+        cv_results[key].shape == (n_cand,) for key in param_keys + score_keys
+    )
 
 
 def test_grid_search_cv_results():
@@ -944,7 +988,9 @@ def test_grid_search_cv_results():
     cv_results = search.cv_results_
     # Check if score and timing are reasonable
     assert all(cv_results["rank_test_score"] >= 1)
-    assert (all(cv_results[k] >= 0) for k in score_keys if k != "rank_test_score")
+    assert (
+        all(cv_results[k] >= 0) for k in score_keys if k != "rank_test_score"
+    )
     assert (
         all(cv_results[k] <= 1)
         for k in score_keys
@@ -1043,7 +1089,10 @@ def test_random_search_cv_results():
     "SearchCV, specialized_params",
     [
         (GridSearchCV, {"param_grid": {"C": [1, 10]}}),
-        (RandomizedSearchCV, {"param_distributions": {"C": [1, 10]}, "n_iter": 2}),
+        (
+            RandomizedSearchCV,
+            {"param_distributions": {"C": [1, 10]}, "n_iter": 2},
+        ),
     ],
 )
 def test_search_default_iid(SearchCV, specialized_params):
@@ -1113,7 +1162,10 @@ def test_grid_search_cv_results_multimetric():
 
     grid_searches = []
     for scoring in (
-        {"accuracy": make_scorer(accuracy_score), "recall": make_scorer(recall_score)},
+        {
+            "accuracy": make_scorer(accuracy_score),
+            "recall": make_scorer(recall_score),
+        },
         "accuracy",
         "recall",
     ):
@@ -1133,7 +1185,9 @@ def test_random_search_cv_results_multimetric():
     n_search_iter = 30
 
     # Scipy 0.12's stats dists do not accept seed, hence we use param grid
-    params = dict(C=np.logspace(-4, 1, 3), gamma=np.logspace(-5, 0, 3, base=0.1))
+    params = dict(
+        C=np.logspace(-4, 1, 3), gamma=np.logspace(-5, 0, 3, base=0.1)
+    )
     for refit in (True, False):
         random_searches = []
         for scoring in (("accuracy", "recall"), "accuracy", "recall"):
@@ -1162,7 +1216,9 @@ def test_random_search_cv_results_multimetric():
         )
 
 
-def compare_cv_results_multimetric_with_single(search_multi, search_acc, search_rec):
+def compare_cv_results_multimetric_with_single(
+    search_multi, search_acc, search_rec
+):
     """Compare multi-metric cv_results with the ensemble of multiple
     single metric cv_results from single metric grid/random search"""
 
@@ -1171,10 +1227,14 @@ def compare_cv_results_multimetric_with_single(search_multi, search_acc, search_
 
     cv_results_multi = search_multi.cv_results_
     cv_results_acc_rec = {
-        re.sub("_score$", "_accuracy", k): v for k, v in search_acc.cv_results_.items()
+        re.sub("_score$", "_accuracy", k): v
+        for k, v in search_acc.cv_results_.items()
     }
     cv_results_acc_rec.update(
-        {re.sub("_score$", "_recall", k): v for k, v in search_rec.cv_results_.items()}
+        {
+            re.sub("_score$", "_recall", k): v
+            for k, v in search_rec.cv_results_.items()
+        }
     )
 
     # Check if score and timing are reasonable, also checks if the keys
@@ -1196,7 +1256,11 @@ def compare_cv_results_multimetric_with_single(search_multi, search_acc, search_
     # deep nested comparison of the two cv_results dicts
     np.testing.assert_equal(
         {k: v for k, v in cv_results_multi.items() if not k.endswith("_time")},
-        {k: v for k, v in cv_results_acc_rec.items() if not k.endswith("_time")},
+        {
+            k: v
+            for k, v in cv_results_acc_rec.items()
+            if not k.endswith("_time")
+        },
     )
 
 
@@ -1227,7 +1291,8 @@ def compare_refit_methods_when_refit_with_acc(search_multi, search_acc, refit):
             param_distributions={"max_depth": [5, 10]},
         ),
         GridSearchCV(
-            estimator=DecisionTreeClassifier(), param_grid={"max_depth": [5, 10]}
+            estimator=DecisionTreeClassifier(),
+            param_grid={"max_depth": [5, 10]},
         ),
     ],
 )
@@ -1237,7 +1302,9 @@ def test_search_cv_score_samples_error(search_cv):
 
     # Make sure to error out when underlying estimator does not implement
     # the method `score_samples`
-    err_msg = "'DecisionTreeClassifier' object has no attribute " "'score_samples'"
+    err_msg = (
+        "'DecisionTreeClassifier' object has no attribute " "'score_samples'"
+    )
 
     with pytest.raises(AttributeError, match=err_msg):
         search_cv.score_samples(X)
@@ -1275,7 +1342,9 @@ def test_search_cv_score_samples_method(search_cv):
         random_state=0,
     )[0]
     # Add some noisy points
-    X = np.concatenate([X, rng.uniform(low=-6, high=6, size=(n_outliers, 2))], axis=0)
+    X = np.concatenate(
+        [X, rng.uniform(low=-6, high=6, size=(n_outliers, 2))], axis=0
+    )
 
     # Define labels to be able to score the estimator with `search_cv`
     y_true = np.array([1] * n_samples)
@@ -1298,7 +1367,9 @@ def test_search_cv_results_rank_tie_breaking():
     # which would result in a tie of their mean cv-scores
     param_grid = {"C": [1, 1.001, 0.001]}
 
-    grid_search = GridSearchCV(SVC(), param_grid=param_grid, return_train_score=True)
+    grid_search = GridSearchCV(
+        SVC(), param_grid=param_grid, return_train_score=True
+    )
     random_search = RandomizedSearchCV(
         SVC(), n_iter=3, param_distributions=param_grid, return_train_score=True
     )
@@ -1333,7 +1404,9 @@ def test_search_cv_results_none_param():
 
     for est in estimators:
         grid_search = GridSearchCV(est, est_parameters, cv=cv,).fit(X, y)
-        assert_array_equal(grid_search.cv_results_["param_random_state"], [0, None])
+        assert_array_equal(
+            grid_search.cv_results_["param_random_state"], [0, None]
+        )
 
 
 @ignore_warnings()
@@ -1387,7 +1460,9 @@ def test_grid_search_correct_score_results():
             clf.set_params(C=C)
             cv_scores = np.array(
                 list(
-                    grid_search.cv_results_["split%d_test_score" % s][candidate_i]
+                    grid_search.cv_results_["split%d_test_score" % s][
+                        candidate_i
+                    ]
                     for s in range(n_splits)
                 )
             )
@@ -1464,7 +1539,9 @@ def test_pickle():
     grid_search = GridSearchCV(clf, {"foo_param": [1, 2, 3]}, refit=True, cv=3)
     grid_search.fit(X, y)
     grid_search_pickled = pickle.loads(pickle.dumps(grid_search))
-    assert_array_almost_equal(grid_search.predict(X), grid_search_pickled.predict(X))
+    assert_array_almost_equal(
+        grid_search.predict(X), grid_search_pickled.predict(X)
+    )
 
     random_search = RandomizedSearchCV(
         clf, {"foo_param": [1, 2, 3]}, refit=True, n_iter=3, cv=3
@@ -1592,7 +1669,8 @@ def test_grid_search_failing_classifier():
     def get_cand_scores(i):
         return np.array(
             list(
-                gs.cv_results_["split%d_test_score" % s][i] for s in range(gs.n_splits_)
+                gs.cv_results_["split%d_test_score" % s][i]
+                for s in range(gs.n_splits_)
             )
         )
 
@@ -1662,7 +1740,8 @@ def test_parameters_sampler_replacement():
     expected_warning = (
         "The total space of parameters %d is smaller "
         "than n_iter=%d. Running %d iterations. For "
-        "exhaustive searches, use GridSearchCV." % (grid_size, n_iter, grid_size)
+        "exhaustive searches, use GridSearchCV."
+        % (grid_size, n_iter, grid_size)
     )
     assert_warns_message(UserWarning, expected_warning, list, sampler)
 
@@ -1846,7 +1925,9 @@ def test_custom_run_search():
                         exp_results[k], results[k], err_msg="Checking " + k
                     )
                 else:
-                    assert_allclose(exp_results[k], results[k], err_msg="Checking " + k)
+                    assert_allclose(
+                        exp_results[k], results[k], err_msg="Checking " + k
+                    )
 
     def fit_grid(param_grid):
         return GridSearchCV(clf, param_grid, return_train_score=True).fit(X, y)
@@ -1858,10 +1939,14 @@ def test_custom_run_search():
         def _run_search(self, evaluate):
             results = evaluate([{"max_depth": 1}, {"max_depth": 2}])
             check_results(results, fit_grid({"max_depth": [1, 2]}))
-            results = evaluate([{"min_samples_split": 5}, {"min_samples_split": 10}])
+            results = evaluate(
+                [{"min_samples_split": 5}, {"min_samples_split": 10}]
+            )
             check_results(
                 results,
-                fit_grid([{"max_depth": [1, 2]}, {"min_samples_split": [5, 10]}]),
+                fit_grid(
+                    [{"max_depth": [1, 2]}, {"min_samples_split": [5, 10]}]
+                ),
             )
 
     # Using regressor to make sure each score differs
@@ -1899,7 +1984,9 @@ def test__custom_fit_no_run_search():
         def __init__(self, estimator, **kwargs):
             super().__init__(estimator, **kwargs)
 
-    with pytest.raises(NotImplementedError, match="_run_search not implemented."):
+    with pytest.raises(
+        NotImplementedError, match="_run_search not implemented."
+    ):
         # this should raise a NotImplementedError
         BadSearchCV(SVC()).fit(X, y)
 
@@ -1915,7 +2002,9 @@ def test_empty_cv_iterator_error():
     # cv is empty now
 
     train_size = 100
-    ridge = RandomizedSearchCV(Ridge(), {"alpha": [1e-3, 1e-2, 1e-1]}, cv=cv, n_jobs=4)
+    ridge = RandomizedSearchCV(
+        Ridge(), {"alpha": [1e-3, 1e-2, 1e-1]}, cv=cv, n_jobs=4
+    )
 
     # assert that this raises an error
     with pytest.raises(
@@ -1938,7 +2027,9 @@ def test_random_search_bad_cv():
     cv = BrokenKFold(n_splits=3)
 
     train_size = 100
-    ridge = RandomizedSearchCV(Ridge(), {"alpha": [1e-3, 1e-2, 1e-1]}, cv=cv, n_jobs=4)
+    ridge = RandomizedSearchCV(
+        Ridge(), {"alpha": [1e-3, 1e-2, 1e-1]}, cv=cv, n_jobs=4
+    )
 
     # assert that this raises an error
     with pytest.raises(
@@ -1960,7 +2051,9 @@ def test_callable_multimetric_confusion_matrix():
 
     X, y = make_classification(n_samples=40, n_features=4, random_state=42)
     est = LinearSVC(random_state=42)
-    search = GridSearchCV(est, {"C": [0.1, 1]}, scoring=custom_scorer, refit="fp")
+    search = GridSearchCV(
+        est, {"C": [0.1, 1]}, scoring=custom_scorer, refit="fp"
+    )
 
     search.fit(X, y)
 
@@ -2010,7 +2103,9 @@ def test_callable_single_metric_same_as_single_string():
     search_callable = GridSearchCV(
         est, {"C": [0.1, 1]}, scoring=custom_scorer, refit=True
     )
-    search_str = GridSearchCV(est, {"C": [0.1, 1]}, scoring="recall", refit="recall")
+    search_str = GridSearchCV(
+        est, {"C": [0.1, 1]}, scoring="recall", refit="recall"
+    )
     search_list_str = GridSearchCV(
         est, {"C": [0.1, 1]}, scoring=["recall"], refit="recall"
     )
@@ -2088,9 +2183,9 @@ def test_callable_multimetric_clf_all_fails():
         error_score=0.1,
     )
 
-    with pytest.warns(FitFailedWarning, match="Estimator fit failed"), pytest.raises(
-        NotFittedError, match="All estimators failed to fit"
-    ):
+    with pytest.warns(
+        FitFailedWarning, match="Estimator fit failed"
+    ), pytest.raises(NotFittedError, match="All estimators failed to fit"):
         gs.fit(X, y)
 
 
@@ -2160,7 +2255,10 @@ def test_search_cv__pairwise_property_equivalence_of_precomputed():
 
 @pytest.mark.parametrize(
     "SearchCV, param_search",
-    [(GridSearchCV, {"a": [0.1, 0.01]}), (RandomizedSearchCV, {"a": uniform(1, 3)})],
+    [
+        (GridSearchCV, {"a": [0.1, 0.01]}),
+        (RandomizedSearchCV, {"a": uniform(1, 3)}),
+    ],
 )
 def test_scalar_fit_param(SearchCV, param_search):
     # unofficially sanctioned tolerance for scalar values in fit_params

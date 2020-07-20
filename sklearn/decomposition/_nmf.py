@@ -179,9 +179,9 @@ def _special_sparse_dot(W, H, X):
         batch_size = max(n_components, n_vals // n_components)
         for start in range(0, n_vals, batch_size):
             batch = slice(start, start + batch_size)
-            dot_vals[batch] = np.multiply(W[ii[batch], :], H.T[jj[batch], :]).sum(
-                axis=1
-            )
+            dot_vals[batch] = np.multiply(
+                W[ii[batch], :], H.T[jj[batch], :]
+            ).sum(axis=1)
 
         WH = sp.coo_matrix((dot_vals, (ii, jj)), shape=X.shape)
         return WH.tocsr()
@@ -242,7 +242,11 @@ def _check_string_param(solver, regularization, beta_loss, init):
 
 def _beta_loss_to_float(beta_loss):
     """Convert string beta_loss to float"""
-    allowed_beta_loss = {"frobenius": 2, "kullback-leibler": 1, "itakura-saito": 0}
+    allowed_beta_loss = {
+        "frobenius": 2,
+        "kullback-leibler": 1,
+        "itakura-saito": 0,
+    }
     if isinstance(beta_loss, str) and beta_loss in allowed_beta_loss:
         beta_loss = allowed_beta_loss[beta_loss]
 
@@ -336,7 +340,9 @@ def _initialize_nmf(X, n_components, init=None, eps=1e-6, random_state=None):
     if init == "random":
         avg = np.sqrt(X.mean() / n_components)
         rng = check_random_state(random_state)
-        H = avg * rng.randn(n_components, n_features).astype(X.dtype, copy=False)
+        H = avg * rng.randn(n_components, n_features).astype(
+            X.dtype, copy=False
+        )
         W = avg * rng.randn(n_samples, n_components).astype(X.dtype, copy=False)
         np.abs(H, out=H)
         np.abs(W, out=W)
@@ -841,7 +847,17 @@ def _fit_multiplicative_update(
         # update W
         # H_sum, HHt and XHt are saved and reused if not update_H
         delta_W, H_sum, HHt, XHt = _multiplicative_update_w(
-            X, W, H, beta_loss, l1_reg_W, l2_reg_W, gamma, H_sum, HHt, XHt, update_H
+            X,
+            W,
+            H,
+            beta_loss,
+            l1_reg_W,
+            l2_reg_W,
+            gamma,
+            H_sum,
+            HHt,
+            XHt,
+            update_H,
         )
         W *= delta_W
 
@@ -882,7 +898,8 @@ def _fit_multiplicative_update(
     if verbose and (tol == 0 or n_iter % 10 != 0):
         end_time = time.time()
         print(
-            "Epoch %02d reached after %.3f seconds." % (n_iter, end_time - start_time)
+            "Epoch %02d reached after %.3f seconds."
+            % (n_iter, end_time - start_time)
         )
 
     return W, H, n_iter
@@ -1066,7 +1083,9 @@ def non_negative_factorization(
     Fevotte, C., & Idier, J. (2011). Algorithms for nonnegative matrix
     factorization with the beta-divergence. Neural Computation, 23(9).
     """
-    X = check_array(X, accept_sparse=("csr", "csc"), dtype=[np.float64, np.float32])
+    X = check_array(
+        X, accept_sparse=("csr", "csc"), dtype=[np.float64, np.float32]
+    )
     check_non_negative(X, "NMF (input X)")
     beta_loss = _check_string_param(solver, regularization, beta_loss, init)
 
@@ -1093,7 +1112,8 @@ def non_negative_factorization(
         )
     if not isinstance(tol, numbers.Number) or tol < 0:
         raise ValueError(
-            "Tolerance for stopping criteria must be " "positive; got (tol=%r)" % tol
+            "Tolerance for stopping criteria must be "
+            "positive; got (tol=%r)" % tol
         )
 
     # check W and H, or initialize them
@@ -1119,7 +1139,9 @@ def non_negative_factorization(
         else:
             W = np.zeros((n_samples, n_components), dtype=X.dtype)
     else:
-        W, H = _initialize_nmf(X, n_components, init=init, random_state=random_state)
+        W, H = _initialize_nmf(
+            X, n_components, init=init, random_state=random_state
+        )
 
     l1_reg_W, l1_reg_H, l2_reg_W, l2_reg_H = _compute_regularization(
         alpha, l1_ratio, regularization

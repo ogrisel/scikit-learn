@@ -162,7 +162,9 @@ def test_checking_classifier_missing_fit_params(iris):
 @pytest.mark.parametrize(
     "predict_method", ["predict", "predict_proba", "decision_function", "score"]
 )
-def test_checking_classifier_methods_to_check(iris, methods_to_check, predict_method):
+def test_checking_classifier_methods_to_check(
+    iris, methods_to_check, predict_method
+):
     # check that methods_to_check allows to bypass checks
     X, y = iris
 

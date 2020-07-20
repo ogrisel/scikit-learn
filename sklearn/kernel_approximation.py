@@ -113,7 +113,9 @@ class RBFSampler(TransformerMixin, BaseEstimator):
             size=(n_features, self.n_components)
         )
 
-        self.random_offset_ = random_state.uniform(0, 2 * np.pi, size=self.n_components)
+        self.random_offset_ = random_state.uniform(
+            0, 2 * np.pi, size=self.n_components
+        )
         return self
 
     def transform(self, X):
@@ -227,8 +229,12 @@ class SkewedChi2Sampler(TransformerMixin, BaseEstimator):
         n_features = X.shape[1]
         uniform = random_state.uniform(size=(n_features, self.n_components))
         # transform by inverse CDF of sech
-        self.random_weights_ = 1.0 / np.pi * np.log(np.tan(np.pi / 2.0 * uniform))
-        self.random_offset_ = random_state.uniform(0, 2 * np.pi, size=self.n_components)
+        self.random_weights_ = (
+            1.0 / np.pi * np.log(np.tan(np.pi / 2.0 * uniform))
+        )
+        self.random_offset_ = random_state.uniform(
+            0, 2 * np.pi, size=self.n_components
+        )
         return self
 
     def transform(self, X):
@@ -250,7 +256,9 @@ class SkewedChi2Sampler(TransformerMixin, BaseEstimator):
         X = as_float_array(X, copy=True)
         X = check_array(X, copy=False)
         if (X <= -self.skewedness).any():
-            raise ValueError("X may not contain entries smaller than" " -skewedness.")
+            raise ValueError(
+                "X may not contain entries smaller than" " -skewedness."
+            )
 
         X += self.skewedness
         np.log(X, X)
@@ -411,7 +419,9 @@ class AdditiveChi2Sampler(TransformerMixin, BaseEstimator):
         step_nz = 2 * X_nz * self.sample_interval_
 
         for j in range(1, self.sample_steps):
-            factor_nz = np.sqrt(step_nz / np.cosh(np.pi * j * self.sample_interval_))
+            factor_nz = np.sqrt(
+                step_nz / np.cosh(np.pi * j * self.sample_interval_)
+            )
 
             X_step = np.zeros_like(X)
             X_step[non_zero] = factor_nz * np.cos(j * log_step_nz)
@@ -429,7 +439,10 @@ class AdditiveChi2Sampler(TransformerMixin, BaseEstimator):
 
         data_step = np.sqrt(X.data * self.sample_interval_)
         X_step = sp.csr_matrix(
-            (data_step, indices, indptr), shape=X.shape, dtype=X.dtype, copy=False
+            (data_step, indices, indptr),
+            shape=X.shape,
+            dtype=X.dtype,
+            copy=False,
         )
         X_new = [X_step]
 
@@ -437,17 +450,25 @@ class AdditiveChi2Sampler(TransformerMixin, BaseEstimator):
         step_nz = 2 * X.data * self.sample_interval_
 
         for j in range(1, self.sample_steps):
-            factor_nz = np.sqrt(step_nz / np.cosh(np.pi * j * self.sample_interval_))
+            factor_nz = np.sqrt(
+                step_nz / np.cosh(np.pi * j * self.sample_interval_)
+            )
 
             data_step = factor_nz * np.cos(j * log_step_nz)
             X_step = sp.csr_matrix(
-                (data_step, indices, indptr), shape=X.shape, dtype=X.dtype, copy=False
+                (data_step, indices, indptr),
+                shape=X.shape,
+                dtype=X.dtype,
+                copy=False,
             )
             X_new.append(X_step)
 
             data_step = factor_nz * np.sin(j * log_step_nz)
             X_step = sp.csr_matrix(
-                (data_step, indices, indptr), shape=X.shape, dtype=X.dtype, copy=False
+                (data_step, indices, indptr),
+                shape=X.shape,
+                dtype=X.dtype,
+                copy=False,
             )
             X_new.append(X_step)
 
@@ -603,7 +624,10 @@ class Nystroem(TransformerMixin, BaseEstimator):
         basis = X[basis_inds]
 
         basis_kernel = pairwise_kernels(
-            basis, metric=self.kernel, filter_params=True, **self._get_kernel_params()
+            basis,
+            metric=self.kernel,
+            filter_params=True,
+            **self._get_kernel_params(),
         )
 
         # sqrt of kernel matrix on basis vectors
@@ -635,7 +659,11 @@ class Nystroem(TransformerMixin, BaseEstimator):
 
         kernel_params = self._get_kernel_params()
         embedded = pairwise_kernels(
-            X, self.components_, metric=self.kernel, filter_params=True, **kernel_params
+            X,
+            self.components_,
+            metric=self.kernel,
+            filter_params=True,
+            **kernel_params,
         )
         return np.dot(embedded, self.normalization_.T)
 

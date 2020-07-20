@@ -102,7 +102,9 @@ def _joint_probabilities_nn(distances, desired_perplexity, verbose):
     conditional_P = _utils._binary_search_perplexity(
         distances_data, desired_perplexity, verbose
     )
-    assert np.all(np.isfinite(conditional_P)), "All probabilities should be finite"
+    assert np.all(
+        np.isfinite(conditional_P)
+    ), "All probabilities should be finite"
 
     # Symmetrize the joint probability distribution using sparse operations
     P = csr_matrix(
@@ -118,7 +120,11 @@ def _joint_probabilities_nn(distances, desired_perplexity, verbose):
     assert np.all(np.abs(P.data) <= 1.0)
     if verbose >= 2:
         duration = time() - t0
-        print("[t-SNE] Computed conditional probabilities in {:.3f}s".format(duration))
+        print(
+            "[t-SNE] Computed conditional probabilities in {:.3f}s".format(
+                duration
+            )
+        )
     return P
 
 
@@ -182,7 +188,9 @@ def _kl_divergence(
 
     # Objective: C (Kullback-Leibler divergence of P and Q)
     if compute_error:
-        kl_divergence = 2.0 * np.dot(P, np.log(np.maximum(P, MACHINE_EPSILON) / Q))
+        kl_divergence = 2.0 * np.dot(
+            P, np.log(np.maximum(P, MACHINE_EPSILON) / Q)
+        )
     else:
         kl_divergence = np.nan
 
@@ -191,7 +199,9 @@ def _kl_divergence(
     grad = np.ndarray((n_samples, n_components), dtype=params.dtype)
     PQd = squareform((P - Q) * dist)
     for i in range(skip_num_points, n_samples):
-        grad[i] = np.dot(np.ravel(PQd[i], order="K"), X_embedded[i] - X_embedded)
+        grad[i] = np.dot(
+            np.ravel(PQd[i], order="K"), X_embedded[i] - X_embedded
+        )
     grad = grad.ravel()
     c = 2.0 * (degrees_of_freedom + 1.0) / degrees_of_freedom
     grad *= c
@@ -510,13 +520,21 @@ def trustworthiness(X, X_embedded, *, n_neighbors=5, metric="euclidean"):
     n_samples = X.shape[0]
     inverted_index = np.zeros((n_samples, n_samples), dtype=int)
     ordered_indices = np.arange(n_samples + 1)
-    inverted_index[ordered_indices[:-1, np.newaxis], ind_X] = ordered_indices[1:]
+    inverted_index[ordered_indices[:-1, np.newaxis], ind_X] = ordered_indices[
+        1:
+    ]
     ranks = (
-        inverted_index[ordered_indices[:-1, np.newaxis], ind_X_embedded] - n_neighbors
+        inverted_index[ordered_indices[:-1, np.newaxis], ind_X_embedded]
+        - n_neighbors
     )
     t = np.sum(ranks[ranks > 0])
     t = 1.0 - t * (
-        2.0 / (n_samples * n_neighbors * (2.0 * n_samples - 3.0 * n_neighbors - 1.0))
+        2.0
+        / (
+            n_samples
+            * n_neighbors
+            * (2.0 * n_samples - 3.0 * n_neighbors - 1.0)
+        )
     )
     return t
 
@@ -766,7 +784,9 @@ class TSNE(BaseEstimator):
             )
         else:
             X = self._validate_data(
-                X, accept_sparse=["csr", "csc", "coo"], dtype=[np.float32, np.float64]
+                X,
+                accept_sparse=["csr", "csc", "coo"],
+                dtype=[np.float32, np.float64],
             )
         if self.metric == "precomputed":
             if isinstance(self.init, str) and self.init == "pca":
@@ -826,7 +846,9 @@ class TSNE(BaseEstimator):
                     # squared distances, and returns np.sqrt(dist) for
                     # squared=False.
                     # Also, Euclidean is slower for n_jobs>1, so don't set here
-                    distances = pairwise_distances(X, metric=self.metric, squared=True)
+                    distances = pairwise_distances(
+                        X, metric=self.metric, squared=True
+                    )
                 else:
                     distances = pairwise_distances(
                         X, metric=self.metric, n_jobs=self.n_jobs
@@ -857,7 +879,11 @@ class TSNE(BaseEstimator):
             n_neighbors = min(n_samples - 1, int(3.0 * self.perplexity + 1))
 
             if self.verbose:
-                print("[t-SNE] Computing {} nearest neighbors...".format(n_neighbors))
+                print(
+                    "[t-SNE] Computing {} nearest neighbors...".format(
+                        n_neighbors
+                    )
+                )
 
             # Find the nearest neighbors for every point
             knn = NearestNeighbors(
@@ -897,7 +923,9 @@ class TSNE(BaseEstimator):
                 distances_nn.data **= 2
 
             # compute the joint probability distribution for the input space
-            P = _joint_probabilities_nn(distances_nn, self.perplexity, self.verbose)
+            P = _joint_probabilities_nn(
+                distances_nn, self.perplexity, self.verbose
+            )
 
         if isinstance(self.init, np.ndarray):
             X_embedded = self.init
@@ -911,11 +939,13 @@ class TSNE(BaseEstimator):
         elif self.init == "random":
             # The embedding is initialized with iid samples from Gaussians with
             # standard deviation 1e-4.
-            X_embedded = 1e-4 * random_state.randn(n_samples, self.n_components).astype(
-                np.float32
-            )
+            X_embedded = 1e-4 * random_state.randn(
+                n_samples, self.n_components
+            ).astype(np.float32)
         else:
-            raise ValueError("'init' must be 'pca', 'random', or " "a numpy array")
+            raise ValueError(
+                "'init' must be 'pca', 'random', or " "a numpy array"
+            )
 
         # Degrees of freedom of the Student's t-distribution. The suggestion
         # degrees_of_freedom = n_components - 1 comes from
@@ -975,7 +1005,9 @@ class TSNE(BaseEstimator):
         # Learning schedule (part 1): do 250 iteration with lower momentum but
         # higher learning rate controlled via the early exaggeration parameter
         P *= self.early_exaggeration
-        params, kl_divergence, it = _gradient_descent(obj_func, params, **opt_args)
+        params, kl_divergence, it = _gradient_descent(
+            obj_func, params, **opt_args
+        )
         if self.verbose:
             print(
                 "[t-SNE] KL divergence after %d iterations with early "
@@ -991,7 +1023,9 @@ class TSNE(BaseEstimator):
             opt_args["it"] = it + 1
             opt_args["momentum"] = 0.8
             opt_args["n_iter_without_progress"] = self.n_iter_without_progress
-            params, kl_divergence, it = _gradient_descent(obj_func, params, **opt_args)
+            params, kl_divergence, it = _gradient_descent(
+                obj_func, params, **opt_args
+            )
 
         # Save the final number of iterations
         self.n_iter_ = it

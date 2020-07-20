@@ -98,7 +98,9 @@ def test_multi_target_sparse_regression():
         rgr.fit(X_train, y_train)
         rgr_sparse.fit(sparse(X_train), y_train)
 
-        assert_almost_equal(rgr.predict(X_test), rgr_sparse.predict(sparse(X_test)))
+        assert_almost_equal(
+            rgr.predict(X_test), rgr_sparse.predict(sparse(X_test))
+        )
 
 
 def test_multi_target_sample_weights_api():
@@ -107,7 +109,9 @@ def test_multi_target_sample_weights_api():
     w = [0.8, 0.6]
 
     rgr = MultiOutputRegressor(OrthogonalMatchingPursuit())
-    assert_raises_regex(ValueError, "does not support sample weights", rgr.fit, X, y, w)
+    assert_raises_regex(
+        ValueError, "does not support sample weights", rgr.fit, X, y, w
+    )
 
     # no exception should be raised if the base estimator supports weights
     rgr = MultiOutputRegressor(GradientBoostingRegressor(random_state=0))
@@ -229,7 +233,9 @@ def test_multi_output_classification_partial_fit():
 
     # train the multi_target_linear and also get the predictions.
     half_index = X.shape[0] // 2
-    multi_target_linear.partial_fit(X[:half_index], y[:half_index], classes=classes)
+    multi_target_linear.partial_fit(
+        X[:half_index], y[:half_index], classes=classes
+    )
 
     first_predictions = multi_target_linear.predict(X)
     assert (n_samples, n_outputs) == first_predictions.shape
@@ -289,7 +295,9 @@ def test_multi_output_classification():
         forest_ = clone(forest)  # create a clone with the same state
         forest_.fit(X, y[:, i])
         assert list(forest_.predict(X)) == list(predictions[:, i])
-        assert_array_equal(list(forest_.predict_proba(X)), list(predict_proba[i]))
+        assert_array_equal(
+            list(forest_.predict_proba(X)), list(predict_proba[i])
+        )
 
 
 def test_multiclass_multioutput_estimator():
@@ -418,10 +426,16 @@ def generate_multilabel_dataset_with_correlations():
     # by representing the integer number of the original class using a binary
     # encoding.
     X, y = make_classification(
-        n_samples=1000, n_features=100, n_classes=16, n_informative=10, random_state=0
+        n_samples=1000,
+        n_features=100,
+        n_classes=16,
+        n_informative=10,
+        random_state=0,
     )
 
-    Y_multi = np.array([[int(yyy) for yyy in format(yy, "#06b")[2:]] for yy in y])
+    Y_multi = np.array(
+        [[int(yyy) for yyy in format(yy, "#06b")[2:]] for yy in y]
+    )
     return X, Y_multi
 
 
@@ -475,9 +489,9 @@ def test_classifier_chain_vs_independent_models():
     chain.fit(X_train, Y_train)
     Y_pred_chain = chain.predict(X_test)
 
-    assert jaccard_score(Y_test, Y_pred_chain, average="samples") > jaccard_score(
-        Y_test, Y_pred_ovr, average="samples"
-    )
+    assert jaccard_score(
+        Y_test, Y_pred_chain, average="samples"
+    ) > jaccard_score(Y_test, Y_pred_ovr, average="samples")
 
 
 def test_base_chain_fit_and_predict():
@@ -516,7 +530,10 @@ def test_base_chain_fit_and_predict_with_sparse_data_and_cv():
 def test_base_chain_random_order():
     # Fit base chain with random order
     X, Y = generate_multilabel_dataset_with_correlations()
-    for chain in [ClassifierChain(LogisticRegression()), RegressorChain(Ridge())]:
+    for chain in [
+        ClassifierChain(LogisticRegression()),
+        RegressorChain(Ridge()),
+    ]:
         chain_random = clone(chain).set_params(order="random", random_state=42)
         chain_random.fit(X, Y)
         chain_fixed = clone(chain).set_params(order=chain_random.order_)
@@ -527,7 +544,9 @@ def test_base_chain_random_order():
         assert len(set(chain_random.order_)) == 4
         # Randomly ordered chain should behave identically to a fixed order
         # chain with the same order.
-        for est1, est2 in zip(chain_random.estimators_, chain_fixed.estimators_):
+        for est1, est2 in zip(
+            chain_random.estimators_, chain_fixed.estimators_
+        ):
             assert_array_almost_equal(est1.coef_, est2.coef_)
 
 
@@ -536,7 +555,10 @@ def test_base_chain_crossval_fit_and_predict():
     # performance
     X, Y = generate_multilabel_dataset_with_correlations()
 
-    for chain in [ClassifierChain(LogisticRegression()), RegressorChain(Ridge())]:
+    for chain in [
+        ClassifierChain(LogisticRegression()),
+        RegressorChain(Ridge()),
+    ]:
         chain.fit(X, Y)
         chain_cv = clone(chain).set_params(cv=3)
         chain_cv.fit(X, Y)
@@ -585,7 +607,9 @@ class DummyClassifierWithFitParams(DummyClassifier):
     "estimator, dataset",
     [
         (
-            MultiOutputClassifier(DummyClassifierWithFitParams(strategy="prior")),
+            MultiOutputClassifier(
+                DummyClassifierWithFitParams(strategy="prior")
+            ),
             datasets.make_multilabel_classification(),
         ),
         (

@@ -67,7 +67,13 @@ def test_error_on_invalid_option(pyplot, fitted_clf, data):
 @pytest.mark.parametrize("with_labels", [True, False])
 @pytest.mark.parametrize("with_display_labels", [True, False])
 def test_plot_confusion_matrix_custom_labels(
-    pyplot, data, y_pred, fitted_clf, n_classes, with_labels, with_display_labels
+    pyplot,
+    data,
+    y_pred,
+    fitted_clf,
+    n_classes,
+    with_labels,
+    with_display_labels,
 ):
     X, y = data
     ax = pyplot.gca()
@@ -88,7 +94,9 @@ def test_plot_confusion_matrix_custom_labels(
     else:
         expected_display_labels = list(range(n_classes))
 
-    expected_display_labels_str = [str(name) for name in expected_display_labels]
+    expected_display_labels_str = [
+        str(name) for name in expected_display_labels
+    ]
 
     x_ticks = [tick.get_text() for tick in disp.ax_.get_xticklabels()]
     y_ticks = [tick.get_text() for tick in disp.ax_.get_yticklabels()]
@@ -142,7 +150,9 @@ def test_plot_confusion_matrix(
 
     expected_display_labels = list(range(n_classes))
 
-    expected_display_labels_str = [str(name) for name in expected_display_labels]
+    expected_display_labels_str = [
+        str(name) for name in expected_display_labels
+    ]
 
     assert_array_equal(disp.display_labels, expected_display_labels)
     assert_array_equal(x_ticks, expected_display_labels_str)
@@ -155,7 +165,9 @@ def test_plot_confusion_matrix(
         assert disp.text_.shape == (n_classes, n_classes)
         fmt = ".2g"
         expected_text = np.array([format(v, fmt) for v in cm.ravel(order="C")])
-        text_text = np.array([t.get_text() for t in disp.text_.ravel(order="C")])
+        text_text = np.array(
+            [t.get_text() for t in disp.text_.ravel(order="C")]
+        )
         assert_array_equal(expected_text, text_text)
     else:
         assert disp.text_ is None
@@ -243,7 +255,8 @@ def test_confusion_matrix_contrast(pyplot):
         LogisticRegression(),
         make_pipeline(StandardScaler(), LogisticRegression()),
         make_pipeline(
-            make_column_transformer((StandardScaler(), [0, 1])), LogisticRegression()
+            make_column_transformer((StandardScaler(), [0, 1])),
+            LogisticRegression(),
         ),
     ],
 )
@@ -299,7 +312,9 @@ def test_confusion_matrix_text_format(
 
 def test_confusion_matrix_standard_format(pyplot):
     cm = np.array([[10000000, 0], [123456, 12345678]])
-    plotted_text = ConfusionMatrixDisplay(cm, display_labels=[False, True]).plot().text_
+    plotted_text = (
+        ConfusionMatrixDisplay(cm, display_labels=[False, True]).plot().text_
+    )
     # Values should be shown as whole numbers 'd',
     # except the first number which should be shown as 1e+07 (longer length)
     # and the last number will be shown as 1.2e+07 (longer length)
@@ -307,7 +322,9 @@ def test_confusion_matrix_standard_format(pyplot):
     assert test == ["1e+07", "0", "123456", "1.2e+07"]
 
     cm = np.array([[0.1, 10], [100, 0.525]])
-    plotted_text = ConfusionMatrixDisplay(cm, display_labels=[False, True]).plot().text_
+    plotted_text = (
+        ConfusionMatrixDisplay(cm, display_labels=[False, True]).plot().text_
+    )
     # Values should now formatted as '.2g', since there's a float in
     # Values are have two dec places max, (e.g 100 becomes 1e+02)
     test = [t.get_text() for t in plotted_text.ravel()]

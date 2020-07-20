@@ -133,9 +133,13 @@ def test_stacking_classifier_drop_estimator():
     estimators = [("lr", "drop"), ("svc", LinearSVC(random_state=0))]
     rf = RandomForestClassifier(n_estimators=10, random_state=42)
     clf = StackingClassifier(
-        estimators=[("svc", LinearSVC(random_state=0))], final_estimator=rf, cv=5
+        estimators=[("svc", LinearSVC(random_state=0))],
+        final_estimator=rf,
+        cv=5,
     )
-    clf_drop = StackingClassifier(estimators=estimators, final_estimator=rf, cv=5)
+    clf_drop = StackingClassifier(
+        estimators=estimators, final_estimator=rf, cv=5
+    )
 
     clf.fit(X_train, y_train)
     clf_drop.fit(X_train, y_train)
@@ -153,9 +157,13 @@ def test_stacking_regressor_drop_estimator():
     estimators = [("lr", "drop"), ("svr", LinearSVR(random_state=0))]
     rf = RandomForestRegressor(n_estimators=10, random_state=42)
     reg = StackingRegressor(
-        estimators=[("svr", LinearSVR(random_state=0))], final_estimator=rf, cv=5
+        estimators=[("svr", LinearSVR(random_state=0))],
+        final_estimator=rf,
+        cv=5,
     )
-    reg_drop = StackingRegressor(estimators=estimators, final_estimator=rf, cv=5)
+    reg_drop = StackingRegressor(
+        estimators=estimators, final_estimator=rf, cv=5
+    )
 
     reg.fit(X_train, y_train)
     reg_drop.fit(X_train, y_train)
@@ -163,7 +171,9 @@ def test_stacking_regressor_drop_estimator():
     assert_allclose(reg.transform(X_test), reg_drop.transform(X_test))
 
 
-@pytest.mark.parametrize("cv", [3, KFold(n_splits=3, shuffle=True, random_state=42)])
+@pytest.mark.parametrize(
+    "cv", [3, KFold(n_splits=3, shuffle=True, random_state=42)]
+)
 @pytest.mark.parametrize(
     "final_estimator, predict_params",
     [
@@ -173,7 +183,9 @@ def test_stacking_regressor_drop_estimator():
     ],
 )
 @pytest.mark.parametrize("passthrough", [False, True])
-def test_stacking_regressor_diabetes(cv, final_estimator, predict_params, passthrough):
+def test_stacking_regressor_diabetes(
+    cv, final_estimator, predict_params, passthrough
+):
     # prescale the data to avoid convergence warning without using a pipeline
     # for later assert
     X_train, X_test, y_train, _ = train_test_split(
@@ -213,7 +225,9 @@ def test_stacking_regressor_diabetes(cv, final_estimator, predict_params, passth
 def test_stacking_regressor_sparse_passthrough(fmt):
     # Check passthrough behavior on a sparse X matrix
     X_train, X_test, y_train, _ = train_test_split(
-        sparse.coo_matrix(scale(X_diabetes)).asformat(fmt), y_diabetes, random_state=42
+        sparse.coo_matrix(scale(X_diabetes)).asformat(fmt),
+        y_diabetes,
+        random_state=42,
     )
     estimators = [("lr", LinearRegression()), ("svr", LinearSVR())]
     rf = RandomForestRegressor(n_estimators=10, random_state=42)
@@ -252,7 +266,10 @@ def test_stacking_classifier_drop_binary_prob():
     # Select only the 2 first classes
     X_, y_ = scale(X_iris[:100]), y_iris[:100]
 
-    estimators = [("lr", LogisticRegression()), ("rf", RandomForestClassifier())]
+    estimators = [
+        ("lr", LogisticRegression()),
+        ("rf", RandomForestClassifier()),
+    ]
     clf = StackingClassifier(estimators=estimators)
     clf.fit(X_, y_)
     X_meta = clf.transform(X_)
@@ -277,8 +294,18 @@ class NoWeightClassifier(ClassifierMixin, BaseEstimator):
 @pytest.mark.parametrize(
     "y, params, type_err, msg_err",
     [
-        (y_iris, {"estimators": None}, ValueError, "Invalid 'estimators' attribute,"),
-        (y_iris, {"estimators": []}, ValueError, "Invalid 'estimators' attribute,"),
+        (
+            y_iris,
+            {"estimators": None},
+            ValueError,
+            "Invalid 'estimators' attribute,",
+        ),
+        (
+            y_iris,
+            {"estimators": []},
+            ValueError,
+            "Invalid 'estimators' attribute,",
+        ),
         (
             y_iris,
             {
@@ -331,17 +358,30 @@ def test_stacking_classifier_error(y, params, type_err, msg_err):
             ValueError,
             "Invalid 'estimators' attribute,",
         ),
-        (y_diabetes, {"estimators": []}, ValueError, "Invalid 'estimators' attribute,"),
         (
             y_diabetes,
-            {"estimators": [("lr", LinearRegression()), ("cor", NoWeightRegressor())]},
+            {"estimators": []},
+            ValueError,
+            "Invalid 'estimators' attribute,",
+        ),
+        (
+            y_diabetes,
+            {
+                "estimators": [
+                    ("lr", LinearRegression()),
+                    ("cor", NoWeightRegressor()),
+                ]
+            },
             TypeError,
             "does not support sample weight",
         ),
         (
             y_diabetes,
             {
-                "estimators": [("lr", LinearRegression()), ("cor", LinearSVR())],
+                "estimators": [
+                    ("lr", LinearRegression()),
+                    ("cor", LinearSVR()),
+                ],
                 "final_estimator": NoWeightRegressor(),
             },
             TypeError,
@@ -352,7 +392,9 @@ def test_stacking_classifier_error(y, params, type_err, msg_err):
 def test_stacking_regressor_error(y, params, type_err, msg_err):
     with pytest.raises(type_err, match=msg_err):
         reg = StackingRegressor(**params, cv=3)
-        reg.fit(scale(X_diabetes), y, sample_weight=np.ones(X_diabetes.shape[0]))
+        reg.fit(
+            scale(X_diabetes), y, sample_weight=np.ones(X_diabetes.shape[0])
+        )
 
 
 @pytest.mark.parametrize(
@@ -501,8 +543,12 @@ def test_stacking_with_sample_weight(stacker, X, y):
 def test_stacking_classifier_sample_weight_fit_param():
     # check sample_weight is passed to all invocations of fit
     stacker = StackingClassifier(
-        estimators=[("lr", CheckingClassifier(expected_fit_params=["sample_weight"]))],
-        final_estimator=CheckingClassifier(expected_fit_params=["sample_weight"]),
+        estimators=[
+            ("lr", CheckingClassifier(expected_fit_params=["sample_weight"]))
+        ],
+        final_estimator=CheckingClassifier(
+            expected_fit_params=["sample_weight"]
+        ),
     )
     stacker.fit(X_iris, y_iris, sample_weight=np.ones(X_iris.shape[0]))
 
@@ -550,13 +596,16 @@ def test_stacking_cv_influence(stacker, X, y):
     stacker_cv_5.fit(X, y)
 
     # the base estimators should be identical
-    for est_cv_3, est_cv_5 in zip(stacker_cv_3.estimators_, stacker_cv_5.estimators_):
+    for est_cv_3, est_cv_5 in zip(
+        stacker_cv_3.estimators_, stacker_cv_5.estimators_
+    ):
         assert_allclose(est_cv_3.coef_, est_cv_5.coef_)
 
     # the final estimator should be different
     with pytest.raises(AssertionError, match="Not equal"):
         assert_allclose(
-            stacker_cv_3.final_estimator_.coef_, stacker_cv_5.final_estimator_.coef_
+            stacker_cv_3.final_estimator_.coef_,
+            stacker_cv_5.final_estimator_.coef_,
         )
 
 

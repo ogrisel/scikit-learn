@@ -190,7 +190,9 @@ class CheckingClassifier(ClassifierMixin, BaseEstimator):
         if self.methods_to_check == "all" or "fit" in self.methods_to_check:
             X, y = self._check_X_y(X, y, should_be_fitted=False)
         self.n_features_in_ = np.shape(X)[1]
-        self.classes_ = np.unique(check_array(y, ensure_2d=False, allow_nd=True))
+        self.classes_ = np.unique(
+            check_array(y, ensure_2d=False, allow_nd=True)
+        )
         if self.expected_fit_params:
             missing = set(self.expected_fit_params) - set(fit_params)
             if missing:
@@ -239,7 +241,10 @@ class CheckingClassifier(ClassifierMixin, BaseEstimator):
         proba : ndarray of shape (n_samples, n_classes)
             The probabilities for each sample and class.
         """
-        if self.methods_to_check == "all" or "predict_proba" in self.methods_to_check:
+        if (
+            self.methods_to_check == "all"
+            or "predict_proba" in self.methods_to_check
+        ):
             X, y = self._check_X_y(X)
         proba = np.zeros((_num_samples(X), len(self.classes_)))
         proba[:, 0] = 1

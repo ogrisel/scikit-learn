@@ -118,7 +118,9 @@ def test_graphviz_toy():
     assert contents1 == contents2
 
     # Test max_depth
-    contents1 = export_graphviz(clf, max_depth=0, class_names=True, out_file=None)
+    contents1 = export_graphviz(
+        clf, max_depth=0, class_names=True, out_file=None
+    )
     contents2 = (
         "digraph Tree {\n"
         "node [shape=box] ;\n"
@@ -191,7 +193,12 @@ def test_graphviz_toy():
     clf.fit(X, y)
 
     contents1 = export_graphviz(
-        clf, filled=True, leaves_parallel=True, out_file=None, rotate=True, rounded=True
+        clf,
+        filled=True,
+        leaves_parallel=True,
+        out_file=None,
+        rotate=True,
+        rounded=True,
     )
     contents2 = (
         "digraph Tree {\n"
@@ -244,11 +251,15 @@ def test_graphviz_errors():
 
     # Check if it errors when length of feature_names
     # mismatches with number of features
-    message = "Length of feature_names, " "1 does not match number of features, 2"
+    message = (
+        "Length of feature_names, " "1 does not match number of features, 2"
+    )
     with pytest.raises(ValueError, match=message):
         export_graphviz(clf, None, feature_names=["a"])
 
-    message = "Length of feature_names, " "3 does not match number of features, 2"
+    message = (
+        "Length of feature_names, " "3 does not match number of features, 2"
+    )
     with pytest.raises(ValueError, match=message):
         export_graphviz(clf, None, feature_names=["a", "b", "c"])
 
@@ -314,7 +325,10 @@ def test_precision():
 
             # check value
             for finding in finditer(r"value = \d+\.\d+", dot_data):
-                assert len(search(r"\.\d+", finding.group()).group()) <= precision + 1
+                assert (
+                    len(search(r"\.\d+", finding.group()).group())
+                    <= precision + 1
+                )
             # check impurity
             if is_classifier(clf):
                 pattern = r"gini = \d+\.\d+"
@@ -323,10 +337,16 @@ def test_precision():
 
             # check impurity
             for finding in finditer(pattern, dot_data):
-                assert len(search(r"\.\d+", finding.group()).group()) == precision + 1
+                assert (
+                    len(search(r"\.\d+", finding.group()).group())
+                    == precision + 1
+                )
             # check threshold
             for finding in finditer(r"<= \d+\.\d+", dot_data):
-                assert len(search(r"\.\d+", finding.group()).group()) == precision + 1
+                assert (
+                    len(search(r"\.\d+", finding.group()).group())
+                    == precision + 1
+                )
 
 
 def test_export_text_errors():
@@ -439,7 +459,9 @@ def test_export_text():
     |   |--- value: [1.0, 1.0]
     """
     ).lstrip()
-    assert export_text(reg, decimals=1, feature_names=["first"]) == expected_report
+    assert (
+        export_text(reg, decimals=1, feature_names=["first"]) == expected_report
+    )
     assert (
         export_text(reg, decimals=1, show_weights=True, feature_names=["first"])
         == expected_report

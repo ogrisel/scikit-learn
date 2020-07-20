@@ -163,7 +163,9 @@ class KernelPCA(TransformerMixin, BaseEstimator):
         n_jobs=None,
     ):
         if fit_inverse_transform and kernel == "precomputed":
-            raise ValueError("Cannot fit_inverse_transform with a precomputed kernel.")
+            raise ValueError(
+                "Cannot fit_inverse_transform with a precomputed kernel."
+            )
         self.n_components = n_components
         self.kernel = kernel
         self.kernel_params = kernel_params
@@ -188,9 +190,18 @@ class KernelPCA(TransformerMixin, BaseEstimator):
         if callable(self.kernel):
             params = self.kernel_params or {}
         else:
-            params = {"gamma": self.gamma, "degree": self.degree, "coef0": self.coef0}
+            params = {
+                "gamma": self.gamma,
+                "degree": self.degree,
+                "coef0": self.coef0,
+            }
         return pairwise_kernels(
-            X, Y, metric=self.kernel, filter_params=True, n_jobs=self.n_jobs, **params
+            X,
+            Y,
+            metric=self.kernel,
+            filter_params=True,
+            n_jobs=self.n_jobs,
+            **params,
         )
 
     def _fit_transform(self, K):
@@ -221,11 +232,18 @@ class KernelPCA(TransformerMixin, BaseEstimator):
             # initialize with [-1,1] as in ARPACK
             v0 = random_state.uniform(-1, 1, K.shape[0])
             self.lambdas_, self.alphas_ = eigsh(
-                K, n_components, which="LA", tol=self.tol, maxiter=self.max_iter, v0=v0
+                K,
+                n_components,
+                which="LA",
+                tol=self.tol,
+                maxiter=self.max_iter,
+                v0=v0,
             )
 
         # make sure that the eigenvalues are ok and fix numerical issues
-        self.lambdas_ = _check_psd_eigenvalues(self.lambdas_, enable_warnings=False)
+        self.lambdas_ = _check_psd_eigenvalues(
+            self.lambdas_, enable_warnings=False
+        )
 
         # flip eigenvectors' sign to enforce deterministic output
         self.alphas_, _ = svd_flip(self.alphas_, np.zeros_like(self.alphas_).T)

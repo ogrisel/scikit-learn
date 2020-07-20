@@ -75,7 +75,9 @@ def test_additive_chi2_sampler():
 
     # test that the sample_interval is set correctly
     sample_interval = 0.3
-    transform = AdditiveChi2Sampler(sample_steps=4, sample_interval=sample_interval)
+    transform = AdditiveChi2Sampler(
+        sample_steps=4, sample_interval=sample_interval
+    )
     assert transform.sample_interval == sample_interval
     transform.fit(X)
     assert transform.sample_interval_ == sample_interval
@@ -98,20 +100,27 @@ def test_skewed_chi2_sampler():
     # we do it in log-space in the hope that it's more stable
     # this array is n_samples_x x n_samples_y big x n_features
     log_kernel = (
-        (np.log(X_c) / 2.0) + (np.log(Y_c) / 2.0) + np.log(2.0) - np.log(X_c + Y_c)
+        (np.log(X_c) / 2.0)
+        + (np.log(Y_c) / 2.0)
+        + np.log(2.0)
+        - np.log(X_c + Y_c)
     )
     # reduce to n_samples_x x n_samples_y by summing over features in log-space
     kernel = np.exp(log_kernel.sum(axis=2))
 
     # approximate kernel mapping
-    transform = SkewedChi2Sampler(skewedness=c, n_components=1000, random_state=42)
+    transform = SkewedChi2Sampler(
+        skewedness=c, n_components=1000, random_state=42
+    )
     X_trans = transform.fit_transform(X)
     Y_trans = transform.transform(Y)
 
     kernel_approx = np.dot(X_trans, Y_trans.T)
     assert_array_almost_equal(kernel, kernel_approx, 1)
     assert np.isfinite(kernel).all(), "NaNs found in the Gram matrix"
-    assert np.isfinite(kernel_approx).all(), "NaNs found in the approximate Gram matrix"
+    assert np.isfinite(
+        kernel_approx
+    ).all(), "NaNs found in the approximate Gram matrix"
 
     # test error is raised on when inputs contains values smaller than -c
     Y_neg = Y.copy()

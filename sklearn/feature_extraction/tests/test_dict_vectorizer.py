@@ -18,7 +18,11 @@ from sklearn.feature_selection import SelectKBest, chi2
 @pytest.mark.parametrize("sort", (True, False))
 @pytest.mark.parametrize("iterable", (True, False))
 def test_dictvectorizer(sparse, dtype, sort, iterable):
-    D = [{"foo": 1, "bar": 3}, {"bar": 4, "baz": 2}, {"bar": 1, "quux": 1, "quuux": 2}]
+    D = [
+        {"foo": 1, "bar": 3},
+        {"bar": 4, "baz": 2},
+        {"bar": 1, "quux": 1, "quuux": 2},
+    ]
 
     v = DictVectorizer(sparse=sparse, dtype=dtype, sort=sort)
     X = v.fit_transform(iter(D) if iterable else D)

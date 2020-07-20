@@ -121,7 +121,9 @@ class ShrunkCovariance(EmpiricalCovariance):
     """
 
     @_deprecate_positional_args
-    def __init__(self, *, store_precision=True, assume_centered=False, shrinkage=0.1):
+    def __init__(
+        self, *, store_precision=True, assume_centered=False, shrinkage=0.1
+    ):
         super().__init__(
             store_precision=store_precision, assume_centered=assume_centered
         )
@@ -151,7 +153,9 @@ class ShrunkCovariance(EmpiricalCovariance):
             self.location_ = np.zeros(X.shape[1])
         else:
             self.location_ = X.mean(0)
-        covariance = empirical_covariance(X, assume_centered=self.assume_centered)
+        covariance = empirical_covariance(
+            X, assume_centered=self.assume_centered
+        )
         covariance = shrunk_covariance(covariance, self.shrinkage)
         self._set_covariance(covariance)
 
@@ -203,7 +207,8 @@ def ledoit_wolf_shrinkage(X, assume_centered=False, block_size=1000):
 
     if X.shape[0] == 1:
         warnings.warn(
-            "Only one sample available. " "You may want to reshape your data array"
+            "Only one sample available. "
+            "You may want to reshape your data array"
         )
     n_samples, n_features = X.shape
 
@@ -303,7 +308,8 @@ def ledoit_wolf(X, *, assume_centered=False, block_size=1000):
     if X.ndim == 1:
         X = np.reshape(X, (1, -1))
         warnings.warn(
-            "Only one sample available. " "You may want to reshape your data array"
+            "Only one sample available. "
+            "You may want to reshape your data array"
         )
         n_features = X.size
     else:
@@ -398,7 +404,9 @@ class LedoitWolf(EmpiricalCovariance):
     """
 
     @_deprecate_positional_args
-    def __init__(self, *, store_precision=True, assume_centered=False, block_size=1000):
+    def __init__(
+        self, *, store_precision=True, assume_centered=False, block_size=1000
+    ):
         super().__init__(
             store_precision=store_precision, assume_centered=assume_centered
         )
@@ -481,7 +489,8 @@ def oas(X, *, assume_centered=False):
     if X.ndim == 1:
         X = np.reshape(X, (1, -1))
         warnings.warn(
-            "Only one sample available. " "You may want to reshape your data array"
+            "Only one sample available. "
+            "You may want to reshape your data array"
         )
         n_samples = 1
         n_features = X.size

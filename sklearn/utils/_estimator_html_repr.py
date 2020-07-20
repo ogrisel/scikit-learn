@@ -36,7 +36,13 @@ class _VisualBlock:
     """
 
     def __init__(
-        self, kind, estimators, *, names=None, name_details=None, dash_wrapped=True
+        self,
+        kind,
+        estimators,
+        *,
+        names=None,
+        name_details=None,
+        dash_wrapped=True,
     ):
         self.kind = kind
         self.estimators = estimators
@@ -65,7 +71,8 @@ def _write_label_html(
 ):
     """Write labeled html with or without a dropdown with named details"""
     out.write(
-        f'<div class="{outer_class}">' f'<div class="{inner_class} sk-toggleable">'
+        f'<div class="{outer_class}">'
+        f'<div class="{inner_class} sk-toggleable">'
     )
     name = html.escape(name)
 
@@ -96,7 +103,9 @@ def _get_visual_block(estimator):
             "single", estimator, names=estimator, name_details=estimator
         )
     elif estimator is None:
-        return _VisualBlock("single", estimator, names="None", name_details="None")
+        return _VisualBlock(
+            "single", estimator, names="None", name_details="None"
+        )
 
     # check if estimator looks like a meta estimator wraps estimators
     if hasattr(estimator, "get_params"):
@@ -137,7 +146,9 @@ def _write_estimator_html(
 
         kind = est_block.kind
         out.write(f'<div class="sk-{kind}">')
-        est_infos = zip(est_block.estimators, est_block.names, est_block.name_details)
+        est_infos = zip(
+            est_block.estimators, est_block.names, est_block.name_details
+        )
 
         for est, name, name_details in est_infos:
             if kind == "serial":

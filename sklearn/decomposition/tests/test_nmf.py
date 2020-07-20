@@ -22,7 +22,8 @@ from sklearn.exceptions import ConvergenceWarning
 @pytest.mark.parametrize("solver", ["cd", "mu"])
 def test_convergence_warning(solver):
     convergence_warning = (
-        "Maximum number of iterations 1 reached. " "Increase it to improve convergence."
+        "Maximum number of iterations 1 reached. "
+        "Increase it to improve convergence."
     )
     A = np.ones((2, 2))
     with pytest.warns(ConvergenceWarning, match=convergence_warning):
@@ -46,10 +47,14 @@ def test_parameter_checking():
     msg = "Invalid init parameter: got 'spam' instead of one of"
     assert_raise_message(ValueError, msg, NMF(init=name).fit, A)
     msg = "Invalid beta_loss parameter: got 'spam' instead of one"
-    assert_raise_message(ValueError, msg, NMF(solver="mu", beta_loss=name).fit, A)
+    assert_raise_message(
+        ValueError, msg, NMF(solver="mu", beta_loss=name).fit, A
+    )
     msg = "Invalid beta_loss parameter: solver 'cd' does not handle "
     msg += "beta_loss = 1.0"
-    assert_raise_message(ValueError, msg, NMF(solver="cd", beta_loss=1.0).fit, A)
+    assert_raise_message(
+        ValueError, msg, NMF(solver="cd", beta_loss=1.0).fit, A
+    )
 
     msg = "Negative values in data passed to"
     assert_raise_message(ValueError, msg, NMF().fit, -A)
@@ -99,7 +104,9 @@ def test_nmf_fit_nn_output():
     A = np.c_[5.0 - np.arange(1, 6), 5.0 + np.arange(1, 6)]
     for solver in ("cd", "mu"):
         for init in (None, "nndsvd", "nndsvda", "nndsvdar", "random"):
-            model = NMF(n_components=2, solver=solver, init=init, random_state=0)
+            model = NMF(
+                n_components=2, solver=solver, init=init, random_state=0
+            )
             transf = model.fit_transform(A)
             assert not ((model.components_ < 0).any() or (transf < 0).any())
 
@@ -118,7 +125,9 @@ def test_nmf_transform(solver):
     # Test that NMF.transform returns close values
     rng = np.random.mtrand.RandomState(42)
     A = np.abs(rng.randn(6, 5))
-    m = NMF(solver=solver, n_components=3, init="random", random_state=0, tol=1e-5)
+    m = NMF(
+        solver=solver, n_components=3, init="random", random_state=0, tol=1e-5
+    )
     ft = m.fit_transform(A)
     t = m.transform(A)
     assert_array_almost_equal(ft, t, decimal=2)
@@ -133,7 +142,9 @@ def test_nmf_transform_custom_init():
     H_init = np.abs(avg * random_state.randn(n_components, 5))
     W_init = np.abs(avg * random_state.randn(6, n_components))
 
-    m = NMF(solver="cd", n_components=n_components, init="custom", random_state=0)
+    m = NMF(
+        solver="cd", n_components=n_components, init="custom", random_state=0
+    )
     m.fit_transform(A, W=W_init, H=H_init)
     m.transform(A)
 
@@ -143,7 +154,13 @@ def test_nmf_inverse_transform(solver):
     # Test that NMF.inverse_transform returns close values
     random_state = np.random.RandomState(0)
     A = np.abs(random_state.randn(6, 4))
-    m = NMF(solver=solver, n_components=4, init="random", random_state=0, max_iter=1000)
+    m = NMF(
+        solver=solver,
+        n_components=4,
+        init="random",
+        random_state=0,
+        max_iter=1000,
+    )
     ft = m.fit_transform(A)
     A_new = m.inverse_transform(ft)
     assert_array_almost_equal(A, A_new, decimal=2)
@@ -167,7 +184,11 @@ def test_nmf_sparse_input():
 
     for solver in ("cd", "mu"):
         est1 = NMF(
-            solver=solver, n_components=5, init="random", random_state=0, tol=1e-2
+            solver=solver,
+            n_components=5,
+            init="random",
+            random_state=0,
+            tol=1e-2,
         )
         est2 = clone(est1)
 
@@ -216,7 +237,9 @@ def test_non_negative_factorization_consistency():
                 tol=1e-2,
             )
 
-            model_class = NMF(init=init, solver=solver, random_state=1, tol=1e-2)
+            model_class = NMF(
+                init=init, solver=solver, random_state=1, tol=1e-2
+            )
             W_cls = model_class.fit_transform(A)
             W_cls_2 = model_class.transform(A)
 
@@ -228,9 +251,15 @@ def test_non_negative_factorization_checking():
     A = np.ones((2, 2))
     # Test parameters checking is public function
     nnmf = non_negative_factorization
-    msg = "Number of components must be a positive integer; " "got (n_components=1.5)"
+    msg = (
+        "Number of components must be a positive integer; "
+        "got (n_components=1.5)"
+    )
     assert_raise_message(ValueError, msg, nnmf, A, A, A, 1.5, init="random")
-    msg = "Number of components must be a positive integer; " "got (n_components='2')"
+    msg = (
+        "Number of components must be a positive integer; "
+        "got (n_components='2')"
+    )
     assert_raise_message(ValueError, msg, nnmf, A, A, A, "2", init="random")
     msg = "Negative values in data passed to NMF (input H)"
     assert_raise_message(ValueError, msg, nnmf, A, A, -A, 2, init="custom")
@@ -240,7 +269,15 @@ def test_non_negative_factorization_checking():
     assert_raise_message(ValueError, msg, nnmf, A, A, 0 * A, 2, init="custom")
     msg = "Invalid regularization parameter: got 'spam' instead of one of"
     assert_raise_message(
-        ValueError, msg, nnmf, A, A, 0 * A, 2, init="custom", regularization="spam"
+        ValueError,
+        msg,
+        nnmf,
+        A,
+        A,
+        0 * A,
+        2,
+        init="custom",
+        regularization="spam",
     )
 
 
@@ -340,7 +377,9 @@ def test_nmf_multiplicative_update_sparse():
     X = rng.randn(n_samples, n_features)
     X = np.abs(X)
     X_csr = sp.csr_matrix(X)
-    W0, H0 = nmf._initialize_nmf(X, n_components, init="random", random_state=42)
+    W0, H0 = nmf._initialize_nmf(
+        X, n_components, init="random", random_state=42
+    )
 
     for beta_loss in (-1.2, 0, 0.2, 1.0, 2.0, 2.5):
         # Reference with dense array X
@@ -523,7 +562,9 @@ def test_nmf_decreasing():
     rng = np.random.mtrand.RandomState(42)
     X = rng.randn(n_samples, n_features)
     np.abs(X, X)
-    W0, H0 = nmf._initialize_nmf(X, n_components, init="random", random_state=42)
+    W0, H0 = nmf._initialize_nmf(
+        X, n_components, init="random", random_state=42
+    )
 
     for beta_loss in (-1.2, 0, 0.2, 1.0, 2.0, 2.5):
         for solver in ("cd", "mu"):

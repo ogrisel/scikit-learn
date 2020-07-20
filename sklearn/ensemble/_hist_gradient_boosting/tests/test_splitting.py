@@ -33,18 +33,26 @@ def test_histogram_split(n_bins):
 
     for true_bin in range(1, n_bins - 2):
         for sign in [-1, 1]:
-            ordered_gradients = np.full_like(binned_feature, sign, dtype=G_H_DTYPE)
+            ordered_gradients = np.full_like(
+                binned_feature, sign, dtype=G_H_DTYPE
+            )
             ordered_gradients[binned_feature <= true_bin] *= -1
             all_gradients = ordered_gradients
             sum_gradients = all_gradients.sum()
 
             builder = HistogramBuilder(
-                X_binned, n_bins, all_gradients, all_hessians, hessians_are_constant
+                X_binned,
+                n_bins,
+                all_gradients,
+                all_hessians,
+                hessians_are_constant,
             )
             n_bins_non_missing = np.array(
                 [n_bins - 1] * X_binned.shape[1], dtype=np.uint32
             )
-            has_missing_values = np.array([False] * X_binned.shape[1], dtype=np.uint8)
+            has_missing_values = np.array(
+                [False] * X_binned.shape[1], dtype=np.uint8
+            )
             monotonic_cst = np.array(
                 [MonotonicConstraint.NO_CST] * X_binned.shape[1], dtype=np.int8
             )
@@ -67,7 +75,11 @@ def test_histogram_split(n_bins):
                 sum_gradients, sum_hessians, -np.inf, np.inf, l2_regularization
             )
             split_info = splitter.find_node_split(
-                sample_indices.shape[0], histograms, sum_gradients, sum_hessians, value
+                sample_indices.shape[0],
+                histograms,
+                sum_gradients,
+                sum_hessians,
+                value,
             )
 
             assert split_info.bin_idx == true_bin
@@ -119,7 +131,9 @@ def test_gradient_and_hessian_sanity(constant_hessian):
     builder = HistogramBuilder(
         X_binned, n_bins, all_gradients, all_hessians, constant_hessian
     )
-    n_bins_non_missing = np.array([n_bins - 1] * X_binned.shape[1], dtype=np.uint32)
+    n_bins_non_missing = np.array(
+        [n_bins - 1] * X_binned.shape[1], dtype=np.uint32
+    )
     has_missing_values = np.array([False] * X_binned.shape[1], dtype=np.uint8)
     monotonic_cst = np.array(
         [MonotonicConstraint.NO_CST] * X_binned.shape[1], dtype=np.int8
@@ -334,7 +348,9 @@ def test_min_gain_to_split():
     builder = HistogramBuilder(
         X_binned, n_bins, all_gradients, all_hessians, hessians_are_constant
     )
-    n_bins_non_missing = np.array([n_bins - 1] * X_binned.shape[1], dtype=np.uint32)
+    n_bins_non_missing = np.array(
+        [n_bins - 1] * X_binned.shape[1], dtype=np.uint32
+    )
     has_missing_values = np.array([False] * X_binned.shape[1], dtype=np.uint8)
     monotonic_cst = np.array(
         [MonotonicConstraint.NO_CST] * X_binned.shape[1], dtype=np.int8

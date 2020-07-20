@@ -256,7 +256,9 @@ class _BaseTreeExporter:
             if len(sorted_values) == 1:
                 alpha = 0
             else:
-                alpha = (sorted_values[0] - sorted_values[1]) / (1 - sorted_values[1])
+                alpha = (sorted_values[0] - sorted_values[1]) / (
+                    1 - sorted_values[1]
+                )
         else:
             # Regression tree or multi-output
             color = list(self.colors["rgb"][0])
@@ -277,12 +279,18 @@ class _BaseTreeExporter:
             self.colors["rgb"] = _color_brew(tree.n_classes[0])
             if tree.n_outputs != 1:
                 # Find max and min impurities for multi-output
-                self.colors["bounds"] = (np.min(-tree.impurity), np.max(-tree.impurity))
+                self.colors["bounds"] = (
+                    np.min(-tree.impurity),
+                    np.max(-tree.impurity),
+                )
             elif tree.n_classes[0] == 1 and len(np.unique(tree.value)) != 1:
                 # Find max and min values in leaf nodes for regression
                 self.colors["bounds"] = (np.min(tree.value), np.max(tree.value))
         if tree.n_outputs == 1:
-            node_val = tree.value[node_id][0, :] / tree.weighted_n_node_samples[node_id]
+            node_val = (
+                tree.value[node_id][0, :]
+                / tree.weighted_n_node_samples[node_id]
+            )
             if tree.n_classes[0] == 1:
                 # Regression
                 node_val = tree.value[node_id][0, :]
@@ -337,7 +345,8 @@ class _BaseTreeExporter:
             if labels:
                 node_string += "%s = " % criterion
             node_string += (
-                str(round(tree.impurity[node_id], self.precision)) + characters[4]
+                str(round(tree.impurity[node_id], self.precision))
+                + characters[4]
             )
 
         # Write node sample count
@@ -345,7 +354,9 @@ class _BaseTreeExporter:
             node_string += "samples = "
         if self.proportion:
             percent = (
-                100.0 * tree.n_node_samples[node_id] / float(tree.n_node_samples[0])
+                100.0
+                * tree.n_node_samples[node_id]
+                / float(tree.n_node_samples[0])
             )
             node_string += str(round(percent, 1)) + "%" + characters[4]
         else:
@@ -441,7 +452,15 @@ class _DOTTreeExporter(_BaseTreeExporter):
 
         # PostScript compatibility for special characters
         if special_characters:
-            self.characters = ["&#35;", "<SUB>", "</SUB>", "&le;", "<br/>", ">", "<"]
+            self.characters = [
+                "&#35;",
+                "<SUB>",
+                "</SUB>",
+                "&le;",
+                "<br/>",
+                ">",
+                "<",
+            ]
         else:
             self.characters = ["#", "[", "]", "<=", "\\n", '"', '"']
 
@@ -480,7 +499,9 @@ class _DOTTreeExporter(_BaseTreeExporter):
         if isinstance(decision_tree, _tree.Tree):
             self.recurse(decision_tree, 0, criterion="impurity")
         else:
-            self.recurse(decision_tree.tree_, 0, criterion=decision_tree.criterion)
+            self.recurse(
+                decision_tree.tree_, 0, criterion=decision_tree.criterion
+            )
 
         self.tail()
 
@@ -489,7 +510,9 @@ class _DOTTreeExporter(_BaseTreeExporter):
         if self.leaves_parallel:
             for rank in sorted(self.ranks):
                 self.out_file.write(
-                    "{rank=same ; " + "; ".join(r for r in self.ranks[rank]) + "} ;\n"
+                    "{rank=same ; "
+                    + "; ".join(r for r in self.ranks[rank])
+                    + "} ;\n"
                 )
         self.out_file.write("}")
 
@@ -538,7 +561,8 @@ class _DOTTreeExporter(_BaseTreeExporter):
                 self.ranks[str(depth)].append(str(node_id))
 
             self.out_file.write(
-                "%d [label=%s" % (node_id, self.node_to_str(tree, node_id, criterion))
+                "%d [label=%s"
+                % (node_id, self.node_to_str(tree, node_id, criterion))
             )
 
             if self.filled:
@@ -557,7 +581,9 @@ class _DOTTreeExporter(_BaseTreeExporter):
                     if node_id == 1:
                         self.out_file.write('%d, headlabel="True"]' % angles[0])
                     else:
-                        self.out_file.write('%d, headlabel="False"]' % angles[1])
+                        self.out_file.write(
+                            '%d, headlabel="False"]' % angles[1]
+                        )
                 self.out_file.write(" ;\n")
 
             if left_child != _tree.TREE_LEAF:
@@ -674,7 +700,9 @@ class _MPLTreeExporter(_BaseTreeExporter):
             ax = plt.gca()
         ax.clear()
         ax.set_axis_off()
-        my_tree = self._make_tree(0, decision_tree.tree_, decision_tree.criterion)
+        my_tree = self._make_tree(
+            0, decision_tree.tree_, decision_tree.criterion
+        )
         draw_tree = buchheim(my_tree)
 
         # important to make sure we're still
@@ -688,7 +716,9 @@ class _MPLTreeExporter(_BaseTreeExporter):
         scale_x = ax_width / max_x
         scale_y = ax_height / max_y
 
-        self.recurse(draw_tree, decision_tree.tree_, ax, scale_x, scale_y, ax_height)
+        self.recurse(
+            draw_tree, decision_tree.tree_, ax, scale_x, scale_y, ax_height
+        )
 
         anns = [ann for ann in ax.get_children() if isinstance(ann, Annotation)]
 
@@ -735,7 +765,9 @@ class _MPLTreeExporter(_BaseTreeExporter):
 
         if self.max_depth is None or depth <= self.max_depth:
             if self.filled:
-                kwargs["bbox"]["fc"] = self.get_fill_color(tree, node.tree.node_id)
+                kwargs["bbox"]["fc"] = self.get_fill_color(
+                    tree, node.tree.node_id
+                )
             else:
                 kwargs["bbox"]["fc"] = ax.get_facecolor()
 
@@ -749,7 +781,9 @@ class _MPLTreeExporter(_BaseTreeExporter):
                 )
                 ax.annotate(node.tree.label, xy_parent, xy, **kwargs)
             for child in node.children:
-                self.recurse(child, tree, ax, scale_x, scale_y, height, depth=depth + 1)
+                self.recurse(
+                    child, tree, ax, scale_x, scale_y, height, depth=depth + 1
+                )
 
         else:
             xy_parent = (
@@ -1077,11 +1111,15 @@ def export_text(
                 name = feature_names_[node]
                 threshold = tree_.threshold[node]
                 threshold = "{1:.{0}f}".format(decimals, threshold)
-                export_text.report += right_child_fmt.format(indent, name, threshold)
+                export_text.report += right_child_fmt.format(
+                    indent, name, threshold
+                )
                 export_text.report += info_fmt_left
                 print_tree_recurse(tree_.children_left[node], depth + 1)
 
-                export_text.report += left_child_fmt.format(indent, name, threshold)
+                export_text.report += left_child_fmt.format(
+                    indent, name, threshold
+                )
                 export_text.report += info_fmt_right
                 print_tree_recurse(tree_.children_right[node], depth + 1)
             else:  # leaf
@@ -1092,7 +1130,9 @@ def export_text(
                 _add_leaf(value, class_name, indent)
             else:
                 trunc_report = "truncated branch of depth %d" % subtree_depth
-                export_text.report += truncation_fmt.format(indent, trunc_report)
+                export_text.report += truncation_fmt.format(
+                    indent, trunc_report
+                )
 
     print_tree_recurse(0, 1)
     return export_text.report

@@ -75,7 +75,9 @@ def test_predict_proba():
 
 def test_label_spreading_closed_form():
     n_classes = 2
-    X, y = make_classification(n_classes=n_classes, n_samples=200, random_state=0)
+    X, y = make_classification(
+        n_classes=n_classes, n_samples=200, random_state=0
+    )
     y[::3] = -1
     clf = label_propagation.LabelSpreading().fit(X, y)
     # adopting notation from Zhou et al (2004):
@@ -93,7 +95,9 @@ def test_label_spreading_closed_form():
 
 def test_label_propagation_closed_form():
     n_classes = 2
-    X, y = make_classification(n_classes=n_classes, n_samples=200, random_state=0)
+    X, y = make_classification(
+        n_classes=n_classes, n_samples=200, random_state=0
+    )
     y[::3] = -1
     Y = np.zeros((len(y), n_classes + 1))
     Y[np.arange(len(y)), y] = 1
@@ -104,7 +108,9 @@ def test_label_propagation_closed_form():
     clf.fit(X, y)
     # adopting notation from Zhu et al 2002
     T_bar = clf._build_graph()
-    Tuu = T_bar[tuple(np.meshgrid(unlabelled_idx, unlabelled_idx, indexing="ij"))]
+    Tuu = T_bar[
+        tuple(np.meshgrid(unlabelled_idx, unlabelled_idx, indexing="ij"))
+    ]
     Tul = T_bar[tuple(np.meshgrid(unlabelled_idx, labelled_idx, indexing="ij"))]
     Y = Y[:, :-1]
     Y_l = Y[labelled_idx, :]
@@ -119,7 +125,9 @@ def test_label_propagation_closed_form():
 
 def test_valid_alpha():
     n_classes = 2
-    X, y = make_classification(n_classes=n_classes, n_samples=200, random_state=0)
+    X, y = make_classification(
+        n_classes=n_classes, n_samples=200, random_state=0
+    )
     for alpha in [-0.1, 0, 1, 1.1, None]:
         with pytest.raises(ValueError):
             label_propagation.LabelSpreading(alpha=alpha).fit(X, y)
@@ -162,7 +170,9 @@ def test_label_propagation_non_zero_normalizer():
     # https://github.com/scikit-learn/scikit-learn/pull/15946
     X = np.array([[100.0, 100.0], [100.0, 100.0], [0.0, 0.0], [0.0, 0.0]])
     y = np.array([0, 1, -1, -1])
-    mdl = label_propagation.LabelSpreading(kernel="knn", max_iter=100, n_neighbors=1)
+    mdl = label_propagation.LabelSpreading(
+        kernel="knn", max_iter=100, n_neighbors=1
+    )
     assert_no_warnings(mdl.fit, X, y)
 
 

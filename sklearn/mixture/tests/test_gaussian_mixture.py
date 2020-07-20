@@ -37,12 +37,16 @@ from sklearn.utils._testing import ignore_warnings
 COVARIANCE_TYPE = ["full", "tied", "diag", "spherical"]
 
 
-def generate_data(n_samples, n_features, weights, means, precisions, covariance_type):
+def generate_data(
+    n_samples, n_features, weights, means, precisions, covariance_type
+):
     rng = np.random.RandomState(0)
 
     X = []
     if covariance_type == "spherical":
-        for _, (w, m, c) in enumerate(zip(weights, means, precisions["spherical"])):
+        for _, (w, m, c) in enumerate(
+            zip(weights, means, precisions["spherical"])
+        ):
             X.append(
                 rng.multivariate_normal(
                     m, c * np.eye(n_features), int(np.round(w * n_samples))
@@ -51,7 +55,9 @@ def generate_data(n_samples, n_features, weights, means, precisions, covariance_
     if covariance_type == "diag":
         for _, (w, m, c) in enumerate(zip(weights, means, precisions["diag"])):
             X.append(
-                rng.multivariate_normal(m, np.diag(c), int(np.round(w * n_samples)))
+                rng.multivariate_normal(
+                    m, np.diag(c), int(np.round(w * n_samples))
+                )
             )
     if covariance_type == "tied":
         for _, (w, m) in enumerate(zip(weights, means)):
@@ -62,14 +68,18 @@ def generate_data(n_samples, n_features, weights, means, precisions, covariance_
             )
     if covariance_type == "full":
         for _, (w, m, c) in enumerate(zip(weights, means, precisions["full"])):
-            X.append(rng.multivariate_normal(m, c, int(np.round(w * n_samples))))
+            X.append(
+                rng.multivariate_normal(m, c, int(np.round(w * n_samples)))
+            )
 
     X = np.vstack(X)
     return X
 
 
 class RandomData:
-    def __init__(self, rng, n_samples=200, n_components=2, n_features=2, scale=50):
+    def __init__(
+        self, rng, n_samples=200, n_components=2, n_features=2, scale=50
+    ):
         self.n_samples = n_samples
         self.n_components = n_components
         self.n_features = n_features
@@ -93,7 +103,10 @@ class RandomData:
             "diag": 1.0 / self.covariances["diag"],
             "tied": linalg.inv(self.covariances["tied"]),
             "full": np.array(
-                [linalg.inv(covariance) for covariance in self.covariances["full"]]
+                [
+                    linalg.inv(covariance)
+                    for covariance in self.covariances["full"]
+                ]
             ),
         }
 
@@ -363,14 +376,17 @@ def test_check_precisions():
     for covar_type in COVARIANCE_TYPE:
         X = RandomData(rng).X[covar_type]
         g = GaussianMixture(
-            n_components=n_components, covariance_type=covar_type, random_state=rng
+            n_components=n_components,
+            covariance_type=covar_type,
+            random_state=rng,
         )
 
         # Check precisions with bad shapes
         g.precisions_init = precisions_bad_shape[covar_type]
         assert_raise_message(
             ValueError,
-            "The parameter '%s precision' should have " "the shape of" % covar_type,
+            "The parameter '%s precision' should have "
+            "the shape of" % covar_type,
             g.fit,
             X,
         )
@@ -499,14 +515,18 @@ def test_gaussian_suffstat_sk_spherical():
     resp = np.ones((n_samples, 1))
     nk = np.array([n_samples])
     xk = X.mean()
-    covars_pred_spherical = _estimate_gaussian_covariances_spherical(resp, X, nk, xk, 0)
+    covars_pred_spherical = _estimate_gaussian_covariances_spherical(
+        resp, X, nk, xk, 0
+    )
     covars_pred_spherical2 = np.dot(X.flatten().T, X.flatten()) / (
         n_features * n_samples
     )
     assert_almost_equal(covars_pred_spherical, covars_pred_spherical2)
 
     # check the precision computation
-    precs_chol_pred = _compute_precision_cholesky(covars_pred_spherical, "spherical")
+    precs_chol_pred = _compute_precision_cholesky(
+        covars_pred_spherical, "spherical"
+    )
     assert_almost_equal(covars_pred_spherical, 1.0 / precs_chol_pred ** 2)
 
 
@@ -584,7 +604,9 @@ def test_gaussian_mixture_log_probabilities():
     log_prob_naive = _naive_lmvnpdf_diag(
         X, means, [[k] * n_features for k in covars_spherical]
     )
-    log_prob = _estimate_log_gaussian_prob(X, means, precs_spherical, "spherical")
+    log_prob = _estimate_log_gaussian_prob(
+        X, means, precs_spherical, "spherical"
+    )
     assert_array_almost_equal(log_prob, log_prob_naive)
 
 
@@ -732,13 +754,20 @@ def test_gaussian_mixture_fit():
             prec_pred = np.array([g.precisions_] * n_components)
             prec_test = np.array([rand_data.precisions["tied"]] * n_components)
         elif covar_type == "spherical":
-            prec_pred = np.array([np.eye(n_features) * c for c in g.precisions_])
+            prec_pred = np.array(
+                [np.eye(n_features) * c for c in g.precisions_]
+            )
             prec_test = np.array(
-                [np.eye(n_features) * c for c in rand_data.precisions["spherical"]]
+                [
+                    np.eye(n_features) * c
+                    for c in rand_data.precisions["spherical"]
+                ]
             )
         elif covar_type == "diag":
             prec_pred = np.array([np.diag(d) for d in g.precisions_])
-            prec_test = np.array([np.diag(d) for d in rand_data.precisions["diag"]])
+            prec_test = np.array(
+                [np.diag(d) for d in rand_data.precisions["diag"]]
+            )
 
         arg_idx1 = np.trace(prec_pred, axis1=1, axis2=2).argsort()
         arg_idx2 = np.trace(prec_test, axis1=1, axis2=2).argsort()
@@ -813,7 +842,9 @@ def test_multiple_init():
     for cv_type in COVARIANCE_TYPE:
         train1 = (
             GaussianMixture(
-                n_components=n_components, covariance_type=cv_type, random_state=0
+                n_components=n_components,
+                covariance_type=cv_type,
+                random_state=0,
             )
             .fit(X)
             .score(X)
@@ -1130,7 +1161,10 @@ def test_regularisation():
     n_samples, n_features = 10, 5
 
     X = np.vstack(
-        (np.ones((n_samples // 2, n_features)), np.zeros((n_samples // 2, n_features)))
+        (
+            np.ones((n_samples // 2, n_features)),
+            np.zeros((n_samples // 2, n_features)),
+        )
     )
 
     for covar_type in COVARIANCE_TYPE:
@@ -1177,7 +1211,9 @@ def test_property():
 
                 assert_array_almost_equal(linalg.inv(prec), covar)
         elif covar_type == "tied":
-            assert_array_almost_equal(linalg.inv(gmm.precisions_), gmm.covariances_)
+            assert_array_almost_equal(
+                linalg.inv(gmm.precisions_), gmm.covariances_
+            )
         else:
             assert_array_almost_equal(gmm.precisions_, 1.0 / gmm.covariances_)
 
@@ -1191,7 +1227,9 @@ def test_sample():
         X = rand_data.X[covar_type]
 
         gmm = GaussianMixture(
-            n_components=n_components, covariance_type=covar_type, random_state=rng
+            n_components=n_components,
+            covariance_type=covar_type,
+            random_state=rng,
         )
         # To sample we need that GaussianMixture is fitted
         assert_raise_message(
@@ -1202,7 +1240,9 @@ def test_sample():
         )
         gmm.fit(X)
 
-        assert_raise_message(ValueError, "Invalid value for 'n_samples", gmm.sample, 0)
+        assert_raise_message(
+            ValueError, "Invalid value for 'n_samples", gmm.sample, 0
+        )
 
         # Just to make sure the class samples correctly
         n_samples = 20000
@@ -1219,7 +1259,9 @@ def test_sample():
                 )
             elif covar_type == "diag":
                 assert_array_almost_equal(
-                    gmm.covariances_[k], np.diag(np.cov(X_s[y_s == k].T)), decimal=1
+                    gmm.covariances_[k],
+                    np.diag(np.cov(X_s[y_s == k].T)),
+                    decimal=1,
                 )
             else:
                 assert_array_almost_equal(
@@ -1228,7 +1270,9 @@ def test_sample():
                     decimal=1,
                 )
 
-        means_s = np.array([np.mean(X_s[y_s == k], 0) for k in range(n_components)])
+        means_s = np.array(
+            [np.mean(X_s[y_s == k], 0) for k in range(n_components)]
+        )
         assert_array_almost_equal(gmm.means_, means_s, decimal=1)
 
         # Check shapes of sampled data, see
@@ -1251,10 +1295,16 @@ def test_init():
         X = rand_data.X["full"]
 
         gmm1 = GaussianMixture(
-            n_components=n_components, n_init=1, max_iter=1, random_state=random_state
+            n_components=n_components,
+            n_init=1,
+            max_iter=1,
+            random_state=random_state,
         ).fit(X)
         gmm2 = GaussianMixture(
-            n_components=n_components, n_init=10, max_iter=1, random_state=random_state
+            n_components=n_components,
+            n_init=10,
+            max_iter=1,
+            random_state=random_state,
         ).fit(X)
 
         assert gmm2.lower_bound_ >= gmm1.lower_bound_

@@ -86,7 +86,8 @@ def empirical_covariance(X, *, assume_centered=False):
 
     if X.shape[0] == 1:
         warnings.warn(
-            "Only one sample available. " "You may want to reshape your data array"
+            "Only one sample available. "
+            "You may want to reshape your data array"
         )
 
     if assume_centered:
@@ -209,7 +210,9 @@ class EmpiricalCovariance(BaseEstimator):
             self.location_ = np.zeros(X.shape[1])
         else:
             self.location_ = X.mean(0)
-        covariance = empirical_covariance(X, assume_centered=self.assume_centered)
+        covariance = empirical_covariance(
+            X, assume_centered=self.assume_centered
+        )
         self._set_covariance(covariance)
 
         return self
@@ -236,13 +239,17 @@ class EmpiricalCovariance(BaseEstimator):
             estimator of its covariance matrix.
         """
         # compute empirical covariance of the test set
-        test_cov = empirical_covariance(X_test - self.location_, assume_centered=True)
+        test_cov = empirical_covariance(
+            X_test - self.location_, assume_centered=True
+        )
         # compute log likelihood
         res = log_likelihood(test_cov, self.get_precision())
 
         return res
 
-    def error_norm(self, comp_cov, norm="frobenius", scaling=True, squared=True):
+    def error_norm(
+        self, comp_cov, norm="frobenius", scaling=True, squared=True
+    ):
         """Computes the Mean Squared Error between two covariance estimators.
         (In the sense of the Frobenius norm).
 

@@ -240,7 +240,9 @@ def test_is_classifier():
     assert is_classifier(svc)
     assert is_classifier(GridSearchCV(svc, {"C": [0.1, 1]}))
     assert is_classifier(Pipeline([("svc", svc)]))
-    assert is_classifier(Pipeline([("svc_cv", GridSearchCV(svc, {"C": [0.1, 1]}))]))
+    assert is_classifier(
+        Pipeline([("svc_cv", GridSearchCV(svc, {"C": [0.1, 1]}))])
+    )
 
 
 def test_set_params():
@@ -399,7 +401,9 @@ def test_pickle_version_warning_is_issued_when_no_version_info_in_pickle():
         current_version=sklearn.__version__,
     )
     # check we got the warning about using pre-0.18 pickle
-    assert_warns_message(UserWarning, message, pickle.loads, tree_pickle_noversion)
+    assert_warns_message(
+        UserWarning, message, pickle.loads, tree_pickle_noversion
+    )
 
 
 def test_pickle_version_no_warning_is_issued_with_non_sklearn_estimator():
@@ -451,7 +455,10 @@ def test_pickling_when_getstate_is_overwritten_by_mixin_outside_of_sklearn():
         type(estimator).__module__ = "notsklearn"
 
         serialized = estimator.__getstate__()
-        assert serialized == {"_attribute_not_pickled": None, "attribute_pickled": 5}
+        assert serialized == {
+            "_attribute_not_pickled": None,
+            "attribute_pickled": 5,
+        }
 
         serialized["attribute_pickled"] = 4
         estimator.__setstate__(serialized)

@@ -124,7 +124,9 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
     """
 
     @_deprecate_positional_args
-    def __init__(self, n_bins=5, encode="onehot", strategy="quantile", dtype=None):
+    def __init__(
+        self, n_bins=5, encode="onehot", strategy="quantile", dtype=None
+    ):
         self.n_bins = n_bins
         self.encode = encode
         self.strategy = strategy
@@ -171,7 +173,9 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
         if self.strategy not in valid_strategy:
             raise ValueError(
                 "Valid options for 'strategy' are {}. "
-                "Got strategy={!r} instead.".format(valid_strategy, self.strategy)
+                "Got strategy={!r} instead.".format(
+                    valid_strategy, self.strategy
+                )
             )
 
         n_features = X.shape[1]
@@ -184,7 +188,8 @@ class KBinsDiscretizer(TransformerMixin, BaseEstimator):
 
             if col_min == col_max:
                 warnings.warn(
-                    "Feature %d is constant and will be " "replaced with 0." % jj
+                    "Feature %d is constant and will be "
+                    "replaced with 0." % jj
                 )
                 n_bins[jj] = 1
                 bin_edges[jj] = np.array([-np.inf, np.inf])

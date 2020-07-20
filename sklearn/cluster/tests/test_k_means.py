@@ -36,7 +36,11 @@ from sklearn.metrics.cluster import homogeneity_score
 
 # non centered, sparse centers to check the
 centers = np.array(
-    [[0.0, 5.0, 0.0, 0.0, 0.0], [1.0, 1.0, 4.0, 0.0, 0.0], [1.0, 0.0, 0.0, 5.0, 1.0],]
+    [
+        [0.0, 5.0, 0.0, 0.0, 0.0],
+        [1.0, 1.0, 4.0, 0.0, 0.0],
+        [1.0, 0.0, 0.0, 5.0, 1.0],
+    ]
 )
 n_samples = 100
 n_clusters, n_features = centers.shape
@@ -120,7 +124,12 @@ def test_relocate_empty_clusters(array_constr):
 
     if array_constr is np.array:
         _relocate_empty_clusters_dense(
-            X, sample_weight, centers_old, centers_new, weight_in_clusters, labels
+            X,
+            sample_weight,
+            centers_old,
+            centers_new,
+            weight_in_clusters,
+            labels,
         )
     else:
         _relocate_empty_clusters_sparse(
@@ -156,7 +165,9 @@ def test_kmeans_elkan_results(distribution, array_constr, tol):
     X[X < 0] = 0
     X = array_constr(X)
 
-    km_full = KMeans(algorithm="full", n_clusters=5, random_state=0, n_init=1, tol=tol)
+    km_full = KMeans(
+        algorithm="full", n_clusters=5, random_state=0, n_init=1, tol=tol
+    )
     km_elkan = KMeans(
         algorithm="elkan", n_clusters=5, random_state=0, n_init=1, tol=tol
     )
@@ -372,7 +383,11 @@ def test_k_means_fit_predict(algo, dtype, constructor, seed, max_iter, tol):
     X = constructor(X)
 
     kmeans = KMeans(
-        algorithm=algo, n_clusters=10, random_state=seed, tol=tol, max_iter=max_iter
+        algorithm=algo,
+        n_clusters=10,
+        random_state=seed,
+        tol=tol,
+        max_iter=max_iter,
     )
 
     labels_1 = kmeans.fit(X).predict(X)
@@ -411,7 +426,8 @@ def test_warning_n_init_precomputed_centers(Estimator):
     # the init parameter.
     with pytest.warns(
         RuntimeWarning,
-        match="Explicit initial center position passed: " "performing only one init",
+        match="Explicit initial center position passed: "
+        "performing only one init",
     ):
         Estimator(init=centers, n_clusters=n_clusters, n_init=10).fit(X)
 
@@ -420,7 +436,9 @@ def test_minibatch_sensible_reassign():
     # check that identical initial clusters are reassigned
     # also a regression test for when there are more desired reassignments than
     # samples.
-    zeroed_X, true_labels = make_blobs(n_samples=100, centers=5, random_state=42)
+    zeroed_X, true_labels = make_blobs(
+        n_samples=100, centers=5, random_state=42
+    )
     zeroed_X[::2, :] = 0
 
     km = MiniBatchKMeans(
@@ -519,7 +537,10 @@ def test_minibatch_with_many_reassignments():
     # is always bigger than the batch_size
     n_clusters = 550
     MiniBatchKMeans(
-        n_clusters=n_clusters, batch_size=100, init_size=n_samples, random_state=42
+        n_clusters=n_clusters,
+        batch_size=100,
+        init_size=n_samples,
+        random_state=42,
     ).fit(X)
 
 
@@ -527,9 +548,9 @@ def test_sparse_mb_k_means_callable_init():
     def test_init(X, k, random_state):
         return centers
 
-    mb_k_means = MiniBatchKMeans(n_clusters=3, init=test_init, random_state=42).fit(
-        X_csr
-    )
+    mb_k_means = MiniBatchKMeans(
+        n_clusters=3, init=test_init, random_state=42
+    ).fit(X_csr)
     _check_fitted_model(mb_k_means)
 
 
@@ -720,7 +741,10 @@ def test_n_init():
     for i, n_init in enumerate(n_init_range):
         for j in range(n_runs):
             km = KMeans(
-                n_clusters=n_clusters, init="random", n_init=n_init, random_state=j
+                n_clusters=n_clusters,
+                init="random",
+                n_init=n_init,
+                random_state=j,
             ).fit(X)
             inertia[i, j] = km.inertia_
 
@@ -803,7 +827,9 @@ def test_k_means_init_fitted_centers(data):
     centers = KMeans(n_clusters=3).fit(X).cluster_centers_
 
     # Fit starting from a local optimum shouldn't change the solution
-    new_centers = KMeans(n_clusters=3, init=centers, n_init=1).fit(X).cluster_centers_
+    new_centers = (
+        KMeans(n_clusters=3, init=centers, n_init=1).fit(X).cluster_centers_
+    )
     assert_array_almost_equal(centers, new_centers)
 
 
@@ -877,7 +903,8 @@ def test_scaled_weights():
         est_2 = clone(estimator).fit(X, sample_weight=0.5 * sample_weight)
         assert_almost_equal(v_measure_score(est_1.labels_, est_2.labels_), 1.0)
         assert_almost_equal(
-            _sort_centers(est_1.cluster_centers_), _sort_centers(est_2.cluster_centers_)
+            _sort_centers(est_1.cluster_centers_),
+            _sort_centers(est_2.cluster_centers_),
         )
 
 
@@ -939,7 +966,10 @@ def test_precompute_distance_deprecated(precompute_distances):
 @pytest.mark.parametrize("n_jobs", [None, 1])
 def test_n_jobs_deprecated(n_jobs):
     # FIXME: remove in 0.25
-    depr_msg = "'n_jobs' was deprecated in version 0.23 and will be removed " "in 0.25."
+    depr_msg = (
+        "'n_jobs' was deprecated in version 0.23 and will be removed "
+        "in 0.25."
+    )
     X, _ = make_blobs(n_samples=10, n_features=2, centers=2, random_state=0)
     kmeans = KMeans(
         n_clusters=2, n_init=1, init="random", random_state=0, n_jobs=n_jobs
@@ -954,7 +984,8 @@ def test_minibatch_kmeans_deprecated_attributes(attr):
     # check that we raise a deprecation warning when accessing `init_size_`
     # FIXME: remove in 0.26
     depr_msg = (
-        f"The attribute '{attr}' is deprecated in 0.24 and will be " f"removed in 0.26."
+        f"The attribute '{attr}' is deprecated in 0.24 and will be "
+        f"removed in 0.26."
     )
     km = MiniBatchKMeans(n_clusters=2, n_init=1, init="random", random_state=0)
     km.fit(X)

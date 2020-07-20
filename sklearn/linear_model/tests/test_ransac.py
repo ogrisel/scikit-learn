@@ -41,7 +41,9 @@ def test_ransac_inliers_outliers():
     ransac_estimator.fit(X, y)
 
     # Ground truth / reference inlier mask
-    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(np.bool_)
+    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(
+        np.bool_
+    )
     ref_inlier_mask[outliers] = False
 
     assert_array_equal(ransac_estimator.inlier_mask_, ref_inlier_mask)
@@ -102,7 +104,9 @@ def test_ransac_max_trials():
     # there is a 1e-9 chance it will take these many trials. No good reason
     # 1e-2 isn't enough, can still happen
     # 2 is the what ransac defines  as min_samples = X.shape[1] + 1
-    max_trials = _dynamic_max_trials(len(X) - len(outliers), X.shape[0], 2, 1 - 1e-9)
+    max_trials = _dynamic_max_trials(
+        len(X) - len(outliers), X.shape[0], 2, 1 - 1e-9
+    )
     ransac_estimator = RANSACRegressor(base_estimator, min_samples=2)
     for i in range(50):
         ransac_estimator.set_params(min_samples=2, random_state=i)
@@ -268,7 +272,9 @@ def test_ransac_sparse_coo():
     )
     ransac_estimator.fit(X_sparse, y)
 
-    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(np.bool_)
+    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(
+        np.bool_
+    )
     ref_inlier_mask[outliers] = False
 
     assert_array_equal(ransac_estimator.inlier_mask_, ref_inlier_mask)
@@ -283,7 +289,9 @@ def test_ransac_sparse_csr():
     )
     ransac_estimator.fit(X_sparse, y)
 
-    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(np.bool_)
+    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(
+        np.bool_
+    )
     ref_inlier_mask[outliers] = False
 
     assert_array_equal(ransac_estimator.inlier_mask_, ref_inlier_mask)
@@ -298,7 +306,9 @@ def test_ransac_sparse_csc():
     )
     ransac_estimator.fit(X_sparse, y)
 
-    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(np.bool_)
+    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(
+        np.bool_
+    )
     ref_inlier_mask[outliers] = False
 
     assert_array_equal(ransac_estimator.inlier_mask_, ref_inlier_mask)
@@ -347,7 +357,10 @@ def test_ransac_min_n_samples():
         base_estimator, residual_threshold=5, random_state=0
     )
     ransac_estimator7 = RANSACRegressor(
-        base_estimator, min_samples=X.shape[0] + 1, residual_threshold=5, random_state=0
+        base_estimator,
+        min_samples=X.shape[0] + 1,
+        residual_threshold=5,
+        random_state=0,
     )
 
     ransac_estimator1.fit(X, y)
@@ -384,7 +397,9 @@ def test_ransac_multi_dimensional_targets():
     ransac_estimator.fit(X, yyy)
 
     # Ground truth / reference inlier mask
-    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(np.bool_)
+    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(
+        np.bool_
+    )
     ref_inlier_mask[outliers] = False
 
     assert_array_equal(ransac_estimator.inlier_mask_, ref_inlier_mask)
@@ -449,13 +464,17 @@ def test_ransac_residual_loss():
 
 def test_ransac_default_residual_threshold():
     base_estimator = LinearRegression()
-    ransac_estimator = RANSACRegressor(base_estimator, min_samples=2, random_state=0)
+    ransac_estimator = RANSACRegressor(
+        base_estimator, min_samples=2, random_state=0
+    )
 
     # Estimate parameters of corrupted data
     ransac_estimator.fit(X, y)
 
     # Ground truth / reference inlier mask
-    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(np.bool_)
+    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(
+        np.bool_
+    )
     ref_inlier_mask[outliers] = False
 
     assert_array_equal(ransac_estimator.inlier_mask_, ref_inlier_mask)
@@ -511,7 +530,9 @@ def test_ransac_fit_sample_weight():
     # sanity check
     assert ransac_estimator.inlier_mask_.shape[0] == n_samples
 
-    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(np.bool_)
+    ref_inlier_mask = np.ones_like(ransac_estimator.inlier_mask_).astype(
+        np.bool_
+    )
     ref_inlier_mask[outliers] = False
     # check that mask is correct
     assert_array_equal(ransac_estimator.inlier_mask_, ref_inlier_mask)
@@ -566,7 +587,9 @@ def test_ransac_final_model_fit_sample_weight():
     final_model = LinearRegression()
     mask_samples = ransac.inlier_mask_
     final_model.fit(
-        X[mask_samples], y[mask_samples], sample_weight=sample_weight[mask_samples]
+        X[mask_samples],
+        y[mask_samples],
+        sample_weight=sample_weight[mask_samples],
     )
 
     assert_allclose(ransac.estimator_.coef_, final_model.coef_)

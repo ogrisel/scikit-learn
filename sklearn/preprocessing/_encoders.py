@@ -54,7 +54,10 @@ class _BaseEncoder(TransformerMixin, BaseEstimator):
         for i in range(n_features):
             Xi = self._get_feature(X, feature_idx=i)
             Xi = check_array(
-                Xi, ensure_2d=False, dtype=None, force_all_finite=needs_validation
+                Xi,
+                ensure_2d=False,
+                dtype=None,
+                force_all_finite=needs_validation,
             )
             X_columns.append(Xi)
 
@@ -111,12 +114,16 @@ class _BaseEncoder(TransformerMixin, BaseEstimator):
             raise ValueError(
                 "The number of features in X is different to the number of "
                 "features of the fitted data. The fitted data had {} features "
-                "and the X has {} features.".format(len(self.categories_,), n_features)
+                "and the X has {} features.".format(
+                    len(self.categories_,), n_features
+                )
             )
 
         for i in range(n_features):
             Xi = X_list[i]
-            diff, valid_mask = _check_unknown(Xi, self.categories_[i], return_mask=True)
+            diff, valid_mask = _check_unknown(
+                Xi, self.categories_[i], return_mask=True
+            )
 
             if not np.all(valid_mask):
                 if handle_unknown == "error":
@@ -143,7 +150,9 @@ class _BaseEncoder(TransformerMixin, BaseEstimator):
                     Xi[~valid_mask] = self.categories_[i][0]
             # We use check_unknown=False, since _check_unknown was
             # already called above.
-            X_int[:, i] = _encode(Xi, uniques=self.categories_[i], check_unknown=False)
+            X_int[:, i] = _encode(
+                Xi, uniques=self.categories_[i], check_unknown=False
+            )
 
         return X_int, X_mask
 
@@ -339,7 +348,10 @@ class OneHotEncoder(_BaseEncoder):
                 return np.zeros(len(self.categories_), dtype=object)
             elif self.drop == "if_binary":
                 return np.array(
-                    [0 if len(cats) == 2 else None for cats in self.categories_],
+                    [
+                        0 if len(cats) == 2 else None
+                        for cats in self.categories_
+                    ],
                     dtype=object,
                 )
             else:
@@ -364,7 +376,9 @@ class OneHotEncoder(_BaseEncoder):
                     "`drop` should have length equal to the number "
                     "of features ({}), got {}"
                 )
-                raise ValueError(msg.format(len(self.categories_), len(self.drop)))
+                raise ValueError(
+                    msg.format(len(self.categories_), len(self.drop))
+                )
             missing_drops = [
                 (i, val)
                 for i, val in enumerate(self.drop)

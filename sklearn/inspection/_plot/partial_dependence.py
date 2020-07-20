@@ -255,7 +255,9 @@ def plot_partial_dependence(
             not (0 <= target_idx < len(estimator.classes_))
             or estimator.classes_[target_idx] != target
         ):
-            raise ValueError("target not in est.classes_, got {}".format(target))
+            raise ValueError(
+                "target not in est.classes_, got {}".format(target)
+            )
     else:
         # regression and binary classification
         target_idx = 0
@@ -319,14 +321,18 @@ def plot_partial_dependence(
         axes = np.asarray(ax, dtype=object)
         if axes.size != len(features):
             raise ValueError(
-                "Expected ax to have {} axes, got {}".format(len(features), axes.size)
+                "Expected ax to have {} axes, got {}".format(
+                    len(features), axes.size
+                )
             )
 
     for i in chain.from_iterable(features):
         if i >= len(feature_names):
             raise ValueError(
                 "All entries of features must be less than "
-                "len(feature_names) = {0}, got {1}.".format(len(feature_names), i)
+                "len(feature_names) = {0}, got {1}.".format(
+                    len(feature_names), i
+                )
             )
 
     if isinstance(subsample, numbers.Integral):
@@ -369,9 +375,13 @@ def plot_partial_dependence(
     )
     if is_regressor(estimator) and n_tasks > 1:
         if target is None:
-            raise ValueError("target must be specified for multi-output regressors")
+            raise ValueError(
+                "target must be specified for multi-output regressors"
+            )
         if not 0 <= target <= n_tasks:
-            raise ValueError("target must be in [0, n_tasks], got {}.".format(target))
+            raise ValueError(
+                "target must be in [0, n_tasks], got {}.".format(target)
+            )
         target_idx = target
 
     # get global min and max average predictions of PD grouped by plot type
@@ -403,7 +413,9 @@ def plot_partial_dependence(
         kind=kind,
         subsample=subsample,
     )
-    return display.plot(ax=ax, n_cols=n_cols, line_kw=line_kw, contour_kw=contour_kw)
+    return display.plot(
+        ax=ax, n_cols=n_cols, line_kw=line_kw, contour_kw=contour_kw
+    )
 
 
 class PartialDependenceDisplay:
@@ -646,7 +658,9 @@ class PartialDependenceDisplay:
             if self.kind == "average":
                 self.lines_ = np.empty((n_rows, n_cols), dtype=object)
             else:
-                self.lines_ = np.empty((n_rows, n_cols, n_sampled), dtype=object)
+                self.lines_ = np.empty(
+                    (n_rows, n_cols, n_sampled), dtype=object
+                )
             self.contours_ = np.empty((n_rows, n_cols), dtype=object)
 
             axes_ravel = self.axes_.ravel()
@@ -661,7 +675,9 @@ class PartialDependenceDisplay:
             ax = np.asarray(ax, dtype=object)
             if ax.size != n_features:
                 raise ValueError(
-                    "Expected ax to have {} axes, got {}".format(n_features, ax.size)
+                    "Expected ax to have {} axes, got {}".format(
+                        n_features, ax.size
+                    )
                 )
 
             if ax.ndim == 2:
@@ -708,10 +724,14 @@ class PartialDependenceDisplay:
 
             if len(values) == 1:
                 if self.kind == "individual" or self.kind == "both":
-                    n_samples = self._get_sample_count(len(preds[self.target_idx]))
+                    n_samples = self._get_sample_count(
+                        len(preds[self.target_idx])
+                    )
                     ice_lines = preds[self.target_idx]
                     sampled = ice_lines[
-                        np.random.choice(ice_lines.shape[0], n_samples, replace=False),
+                        np.random.choice(
+                            ice_lines.shape[0], n_samples, replace=False
+                        ),
                         :,
                     ]
                     for j, ins in enumerate(sampled):
@@ -734,7 +754,9 @@ class PartialDependenceDisplay:
                 # contour plot
                 XX, YY = np.meshgrid(values[0], values[1])
                 Z = avg_preds[self.target_idx].T
-                CS = axi.contour(XX, YY, Z, levels=Z_level, linewidths=0.5, colors="k")
+                CS = axi.contour(
+                    XX, YY, Z, levels=Z_level, linewidths=0.5, colors="k"
+                )
                 contours_ravel[i] = axi.contourf(
                     XX,
                     YY,
@@ -744,9 +766,13 @@ class PartialDependenceDisplay:
                     vmin=Z_level[0],
                     **contour_kw,
                 )
-                axi.clabel(CS, fmt="%2.2f", colors="k", fontsize=10, inline=True)
+                axi.clabel(
+                    CS, fmt="%2.2f", colors="k", fontsize=10, inline=True
+                )
 
-            trans = transforms.blended_transform_factory(axi.transData, axi.transAxes)
+            trans = transforms.blended_transform_factory(
+                axi.transData, axi.transAxes
+            )
             ylim = axi.get_ylim()
             vlines_ravel[i] = axi.vlines(
                 self.deciles[fx[0]], 0, 0.05, transform=trans, color="k"

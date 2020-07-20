@@ -37,7 +37,9 @@ from ..utils.validation import _deprecate_positional_args
 ARCHIVE = RemoteFileMetadata(
     filename="covtype.data.gz",
     url="https://ndownloader.figshare.com/files/5976039",
-    checksum=("614360d0257557dd1792834a85a1cdeb" "fadc3c4f30b011d56afee7ffb5b15771"),
+    checksum=(
+        "614360d0257557dd1792834a85a1cdeb" "fadc3c4f30b011d56afee7ffb5b15771"
+    ),
 )
 
 logger = logging.getLogger(__name__)

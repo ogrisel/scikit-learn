@@ -24,7 +24,9 @@ dependence in the dictionary. The requested precision might not have been met.
 """
 
 
-def _cholesky_omp(X, y, n_nonzero_coefs, tol=None, copy_X=True, return_path=False):
+def _cholesky_omp(
+    X, y, n_nonzero_coefs, tol=None, copy_X=True, return_path=False
+):
     """Orthogonal Matching Pursuit step using the Cholesky decomposition.
 
     Parameters
@@ -123,7 +125,10 @@ def _cholesky_omp(X, y, n_nonzero_coefs, tol=None, copy_X=True, return_path=Fals
 
         # solves LL'x = X'y as a composition of two triangular systems
         gamma, _ = potrs(
-            L[:n_active, :n_active], alpha[:n_active], lower=True, overwrite_b=False
+            L[:n_active, :n_active],
+            alpha[:n_active],
+            lower=True,
+            overwrite_b=False,
         )
 
         if return_path:
@@ -257,7 +262,10 @@ def _gram_omp(
         n_active += 1
         # solves LL'x = X'y as a composition of two triangular systems
         gamma, _ = potrs(
-            L[:n_active, :n_active], Xy[:n_active], lower=True, overwrite_b=False
+            L[:n_active, :n_active],
+            Xy[:n_active],
+            lower=True,
+            overwrite_b=False,
         )
         if return_path:
             coefs[:n_active, n_active - 1] = gamma
@@ -416,7 +424,12 @@ def orthogonal_mp(
 
     for k in range(y.shape[1]):
         out = _cholesky_omp(
-            X, y[:, k], n_nonzero_coefs, tol, copy_X=copy_X, return_path=return_path
+            X,
+            y[:, k],
+            n_nonzero_coefs,
+            tol,
+            copy_X=copy_X,
+            return_path=return_path,
         )
         if return_path:
             _, idx, coefs, n_iter = out
@@ -704,7 +717,13 @@ class OrthogonalMatchingPursuit(MultiOutputMixin, RegressorMixin, LinearModel):
         n_features = X.shape[1]
 
         X, y, X_offset, y_offset, X_scale, Gram, Xy = _pre_fit(
-            X, y, None, self.precompute, self.normalize, self.fit_intercept, copy=True
+            X,
+            y,
+            None,
+            self.precompute,
+            self.normalize,
+            self.fit_intercept,
+            copy=True,
         )
 
         if y.ndim == 1:

@@ -133,7 +133,9 @@ def _check_unknown(values, known_values, return_mask=False):
             return diff
     else:
         unique_values = np.unique(values)
-        diff = list(np.setdiff1d(unique_values, known_values, assume_unique=True))
+        diff = list(
+            np.setdiff1d(unique_values, known_values, assume_unique=True)
+        )
         if return_mask:
             if diff:
                 valid_mask = np.in1d(values, known_values)

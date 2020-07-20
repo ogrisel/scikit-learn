@@ -92,7 +92,9 @@ class DictVectorizer(TransformerMixin, BaseEstimator):
     """
 
     @_deprecate_positional_args
-    def __init__(self, *, dtype=np.float64, separator="=", sparse=True, sort=True):
+    def __init__(
+        self, *, dtype=np.float64, separator="=", sparse=True, sort=True
+    ):
         self.dtype = dtype
         self.separator = separator
         self.sparse = sparse

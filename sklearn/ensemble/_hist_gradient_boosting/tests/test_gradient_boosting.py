@@ -53,15 +53,27 @@ def _make_dumb_dataset(n_samples):
         ({"learning_rate": 0}, "learning_rate=0 must be strictly positive"),
         ({"learning_rate": -1}, "learning_rate=-1 must be strictly positive"),
         ({"max_iter": 0}, "max_iter=0 must not be smaller than 1"),
-        ({"max_leaf_nodes": 0}, "max_leaf_nodes=0 should not be smaller than 2"),
-        ({"max_leaf_nodes": 1}, "max_leaf_nodes=1 should not be smaller than 2"),
+        (
+            {"max_leaf_nodes": 0},
+            "max_leaf_nodes=0 should not be smaller than 2",
+        ),
+        (
+            {"max_leaf_nodes": 1},
+            "max_leaf_nodes=1 should not be smaller than 2",
+        ),
         ({"max_depth": 0}, "max_depth=0 should not be smaller than 1"),
         ({"min_samples_leaf": 0}, "min_samples_leaf=0 should not be smaller"),
         ({"l2_regularization": -1}, "l2_regularization=-1 must be positive"),
-        ({"max_bins": 1}, "max_bins=1 should be no smaller than 2 and no larger"),
+        (
+            {"max_bins": 1},
+            "max_bins=1 should be no smaller than 2 and no larger",
+        ),
         ({"max_bins": 256}, "max_bins=256 should be no smaller than 2 and no"),
         ({"n_iter_no_change": -1}, "n_iter_no_change=-1 must be positive"),
-        ({"validation_fraction": -1}, "validation_fraction=-1 must be strictly"),
+        (
+            {"validation_fraction": -1},
+            "validation_fraction=-1 must be strictly",
+        ),
         ({"validation_fraction": 0}, "validation_fraction=0 must be strictly"),
         ({"tol": -1}, "tol=-1 must not be smaller than 0"),
     ],
@@ -207,7 +219,9 @@ def test_early_stopping_default(GradientBoosting, X, y):
 )
 def test_should_stop(scores, n_iter_no_change, tol, stopping):
 
-    gbdt = HistGradientBoostingClassifier(n_iter_no_change=n_iter_no_change, tol=tol)
+    gbdt = HistGradientBoostingClassifier(
+        n_iter_no_change=n_iter_no_change, tol=tol
+    )
     assert gbdt._should_stop(scores) == stopping
 
 
@@ -246,7 +260,9 @@ def test_poisson():
         X, y, test_size=n_test, random_state=rng
     )
     gbdt_pois = HistGradientBoostingRegressor(loss="poisson", random_state=rng)
-    gbdt_ls = HistGradientBoostingRegressor(loss="least_squares", random_state=rng)
+    gbdt_ls = HistGradientBoostingRegressor(
+        loss="least_squares", random_state=rng
+    )
     gbdt_pois.fit(X_train, y_train)
     gbdt_ls.fit(X_train, y_train)
     dummy = DummyRegressor(strategy="mean").fit(X_train, y_train)
@@ -254,7 +270,9 @@ def test_poisson():
     for X, y in [(X_train, y_train), (X_test, y_test)]:
         metric_pois = mean_poisson_deviance(y, gbdt_pois.predict(X))
         # least_squares might produce non-positive predictions => clip
-        metric_ls = mean_poisson_deviance(y, np.clip(gbdt_ls.predict(X), 1e-15, None))
+        metric_ls = mean_poisson_deviance(
+            y, np.clip(gbdt_ls.predict(X), 1e-15, None)
+        )
         metric_dummy = mean_poisson_deviance(y, dummy.predict(X))
         assert metric_pois < metric_ls
         assert metric_pois < metric_dummy
@@ -267,7 +285,9 @@ def test_binning_train_validation_are_separated():
     rng = np.random.RandomState(0)
     validation_fraction = 0.2
     gb = HistGradientBoostingClassifier(
-        early_stopping=True, validation_fraction=validation_fraction, random_state=rng
+        early_stopping=True,
+        validation_fraction=validation_fraction,
+        random_state=rng,
     )
     gb.fit(X_classification, y_classification)
     mapper_training_data = gb._bin_mapper
@@ -383,7 +403,8 @@ def test_small_trainset():
     rng = np.random.RandomState(42)
     X = rng.randn(n_samples).reshape(n_samples, 1)
     y = [
-        [class_] * int(prop * n_samples) for (class_, prop) in original_distrib.items()
+        [class_] * int(prop * n_samples)
+        for (class_, prop) in original_distrib.items()
     ]
     y = shuffle(np.concatenate(y))
     gb = HistGradientBoostingClassifier()
@@ -395,7 +416,9 @@ def test_small_trainset():
 
     # Compute the class distribution in the small training set
     unique, counts = np.unique(y_small, return_counts=True)
-    small_distrib = {class_: count / 10000 for (class_, count) in zip(unique, counts)}
+    small_distrib = {
+        class_: count / 10000 for (class_, count) in zip(unique, counts)
+    }
 
     # Test that the small training set has the expected length
     assert X_small.shape[0] == 10000
@@ -448,7 +471,9 @@ def test_missing_values_minmax_imputation():
 
     def make_missing_value_data(n_samples=int(1e4), seed=0):
         rng = np.random.RandomState(seed)
-        X, y = make_regression(n_samples=n_samples, n_features=4, random_state=rng)
+        X, y = make_regression(
+            n_samples=n_samples, n_features=4, random_state=rng
+        )
 
         # Pre-bin the data to ensure a deterministic handling by the 2
         # strategies and also make it easier to insert np.nan in a structured
@@ -491,16 +516,22 @@ def test_missing_values_minmax_imputation():
     # Use a small number of leaf nodes and iterations so as to keep
     # under-fitting models to minimize the likelihood of ties when training the
     # model.
-    gbm1 = HistGradientBoostingRegressor(max_iter=100, max_leaf_nodes=5, random_state=0)
+    gbm1 = HistGradientBoostingRegressor(
+        max_iter=100, max_leaf_nodes=5, random_state=0
+    )
     gbm1.fit(X_train, y_train)
 
     gbm2 = make_pipeline(MinMaxImputer(), clone(gbm1))
     gbm2.fit(X_train, y_train)
 
     # Check that the model reach the same score:
-    assert gbm1.score(X_train, y_train) == pytest.approx(gbm2.score(X_train, y_train))
+    assert gbm1.score(X_train, y_train) == pytest.approx(
+        gbm2.score(X_train, y_train)
+    )
 
-    assert gbm1.score(X_test, y_test) == pytest.approx(gbm2.score(X_test, y_test))
+    assert gbm1.score(X_test, y_test) == pytest.approx(
+        gbm2.score(X_test, y_test)
+    )
 
     # Check the individual prediction match as a finer grained
     # decision function check.
@@ -524,7 +555,9 @@ def test_consistent_lengths():
     y = np.array([0, 0, 1, 1])
     sample_weight = np.array([0.1, 0.3, 0.1])
     gbdt = HistGradientBoostingRegressor()
-    with pytest.raises(ValueError, match=r"sample_weight.shape == \(3,\), expected"):
+    with pytest.raises(
+        ValueError, match=r"sample_weight.shape == \(3,\), expected"
+    ):
         gbdt.fit(X, y, sample_weight)
 
     with pytest.raises(
@@ -595,7 +628,9 @@ def test_zero_sample_weights_classification():
     y = [0, 0, 1, 0]
     # ignore the first 2 training samples by setting their weight to 0
     sample_weight = [0, 0, 1, 1]
-    gb = HistGradientBoostingClassifier(loss="binary_crossentropy", min_samples_leaf=1)
+    gb = HistGradientBoostingClassifier(
+        loss="binary_crossentropy", min_samples_leaf=1
+    )
     gb.fit(X, y, sample_weight=sample_weight)
     assert_array_equal(gb.predict([[1, 0]]), [1])
 
@@ -611,7 +646,8 @@ def test_zero_sample_weights_classification():
 
 
 @pytest.mark.parametrize(
-    "problem", ("regression", "binary_classification", "multiclass_classification")
+    "problem",
+    ("regression", "binary_classification", "multiclass_classification"),
 )
 @pytest.mark.parametrize("duplication", ("half", "all"))
 def test_sample_weight_effect(problem, duplication):
@@ -667,7 +703,9 @@ def test_sample_weight_effect(problem, duplication):
     assert np.allclose(est_sw._raw_predict(X_dup), est_dup._raw_predict(X_dup))
 
 
-@pytest.mark.parametrize("loss_name", ("least_squares", "least_absolute_deviation"))
+@pytest.mark.parametrize(
+    "loss_name", ("least_squares", "least_absolute_deviation")
+)
 def test_sum_hessians_are_sample_weight(loss_name):
     # For losses with constant hessians, the sum_hessians field of the
     # histograms must be equal to the sum of the sample weight of samples at
@@ -676,7 +714,9 @@ def test_sum_hessians_are_sample_weight(loss_name):
     rng = np.random.RandomState(0)
     n_samples = 1000
     n_features = 2
-    X, y = make_regression(n_samples=n_samples, n_features=n_features, random_state=rng)
+    X, y = make_regression(
+        n_samples=n_samples, n_features=n_features, random_state=rng
+    )
     bin_mapper = _BinMapper()
     X_binned = bin_mapper.fit_transform(X)
 
@@ -697,12 +737,14 @@ def test_sum_hessians_are_sample_weight(loss_name):
     sum_sw = np.zeros(shape=(n_features, bin_mapper.n_bins))
     for feature_idx in range(n_features):
         for sample_idx in range(n_samples):
-            sum_sw[feature_idx, X_binned[sample_idx, feature_idx]] += sample_weight[
-                sample_idx
-            ]
+            sum_sw[
+                feature_idx, X_binned[sample_idx, feature_idx]
+            ] += sample_weight[sample_idx]
 
     # Build histogram
-    grower = TreeGrower(X_binned, gradients[0], hessians[0], n_bins=bin_mapper.n_bins)
+    grower = TreeGrower(
+        X_binned, gradients[0], hessians[0], n_bins=bin_mapper.n_bins
+    )
     histograms = grower.histogram_builder.compute_histograms_brute(
         grower.root.sample_indices
     )
@@ -721,9 +763,9 @@ def test_max_depth_max_leaf_nodes():
     # met at the same time, which would lead to max_leaf_nodes not being
     # respected.
     X, y = make_classification(random_state=0)
-    est = HistGradientBoostingClassifier(max_depth=2, max_leaf_nodes=3, max_iter=1).fit(
-        X, y
-    )
+    est = HistGradientBoostingClassifier(
+        max_depth=2, max_leaf_nodes=3, max_iter=1
+    ).fit(X, y)
     tree = est._predictors[0][0]
     assert tree.get_max_depth() == 2
     assert tree.get_n_leaf_nodes() == 3  # would be 4 prior to bug fix
@@ -765,7 +807,9 @@ def test_single_node_trees(Est):
     est.fit(X, y)
 
     assert all(len(predictor[0].nodes) == 1 for predictor in est._predictors)
-    assert all(predictor[0].nodes[0]["value"] == 0 for predictor in est._predictors)
+    assert all(
+        predictor[0].nodes[0]["value"] == 0 for predictor in est._predictors
+    )
     # Still gives correct predictions thanks to the baseline prediction
     assert_allclose(est.predict(X), y)
 

@@ -9,7 +9,12 @@ from sklearn.utils._testing import assert_array_equal
 from sklearn.utils._testing import assert_array_almost_equal
 
 from sklearn.datasets import make_regression
-from sklearn.linear_model import HuberRegressor, LinearRegression, SGDRegressor, Ridge
+from sklearn.linear_model import (
+    HuberRegressor,
+    LinearRegression,
+    SGDRegressor,
+    Ridge,
+)
 from sklearn.linear_model._huber import _huber_loss_and_gradient
 
 
@@ -145,7 +150,9 @@ def test_huber_and_sgd_same_results():
 
     # Fit once to find out the scale parameter. Scale down X and y by scale
     # so that the scale parameter is optimized to 1.0
-    huber = HuberRegressor(fit_intercept=False, alpha=0.0, max_iter=100, epsilon=1.35)
+    huber = HuberRegressor(
+        fit_intercept=False, alpha=0.0, max_iter=100, epsilon=1.35
+    )
     huber.fit(X, y)
     X_scale = X / huber.scale_
     y_scale = y / huber.scale_
@@ -168,7 +175,9 @@ def test_huber_and_sgd_same_results():
 
 def test_huber_warm_start():
     X, y = make_regression_with_outliers()
-    huber_warm = HuberRegressor(alpha=1.0, max_iter=10000, warm_start=True, tol=1e-1)
+    huber_warm = HuberRegressor(
+        alpha=1.0, max_iter=10000, warm_start=True, tol=1e-1
+    )
 
     huber_warm.fit(X, y)
     huber_warm_coef = huber_warm.coef_.copy()
@@ -206,6 +215,8 @@ def test_huber_better_r2_score():
 
 def test_huber_bool():
     # Test that it does not crash with bool data
-    X, y = make_regression(n_samples=200, n_features=2, noise=4.0, random_state=0)
+    X, y = make_regression(
+        n_samples=200, n_features=2, noise=4.0, random_state=0
+    )
     X_bool = X > 0
     HuberRegressor().fit(X_bool, y)

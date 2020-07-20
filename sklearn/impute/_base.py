@@ -20,7 +20,9 @@ from ..utils import is_scalar_nan
 
 
 def _check_inputs_dtype(X, missing_values):
-    if X.dtype.kind in ("f", "i", "u") and not isinstance(missing_values, numbers.Real):
+    if X.dtype.kind in ("f", "i", "u") and not isinstance(
+        missing_values, numbers.Real
+    ):
         raise ValueError(
             "'X' and 'missing_values' types are expected to be"
             " both numerical. Got X.dtype={} and "
@@ -91,7 +93,8 @@ class _BaseImputer(TransformerMixin, BaseEstimator):
         if self.add_indicator:
             if not hasattr(self, "indicator_"):
                 raise ValueError(
-                    "Make sure to call _fit_indicator before " "_transform_indicator"
+                    "Make sure to call _fit_indicator before "
+                    "_transform_indicator"
                 )
             return self.indicator_.transform(X)
 
@@ -219,7 +222,9 @@ class SimpleImputer(_BaseImputer):
         copy=True,
         add_indicator=False,
     ):
-        super().__init__(missing_values=missing_values, add_indicator=add_indicator)
+        super().__init__(
+            missing_values=missing_values, add_indicator=add_indicator
+        )
         self.strategy = strategy
         self.fill_value = fill_value
         self.verbose = verbose
@@ -461,7 +466,8 @@ class SimpleImputer(_BaseImputer):
                 missing = np.arange(X.shape[1])[invalid_mask]
                 if self.verbose:
                     warnings.warn(
-                        "Deleting features without " "observed values: %s" % missing
+                        "Deleting features without "
+                        "observed values: %s" % missing
                     )
                 X = X[:, valid_statistics_indexes]
 
@@ -479,7 +485,9 @@ class SimpleImputer(_BaseImputer):
                     np.arange(len(X.indptr) - 1, dtype=int), np.diff(X.indptr)
                 )[mask]
 
-                X.data[mask] = valid_statistics[indexes].astype(X.dtype, copy=False)
+                X.data[mask] = valid_statistics[indexes].astype(
+                    X.dtype, copy=False
+                )
         else:
             mask = _get_mask(X, self.missing_values)
             n_missing = np.sum(mask, axis=0)
@@ -661,7 +669,9 @@ class MissingIndicator(TransformerMixin, BaseEstimator):
                 sparse.csr_matrix if X.format == "csr" else sparse.csc_matrix
             )
             imputer_mask = sparse_constructor(
-                (mask, X.indices.copy(), X.indptr.copy()), shape=X.shape, dtype=bool
+                (mask, X.indices.copy(), X.indptr.copy()),
+                shape=X.shape,
+                dtype=bool,
             )
             imputer_mask.eliminate_zeros()
 

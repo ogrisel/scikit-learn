@@ -148,7 +148,9 @@ def if_delegate_has_method(delegate):
     if not isinstance(delegate, tuple):
         delegate = (delegate,)
 
-    return lambda fn: _IffHasAttrDescriptor(fn, delegate, attribute_name=fn.__name__)
+    return lambda fn: _IffHasAttrDescriptor(
+        fn, delegate, attribute_name=fn.__name__
+    )
 
 
 def _safe_split(estimator, X, y, indices, train_indices=None):

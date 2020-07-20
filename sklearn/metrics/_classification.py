@@ -48,7 +48,8 @@ def _check_zero_division(zero_division):
     elif isinstance(zero_division, (int, float)) and zero_division in [0, 1]:
         return
     raise ValueError(
-        "Got zero_division={0}." ' Must be one of ["warn", 0, 1]'.format(zero_division)
+        "Got zero_division={0}."
+        ' Must be one of ["warn", 0, 1]'.format(zero_division)
     )
 
 
@@ -305,7 +306,9 @@ def confusion_matrix(
     check_consistent_length(y_true, y_pred, sample_weight)
 
     if normalize not in ["true", "pred", "all", None]:
-        raise ValueError("normalize must be one of {'true', 'pred', " "'all', None}")
+        raise ValueError(
+            "normalize must be one of {'true', 'pred', " "'all', None}"
+        )
 
     n_labels = labels.size
     label_to_ind = {y: x for x, y in enumerate(labels)}
@@ -327,7 +330,9 @@ def confusion_matrix(
         dtype = np.float64
 
     cm = coo_matrix(
-        (sample_weight, (y_true, y_pred)), shape=(n_labels, n_labels), dtype=dtype,
+        (sample_weight, (y_true, y_pred)),
+        shape=(n_labels, n_labels),
+        dtype=dtype,
     ).toarray()
 
     with np.errstate(all="ignore"):
@@ -490,9 +495,13 @@ def multilabel_confusion_matrix(
             # Pathological case
             true_sum = pred_sum = tp_sum = np.zeros(len(labels))
         if len(y_pred):
-            pred_sum = np.bincount(y_pred, weights=sample_weight, minlength=len(labels))
+            pred_sum = np.bincount(
+                y_pred, weights=sample_weight, minlength=len(labels)
+            )
         if len(y_true):
-            true_sum = np.bincount(y_true, weights=sample_weight, minlength=len(labels))
+            true_sum = np.bincount(
+                y_true, weights=sample_weight, minlength=len(labels)
+            )
 
         # Retain only selected labels
         indices = np.searchsorted(sorted_labels, labels[:n_labels])
@@ -528,8 +537,12 @@ def multilabel_confusion_matrix(
         tp_sum = count_nonzero(
             true_and_pred, axis=sum_axis, sample_weight=sample_weight
         )
-        pred_sum = count_nonzero(y_pred, axis=sum_axis, sample_weight=sample_weight)
-        true_sum = count_nonzero(y_true, axis=sum_axis, sample_weight=sample_weight)
+        pred_sum = count_nonzero(
+            y_pred, axis=sum_axis, sample_weight=sample_weight
+        )
+        true_sum = count_nonzero(
+            y_true, axis=sum_axis, sample_weight=sample_weight
+        )
 
     fp = pred_sum - tp_sum
     fn = true_sum - tp_sum
@@ -608,7 +621,9 @@ def cohen_kappa_score(y1, y2, *, labels=None, weights=None, sample_weight=None):
     .. [3] `Wikipedia entry for the Cohen's kappa.
             <https://en.wikipedia.org/wiki/Cohen%27s_kappa>`_
     """
-    confusion = confusion_matrix(y1, y2, labels=labels, sample_weight=sample_weight)
+    confusion = confusion_matrix(
+        y1, y2, labels=labels, sample_weight=sample_weight
+    )
     n_classes = confusion.shape[0]
     sum0 = np.sum(confusion, axis=0)
     sum1 = np.sum(confusion, axis=1)
@@ -633,7 +648,13 @@ def cohen_kappa_score(y1, y2, *, labels=None, weights=None, sample_weight=None):
 
 @_deprecate_positional_args
 def jaccard_score(
-    y_true, y_pred, *, labels=None, pos_label=1, average="binary", sample_weight=None
+    y_true,
+    y_pred,
+    *,
+    labels=None,
+    pos_label=1,
+    average="binary",
+    sample_weight=None,
 ):
     """Jaccard similarity coefficient score
 
@@ -760,7 +781,12 @@ def jaccard_score(
         denominator = np.array([denominator.sum()])
 
     jaccard = _prf_divide(
-        numerator, denominator, "jaccard", "true or predicted", average, ("jaccard",)
+        numerator,
+        denominator,
+        "jaccard",
+        "true or predicted",
+        average,
+        ("jaccard",),
     )
     if average is None:
         return jaccard
@@ -1218,7 +1244,13 @@ def fbeta_score(
 
 
 def _prf_divide(
-    numerator, denominator, metric, modifier, average, warn_for, zero_division="warn"
+    numerator,
+    denominator,
+    metric,
+    modifier,
+    average,
+    warn_for,
+    zero_division="warn",
 ):
     """Performs division and handles divide-by-zero.
 
@@ -1307,7 +1339,8 @@ def _check_set_wise_labels(y_true, y_pred, average, labels, pos_label):
                 average_options.remove("samples")
             raise ValueError(
                 "Target is %s but average='binary'. Please "
-                "choose another average setting, one of %r." % (y_type, average_options)
+                "choose another average setting, one of %r."
+                % (y_type, average_options)
             )
     elif pos_label not in (None, 1):
         warnings.warn(
@@ -1511,7 +1544,13 @@ def precision_recall_fscore_support(
     # Divide, and on zero-division, set scores and/or warn according to
     # zero_division:
     precision = _prf_divide(
-        tp_sum, pred_sum, "precision", "predicted", average, warn_for, zero_division
+        tp_sum,
+        pred_sum,
+        "precision",
+        "predicted",
+        average,
+        warn_for,
+        zero_division,
     )
     recall = _prf_divide(
         tp_sum, true_sum, "recall", "true", average, warn_for, zero_division
@@ -1521,7 +1560,9 @@ def precision_recall_fscore_support(
     # and BOTH prec and rec are ill-defined
     if zero_division == "warn" and ("f-score",) == warn_for:
         if (pred_sum[true_sum == 0] == 0).any():
-            _warn_prf(average, "true nor predicted", "F-score is", len(true_sum))
+            _warn_prf(
+                average, "true nor predicted", "F-score is", len(true_sum)
+            )
 
     # if tp == 0 F will be 1 only if all predictions are zero, all labels are
     # zero, and zero_division=1. In all other case, 0
@@ -1824,7 +1865,9 @@ def recall_score(
 
 
 @_deprecate_positional_args
-def balanced_accuracy_score(y_true, y_pred, *, sample_weight=None, adjusted=False):
+def balanced_accuracy_score(
+    y_true, y_pred, *, sample_weight=None, adjusted=False
+):
     """Compute the balanced accuracy
 
     The balanced accuracy in binary and multiclass classification problems to
@@ -2097,7 +2140,9 @@ def classification_report(
         avg = [avg_p, avg_r, avg_f1, np.sum(s)]
 
         if output_dict:
-            report_dict[line_heading] = dict(zip(headers, [i.item() for i in avg]))
+            report_dict[line_heading] = dict(
+                zip(headers, [i.item() for i in avg])
+            )
         else:
             if line_heading == "accuracy":
                 row_fmt_accuracy = (
@@ -2110,7 +2155,9 @@ def classification_report(
                     line_heading, "", "", *avg[2:], width=width, digits=digits
                 )
             else:
-                report += row_fmt.format(line_heading, *avg, width=width, digits=digits)
+                report += row_fmt.format(
+                    line_heading, *avg, width=width, digits=digits
+                )
 
     if output_dict:
         if "accuracy" in report_dict.keys():
@@ -2201,8 +2248,12 @@ def hamming_loss(y_true, y_pred, *, sample_weight=None):
         weight_average = np.mean(sample_weight)
 
     if y_type.startswith("multilabel"):
-        n_differences = count_nonzero(y_true - y_pred, sample_weight=sample_weight)
-        return n_differences / (y_true.shape[0] * y_true.shape[1] * weight_average)
+        n_differences = count_nonzero(
+            y_true - y_pred, sample_weight=sample_weight
+        )
+        return n_differences / (
+            y_true.shape[0] * y_true.shape[1] * weight_average
+        )
 
     elif y_type in ["binary", "multiclass"]:
         return _weighted_sum(y_true != y_pred, sample_weight, normalize=True)
@@ -2212,7 +2263,13 @@ def hamming_loss(y_true, y_pred, *, sample_weight=None):
 
 @_deprecate_positional_args
 def log_loss(
-    y_true, y_pred, *, eps=1e-15, normalize=True, sample_weight=None, labels=None
+    y_true,
+    y_pred,
+    *,
+    eps=1e-15,
+    normalize=True,
+    sample_weight=None,
+    labels=None,
 ):
     """Log loss, aka logistic loss or cross-entropy loss.
 
@@ -2450,7 +2507,9 @@ def hinge_loss(y_true, pred_decision, *, labels=None, sample_weight=None):
         mask = np.ones_like(pred_decision, dtype=bool)
         mask[np.arange(y_true.shape[0]), y_true] = False
         margin = pred_decision[~mask]
-        margin -= np.max(pred_decision[mask].reshape(y_true.shape[0], -1), axis=1)
+        margin -= np.max(
+            pred_decision[mask].reshape(y_true.shape[0], -1), axis=1
+        )
 
     else:
         # Handles binary class case
@@ -2547,7 +2606,8 @@ def brier_score_loss(y_true, y_prob, *, sample_weight=None, pos_label=None):
     labels = np.unique(y_true)
     if len(labels) > 2:
         raise ValueError(
-            "Only binary classification is supported. " "Labels in y_true: %s." % labels
+            "Only binary classification is supported. "
+            "Labels in y_true: %s." % labels
         )
     if y_prob.max() > 1:
         raise ValueError("y_prob contains values greater than 1.")

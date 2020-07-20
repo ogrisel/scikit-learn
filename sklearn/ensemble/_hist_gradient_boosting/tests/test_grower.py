@@ -15,7 +15,9 @@ def _make_training_data(n_bins=256, constant_hessian=True):
 
     # Generate some test data directly binned so as to test the grower code
     # independently of the binning logic.
-    X_binned = rng.randint(0, n_bins - 1, size=(n_samples, 2), dtype=X_BINNED_DTYPE)
+    X_binned = rng.randint(
+        0, n_bins - 1, size=(n_samples, 2), dtype=X_BINNED_DTYPE
+    )
     X_binned = np.asfortranarray(X_binned)
 
     def true_decision_function(input_features):
@@ -30,7 +32,9 @@ def _make_training_data(n_bins=256, constant_hessian=True):
         else:
             return -1 if input_features[1] <= n_bins // 3 else 1
 
-    target = np.array([true_decision_function(x) for x in X_binned], dtype=Y_DTYPE)
+    target = np.array(
+        [true_decision_function(x) for x in X_binned], dtype=Y_DTYPE
+    )
 
     # Assume a square loss applied to an initial model that always predicts 0
     # (hardcoded for this test):
@@ -57,7 +61,10 @@ def _check_children_consistency(parent, left, right):
     )
 
     # samples are sent either to the left or the right node, never to both
-    assert set(left.sample_indices).intersection(set(right.sample_indices)) == set()
+    assert (
+        set(left.sample_indices).intersection(set(right.sample_indices))
+        == set()
+    )
 
 
 @pytest.mark.parametrize(
@@ -145,7 +152,9 @@ def test_grow_tree(n_bins, constant_hessian, stopping_param, shrinkage):
     # Check the values of the leaves:
     assert grower.root.left_child.value == approx(shrinkage)
     assert grower.root.right_child.left_child.value == approx(shrinkage)
-    assert grower.root.right_child.right_child.value == approx(-shrinkage, rel=1e-3)
+    assert grower.root.right_child.right_child.value == approx(
+        -shrinkage, rel=1e-3
+    )
 
 
 def test_predictor_from_grower():
@@ -208,7 +217,9 @@ def test_predictor_from_grower():
         (300, 301, 255, True, 0.1),
     ],
 )
-def test_min_samples_leaf(n_samples, min_samples_leaf, n_bins, constant_hessian, noise):
+def test_min_samples_leaf(
+    n_samples, min_samples_leaf, n_bins, constant_hessian, noise
+):
     rng = np.random.RandomState(seed=0)
     # data = linear target, 3 features, 1 irrelevant.
     X = rng.normal(size=(n_samples, 3))
@@ -314,24 +325,33 @@ def test_input_validation():
     X_binned, all_gradients, all_hessians = _make_training_data()
 
     X_binned_float = X_binned.astype(np.float32)
-    with pytest.raises(NotImplementedError, match="X_binned must be of type uint8"):
+    with pytest.raises(
+        NotImplementedError, match="X_binned must be of type uint8"
+    ):
         TreeGrower(X_binned_float, all_gradients, all_hessians)
 
     X_binned_C_array = np.ascontiguousarray(X_binned)
     with pytest.raises(
-        ValueError, match="X_binned should be passed as Fortran contiguous array"
+        ValueError,
+        match="X_binned should be passed as Fortran contiguous array",
     ):
         TreeGrower(X_binned_C_array, all_gradients, all_hessians)
 
 
 def test_init_parameters_validation():
     X_binned, all_gradients, all_hessians = _make_training_data()
-    with pytest.raises(ValueError, match="min_gain_to_split=-1 must be positive"):
+    with pytest.raises(
+        ValueError, match="min_gain_to_split=-1 must be positive"
+    ):
 
         TreeGrower(X_binned, all_gradients, all_hessians, min_gain_to_split=-1)
 
-    with pytest.raises(ValueError, match="min_hessian_to_split=-1 must be positive"):
-        TreeGrower(X_binned, all_gradients, all_hessians, min_hessian_to_split=-1)
+    with pytest.raises(
+        ValueError, match="min_hessian_to_split=-1 must be positive"
+    ):
+        TreeGrower(
+            X_binned, all_gradients, all_hessians, min_hessian_to_split=-1
+        )
 
 
 def test_missing_value_predict_only():
@@ -348,7 +368,11 @@ def test_missing_value_predict_only():
     hessians = np.ones(shape=1, dtype=G_H_DTYPE)
 
     grower = TreeGrower(
-        X_binned, gradients, hessians, min_samples_leaf=5, has_missing_values=False
+        X_binned,
+        gradients,
+        hessians,
+        min_samples_leaf=5,
+        has_missing_values=False,
     )
     grower.grow()
 

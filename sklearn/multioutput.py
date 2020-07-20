@@ -57,7 +57,9 @@ def _partial_fit_estimator(
 
     if sample_weight is not None:
         if classes is not None:
-            estimator.partial_fit(X, y, classes=classes, sample_weight=sample_weight)
+            estimator.partial_fit(
+                X, y, classes=classes, sample_weight=sample_weight
+            )
         else:
             estimator.partial_fit(X, y, sample_weight=sample_weight)
     else:
@@ -68,7 +70,9 @@ def _partial_fit_estimator(
     return estimator
 
 
-class _MultiOutputEstimator(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta):
+class _MultiOutputEstimator(
+    MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta
+):
     @abstractmethod
     @_deprecate_positional_args
     def __init__(self, estimator, *, n_jobs=None):
@@ -117,7 +121,9 @@ class _MultiOutputEstimator(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta
         if sample_weight is not None and not has_fit_parameter(
             self.estimator, "sample_weight"
         ):
-            raise ValueError("Underlying estimator does not support" " sample weights.")
+            raise ValueError(
+                "Underlying estimator does not support" " sample weights."
+            )
 
         first_time = not hasattr(self, "estimators_")
 
@@ -161,7 +167,9 @@ class _MultiOutputEstimator(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta
         """
 
         if not hasattr(self.estimator, "fit"):
-            raise ValueError("The base estimator should implement" " a fit method")
+            raise ValueError(
+                "The base estimator should implement" " a fit method"
+            )
 
         X, y = self._validate_data(X, y, multi_output=True, accept_sparse=True)
 
@@ -177,13 +185,19 @@ class _MultiOutputEstimator(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta
         if sample_weight is not None and not has_fit_parameter(
             self.estimator, "sample_weight"
         ):
-            raise ValueError("Underlying estimator does not support" " sample weights.")
+            raise ValueError(
+                "Underlying estimator does not support" " sample weights."
+            )
 
         fit_params_validated = _check_fit_params(X, fit_params)
 
         self.estimators_ = Parallel(n_jobs=self.n_jobs)(
             delayed(_fit_estimator)(
-                self.estimator, X, y[:, i], sample_weight, **fit_params_validated
+                self.estimator,
+                X,
+                y[:, i],
+                sample_weight,
+                **fit_params_validated,
             )
             for i in range(y.shape[1])
         )
@@ -206,7 +220,9 @@ class _MultiOutputEstimator(MetaEstimatorMixin, BaseEstimator, metaclass=ABCMeta
         """
         check_is_fitted(self)
         if not hasattr(self.estimator, "predict"):
-            raise ValueError("The base estimator should implement" " a predict method")
+            raise ValueError(
+                "The base estimator should implement" " a predict method"
+            )
 
         X = check_array(X, accept_sparse=True)
 
@@ -392,7 +408,10 @@ class MultiOutputClassifier(ClassifierMixin, _MultiOutputEstimator):
         """
         check_is_fitted(self)
         if not all(
-            [hasattr(estimator, "predict_proba") for estimator in self.estimators_]
+            [
+                hasattr(estimator, "predict_proba")
+                for estimator in self.estimators_
+            ]
         ):
             raise AttributeError(
                 "The base estimator should " "implement predict_proba method"
@@ -441,7 +460,9 @@ class MultiOutputClassifier(ClassifierMixin, _MultiOutputEstimator):
 
 class _BaseChain(BaseEstimator, metaclass=ABCMeta):
     @_deprecate_positional_args
-    def __init__(self, base_estimator, *, order=None, cv=None, random_state=None):
+    def __init__(
+        self, base_estimator, *, order=None, cv=None, random_state=None
+    ):
         self.base_estimator = base_estimator
         self.order = order
         self.cv = cv
@@ -477,7 +498,9 @@ class _BaseChain(BaseEstimator, metaclass=ABCMeta):
         elif sorted(self.order_) != list(range(Y.shape[1])):
             raise ValueError("invalid order")
 
-        self.estimators_ = [clone(self.base_estimator) for _ in range(Y.shape[1])]
+        self.estimators_ = [
+            clone(self.base_estimator) for _ in range(Y.shape[1])
+        ]
 
         if self.cv is None:
             Y_pred_chain = Y[:, self.order_]
@@ -662,7 +685,8 @@ class ClassifierChain(MetaEstimatorMixin, ClassifierMixin, _BaseChain):
         """
         super().fit(X, Y)
         self.classes_ = [
-            estimator.classes_ for chain_idx, estimator in enumerate(self.estimators_)
+            estimator.classes_
+            for chain_idx, estimator in enumerate(self.estimators_)
         ]
         return self
 

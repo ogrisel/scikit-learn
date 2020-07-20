@@ -168,7 +168,10 @@ class _BinMapper(TransformerMixin, BaseEstimator):
         X = check_array(X, dtype=[X_DTYPE], force_all_finite=False)
         max_bins = self.n_bins - 1
         self.bin_thresholds_ = _find_binning_thresholds(
-            X, max_bins, subsample=self.subsample, random_state=self.random_state
+            X,
+            max_bins,
+            subsample=self.subsample,
+            random_state=self.random_state,
         )
 
         self.n_bins_non_missing_ = np.array(
@@ -200,8 +203,12 @@ class _BinMapper(TransformerMixin, BaseEstimator):
         if X.shape[1] != self.n_bins_non_missing_.shape[0]:
             raise ValueError(
                 "This estimator was fitted with {} features but {} got passed "
-                "to transform()".format(self.n_bins_non_missing_.shape[0], X.shape[1])
+                "to transform()".format(
+                    self.n_bins_non_missing_.shape[0], X.shape[1]
+                )
             )
         binned = np.zeros_like(X, dtype=X_BINNED_DTYPE, order="F")
-        _map_to_bins(X, self.bin_thresholds_, self.missing_values_bin_idx_, binned)
+        _map_to_bins(
+            X, self.bin_thresholds_, self.missing_values_bin_idx_, binned
+        )
         return binned

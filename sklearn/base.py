@@ -94,7 +94,8 @@ def clone(estimator, *, safe=True):
         if param1 is not param2:
             raise RuntimeError(
                 "Cannot clone object %s, as the constructor "
-                "either does not set or modifies parameter %s" % (estimator, name)
+                "either does not set or modifies parameter %s"
+                % (estimator, name)
             )
     return new_object
 

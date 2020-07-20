@@ -68,11 +68,15 @@ def compile_test_program(code, extra_preargs=[], extra_postargs=[]):
 
             # Compile, test program
             ccompiler.compile(
-                ["test_program.c"], output_dir="objects", extra_postargs=extra_postargs
+                ["test_program.c"],
+                output_dir="objects",
+                extra_postargs=extra_postargs,
             )
 
             # Link test program
-            objects = glob.glob(os.path.join("objects", "*" + ccompiler.obj_extension))
+            objects = glob.glob(
+                os.path.join("objects", "*" + ccompiler.obj_extension)
+            )
             ccompiler.link_executable(
                 objects,
                 "test_program",

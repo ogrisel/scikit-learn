@@ -29,7 +29,9 @@ logger = logging.getLogger(__name__)
 ARCHIVE = RemoteFileMetadata(
     filename="lfw.tgz",
     url="https://ndownloader.figshare.com/files/5976018",
-    checksum=("055f7d9c632d7370e6fb4afc7468d40f" "970c34a80d4c6f50ffec63f5a8d536c0"),
+    checksum=(
+        "055f7d9c632d7370e6fb4afc7468d40f" "970c34a80d4c6f50ffec63f5a8d536c0"
+    ),
 )
 
 # The original funneled data can be found in:
@@ -37,7 +39,9 @@ ARCHIVE = RemoteFileMetadata(
 FUNNELED_ARCHIVE = RemoteFileMetadata(
     filename="lfw-funneled.tgz",
     url="https://ndownloader.figshare.com/files/5976015",
-    checksum=("b47c8422c8cded889dc5a13418c4bc2a" "bbda121092b3533a83306f90d900100a"),
+    checksum=(
+        "b47c8422c8cded889dc5a13418c4bc2a" "bbda121092b3533a83306f90d900100a"
+    ),
 )
 
 # The original target data can be found in:
@@ -49,21 +53,24 @@ TARGETS = (
         filename="pairsDevTrain.txt",
         url="https://ndownloader.figshare.com/files/5976012",
         checksum=(
-            "1d454dada7dfeca0e7eab6f65dc4e97a" "6312d44cf142207be28d688be92aabfa"
+            "1d454dada7dfeca0e7eab6f65dc4e97a"
+            "6312d44cf142207be28d688be92aabfa"
         ),
     ),
     RemoteFileMetadata(
         filename="pairsDevTest.txt",
         url="https://ndownloader.figshare.com/files/5976009",
         checksum=(
-            "7cb06600ea8b2814ac26e946201cdb30" "4296262aad67d046a16a7ec85d0ff87c"
+            "7cb06600ea8b2814ac26e946201cdb30"
+            "4296262aad67d046a16a7ec85d0ff87c"
         ),
     ),
     RemoteFileMetadata(
         filename="pairs.txt",
         url="https://ndownloader.figshare.com/files/5976006",
         checksum=(
-            "ea42330c62c92989f9d7c03237ed5d59" "1365e89b3e649747777b70e692dc1592"
+            "ea42330c62c92989f9d7c03237ed5d59"
+            "1365e89b3e649747777b70e692dc1592"
         ),
     ),
 )
@@ -182,7 +189,11 @@ def _load_imgs(file_paths, slice_, color, resize):
 
 
 def _fetch_lfw_people(
-    data_folder_path, slice_=None, color=False, resize=None, min_faces_per_person=0
+    data_folder_path,
+    slice_=None,
+    color=False,
+    resize=None,
+    min_faces_per_person=0,
 ):
     """Perform the actual data loading for the lfw people dataset
 
@@ -313,7 +324,9 @@ def fetch_lfw_people(
 
     """
     lfw_home, data_folder_path = _check_fetch_lfw(
-        data_home=data_home, funneled=funneled, download_if_missing=download_if_missing
+        data_home=data_home,
+        funneled=funneled,
+        download_if_missing=download_if_missing,
     )
     logger.debug("Loading LFW people faces from %s", lfw_home)
 
@@ -346,7 +359,11 @@ def fetch_lfw_people(
 
     # pack the results as a Bunch instance
     return Bunch(
-        data=X, images=faces, target=target, target_names=target_names, DESCR=fdescr
+        data=X,
+        images=faces,
+        target=target,
+        target_names=target_names,
+        DESCR=fdescr,
     )
 
 
@@ -497,7 +514,9 @@ def fetch_lfw_pairs(
 
     """
     lfw_home, data_folder_path = _check_fetch_lfw(
-        data_home=data_home, funneled=funneled, download_if_missing=download_if_missing
+        data_home=data_home,
+        funneled=funneled,
+        download_if_missing=download_if_missing,
     )
     logger.debug("Loading %s LFW pairs from %s", subset, lfw_home)
 
@@ -525,7 +544,11 @@ def fetch_lfw_pairs(
 
     # load and memoize the pairs as np arrays
     pairs, target, target_names = load_func(
-        index_file_path, data_folder_path, resize=resize, color=color, slice_=slice_
+        index_file_path,
+        data_folder_path,
+        resize=resize,
+        color=color,
+        slice_=slice_,
     )
 
     module_path = dirname(__file__)

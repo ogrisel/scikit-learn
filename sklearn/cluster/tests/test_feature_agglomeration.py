@@ -12,8 +12,12 @@ def test_feature_agglomeration():
     n_clusters = 1
     X = np.array([0, 0, 1]).reshape(1, 3)  # (n_samples, n_features)
 
-    agglo_mean = FeatureAgglomeration(n_clusters=n_clusters, pooling_func=np.mean)
-    agglo_median = FeatureAgglomeration(n_clusters=n_clusters, pooling_func=np.median)
+    agglo_mean = FeatureAgglomeration(
+        n_clusters=n_clusters, pooling_func=np.mean
+    )
+    agglo_median = FeatureAgglomeration(
+        n_clusters=n_clusters, pooling_func=np.median
+    )
     assert_no_warnings(agglo_mean.fit, X)
     assert_no_warnings(agglo_median.fit, X)
     assert np.size(np.unique(agglo_mean.labels_)) == n_clusters

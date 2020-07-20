@@ -161,7 +161,9 @@ def test_unique_labels():
         unique_labels(np.array([[0, 0, 1], [1, 0, 1], [0, 0, 0]])), np.arange(3)
     )
 
-    assert_array_equal(unique_labels(np.array([[0, 0, 1], [0, 0, 0]])), np.arange(3))
+    assert_array_equal(
+        unique_labels(np.array([[0, 0, 1], [0, 0, 0]])), np.arange(3)
+    )
 
     # Several arrays passed
     assert_array_equal(unique_labels([4, 0, 2], range(5)), np.arange(5))
@@ -173,7 +175,9 @@ def test_unique_labels():
     with pytest.raises(ValueError):
         unique_labels(np.ones((5, 4)), np.ones((5, 5)))
 
-    assert_array_equal(unique_labels(np.ones((4, 5)), np.ones((5, 5))), np.arange(5))
+    assert_array_equal(
+        unique_labels(np.ones((4, 5)), np.ones((5, 5))), np.arange(5)
+    )
 
 
 def test_unique_labels_non_specific():
@@ -203,7 +207,8 @@ def test_unique_labels_non_specific():
 def test_unique_labels_mixed_types():
     # Mix with binary or multiclass and multilabel
     mix_clf_format = product(
-        EXAMPLES["multilabel-indicator"], EXAMPLES["multiclass"] + EXAMPLES["binary"]
+        EXAMPLES["multilabel-indicator"],
+        EXAMPLES["multiclass"] + EXAMPLES["binary"],
     )
 
     for y_multilabel, y_multiclass in mix_clf_format:
@@ -257,9 +262,10 @@ def test_is_multilabel():
                     ]
                 ]
                 for exmpl_sparse in examples_sparse:
-                    assert sparse_exp == is_multilabel(
-                        exmpl_sparse
-                    ), "is_multilabel(%r) should be %s" % (exmpl_sparse, sparse_exp)
+                    assert sparse_exp == is_multilabel(exmpl_sparse), (
+                        "is_multilabel(%r) should be %s"
+                        % (exmpl_sparse, sparse_exp)
+                    )
 
             # Densify sparse examples before testing
             if issparse(example):
@@ -341,7 +347,12 @@ def test_class_distribution():
     classes_sp, n_classes_sp, class_prior_sp = class_distribution(y_sp)
     classes_expected = [[1, 2, 4], [0, 2, 3], [0], [1]]
     n_classes_expected = [3, 3, 1, 1]
-    class_prior_expected = [[3 / 6, 2 / 6, 1 / 6], [1 / 3, 1 / 3, 1 / 3], [1.0], [1.0]]
+    class_prior_expected = [
+        [3 / 6, 2 / 6, 1 / 6],
+        [1 / 3, 1 / 3, 1 / 3],
+        [1.0],
+        [1.0],
+    ]
 
     for k in range(y.shape[1]):
         assert_array_almost_equal(classes[k], classes_expected[k])
@@ -359,7 +370,12 @@ def test_class_distribution():
     (classes_sp, n_classes_sp, class_prior_sp) = class_distribution(
         y, [1.0, 2.0, 1.0, 2.0, 1.0, 2.0]
     )
-    class_prior_expected = [[4 / 9, 3 / 9, 2 / 9], [2 / 9, 4 / 9, 3 / 9], [1.0], [1.0]]
+    class_prior_expected = [
+        [4 / 9, 3 / 9, 2 / 9],
+        [2 / 9, 4 / 9, 3 / 9],
+        [1.0],
+        [1.0],
+    ]
 
     for k in range(y.shape[1]):
         assert_array_almost_equal(classes[k], classes_expected[k])
@@ -399,7 +415,12 @@ def test_ovr_decision_function():
     predictions = np.array([[0, 1, 1], [0, 1, 0], [0, 1, 1], [0, 1, 1]])
 
     confidences = np.array(
-        [[-1e16, 0, -1e16], [1.0, 2.0, -3.0], [-5.0, 2.0, 5.0], [-0.5, 0.2, 0.5]]
+        [
+            [-1e16, 0, -1e16],
+            [1.0, 2.0, -3.0],
+            [-5.0, 2.0, 5.0],
+            [-0.5, 0.2, 0.5],
+        ]
     )
 
     n_classes = 3

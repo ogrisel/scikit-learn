@@ -244,7 +244,12 @@ class AdamOptimizer(BaseOptimizer):
     """
 
     def __init__(
-        self, params, learning_rate_init=0.001, beta_1=0.9, beta_2=0.999, epsilon=1e-8
+        self,
+        params,
+        learning_rate_init=0.001,
+        beta_1=0.9,
+        beta_2=0.999,
+        epsilon=1e-8,
     ):
         super().__init__(params, learning_rate_init)
 

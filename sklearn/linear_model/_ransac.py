@@ -289,7 +289,9 @@ class RANSACRegressor(
                 )
             min_samples = self.min_samples
         else:
-            raise ValueError("Value for `min_samples` must be scalar and " "positive.")
+            raise ValueError(
+                "Value for `min_samples` must be scalar and " "positive."
+            )
         if min_samples > X.shape[0]:
             raise ValueError(
                 "`min_samples` may not be larger than number "
@@ -424,7 +426,9 @@ class RANSACRegressor(
             y_inlier_subset = y[inlier_idxs_subset]
 
             # score of inlier data set
-            score_subset = base_estimator.score(X_inlier_subset, y_inlier_subset)
+            score_subset = base_estimator.score(
+                X_inlier_subset, y_inlier_subset
+            )
 
             # same number of inliers but worse score -> skip current random
             # sample
@@ -442,12 +446,18 @@ class RANSACRegressor(
             max_trials = min(
                 max_trials,
                 _dynamic_max_trials(
-                    n_inliers_best, n_samples, min_samples, self.stop_probability
+                    n_inliers_best,
+                    n_samples,
+                    min_samples,
+                    self.stop_probability,
                 ),
             )
 
             # break if sufficient number of inliers or score is reached
-            if n_inliers_best >= self.stop_n_inliers or score_best >= self.stop_score:
+            if (
+                n_inliers_best >= self.stop_n_inliers
+                or score_best >= self.stop_score
+            ):
                 break
 
         # if none of the iterations met the required criteria

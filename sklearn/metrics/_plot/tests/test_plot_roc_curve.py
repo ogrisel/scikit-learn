@@ -55,7 +55,8 @@ def test_plot_roc_curve_error_non_binary(pyplot, data):
         ),
         (
             "decision_function",
-            "response method decision_function is not defined " "in MyClassifier",
+            "response method decision_function is not defined "
+            "in MyClassifier",
         ),
         (
             "auto",
@@ -64,11 +65,14 @@ def test_plot_roc_curve_error_non_binary(pyplot, data):
         ),
         (
             "bad_method",
-            "response_method must be 'predict_proba', " "'decision_function' or 'auto'",
+            "response_method must be 'predict_proba', "
+            "'decision_function' or 'auto'",
         ),
     ],
 )
-def test_plot_roc_curve_error_no_response(pyplot, data_binary, response_method, msg):
+def test_plot_roc_curve_error_no_response(
+    pyplot, data_binary, response_method, msg
+):
     X, y = data_binary
 
     class MyClassifier(ClassifierMixin):
@@ -82,7 +86,9 @@ def test_plot_roc_curve_error_no_response(pyplot, data_binary, response_method, 
         plot_roc_curve(clf, X, y, response_method=response_method)
 
 
-@pytest.mark.parametrize("response_method", ["predict_proba", "decision_function"])
+@pytest.mark.parametrize(
+    "response_method", ["predict_proba", "decision_function"]
+)
 @pytest.mark.parametrize("with_sample_weight", [True, False])
 @pytest.mark.parametrize("drop_intermediate", [True, False])
 @pytest.mark.parametrize("with_strings", [True, False])
@@ -149,8 +155,12 @@ def test_plot_roc_curve(
     assert viz.line_.get_label() == expected_label
 
     expected_pos_label = 1 if pos_label is None else pos_label
-    expected_ylabel = f"True Positive Rate (Positive label: " f"{expected_pos_label})"
-    expected_xlabel = f"False Positive Rate (Positive label: " f"{expected_pos_label})"
+    expected_ylabel = (
+        f"True Positive Rate (Positive label: " f"{expected_pos_label})"
+    )
+    expected_xlabel = (
+        f"False Positive Rate (Positive label: " f"{expected_pos_label})"
+    )
 
     assert viz.ax_.get_ylabel() == expected_ylabel
     assert viz.ax_.get_xlabel() == expected_xlabel
@@ -162,7 +172,8 @@ def test_plot_roc_curve(
         LogisticRegression(),
         make_pipeline(StandardScaler(), LogisticRegression()),
         make_pipeline(
-            make_column_transformer((StandardScaler(), [0, 1])), LogisticRegression()
+            make_column_transformer((StandardScaler(), [0, 1])),
+            LogisticRegression(),
         ),
     ],
 )
@@ -210,7 +221,9 @@ def test_default_labels(pyplot, roc_auc, estimator_name, expected_label):
     assert disp.line_.get_label() == expected_label
 
 
-@pytest.mark.parametrize("response_method", ["predict_proba", "decision_function"])
+@pytest.mark.parametrize(
+    "response_method", ["predict_proba", "decision_function"]
+)
 def test_plot_roc_curve_pos_label(pyplot, response_method):
     # check that we can provide the positive label and display the proper
     # statistics
@@ -223,7 +236,9 @@ def test_plot_roc_curve_pos_label(pyplot, response_method):
     X, y = shuffle(X, y, random_state=42)
     # only use 2 features to make the problem even harder
     X = X[:, :2]
-    y = np.array(["cancer" if c == 1 else "not cancer" for c in y], dtype=object)
+    y = np.array(
+        ["cancer" if c == 1 else "not cancer" for c in y], dtype=object
+    )
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, stratify=y, random_state=0,
     )
@@ -236,7 +251,11 @@ def test_plot_roc_curve_pos_label(pyplot, response_method):
     assert classifier.classes_.tolist() == ["cancer", "not cancer"]
 
     disp = plot_roc_curve(
-        classifier, X_test, y_test, pos_label="cancer", response_method=response_method
+        classifier,
+        X_test,
+        y_test,
+        pos_label="cancer",
+        response_method=response_method,
     )
 
     roc_auc_limit = 0.95679
@@ -244,7 +263,9 @@ def test_plot_roc_curve_pos_label(pyplot, response_method):
     assert disp.roc_auc == pytest.approx(roc_auc_limit)
     assert np.trapz(disp.tpr, disp.fpr) == pytest.approx(roc_auc_limit)
 
-    disp = plot_roc_curve(classifier, X_test, y_test, response_method=response_method,)
+    disp = plot_roc_curve(
+        classifier, X_test, y_test, response_method=response_method,
+    )
 
     assert disp.roc_auc == pytest.approx(roc_auc_limit)
     assert np.trapz(disp.tpr, disp.fpr) == pytest.approx(roc_auc_limit)

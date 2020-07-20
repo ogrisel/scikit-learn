@@ -223,7 +223,10 @@ class GeneralizedLinearRegressor(BaseEstimator, RegressorMixin):
                 "'lbfgs'; got {0}".format(self.solver)
             )
         solver = self.solver
-        if not isinstance(self.max_iter, numbers.Integral) or self.max_iter <= 0:
+        if (
+            not isinstance(self.max_iter, numbers.Integral)
+            or self.max_iter <= 0
+        ):
             raise ValueError(
                 "Maximum number of iteration must be a positive "
                 "integer;"
@@ -749,5 +752,6 @@ class TweedieRegressor(GeneralizedLinearRegressor):
             self.power = value.power
         else:
             raise TypeError(
-                "TweedieRegressor.family must be of type " "TweedieDistribution!"
+                "TweedieRegressor.family must be of type "
+                "TweedieDistribution!"
             )

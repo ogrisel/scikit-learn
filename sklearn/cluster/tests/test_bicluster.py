@@ -70,7 +70,9 @@ def test_spectral_coclustering():
         "n_init": [10],
     }
     random_state = 0
-    S, rows, cols = make_biclusters((30, 30), 3, noise=0.5, random_state=random_state)
+    S, rows, cols = make_biclusters(
+        (30, 30), 3, noise=0.5, random_state=random_state
+    )
     S -= S.min()  # needs to be nonnegative before making it sparse
     S = np.where(S < 1, 0, S)  # threshold some values
     for mat in (S, csr_matrix(S)):
@@ -139,7 +141,9 @@ def _do_scale_test(scaled):
 def _do_bistochastic_test(scaled):
     """Check that rows and columns sum to the same constant."""
     _do_scale_test(scaled)
-    assert_almost_equal(scaled.sum(axis=0).mean(), scaled.sum(axis=1).mean(), decimal=1)
+    assert_almost_equal(
+        scaled.sum(axis=0).mean(), scaled.sum(axis=1).mean(), decimal=1
+    )
 
 
 def test_scale_normalize():
@@ -173,7 +177,9 @@ def test_log_normalize():
 
 def test_fit_best_piecewise():
     model = SpectralBiclustering(random_state=0)
-    vectors = np.array([[0, 0, 0, 1, 1, 1], [2, 2, 2, 3, 3, 3], [0, 1, 2, 3, 4, 5]])
+    vectors = np.array(
+        [[0, 0, 0, 1, 1, 1], [2, 2, 2, 3, 3, 3], [0, 1, 2, 3, 4, 5]]
+    )
     best = model._fit_best_piecewise(vectors, n_best=2, n_clusters=2)
     assert_array_equal(best, vectors[:2])
 
@@ -232,7 +238,9 @@ def test_wrong_shape():
         model.fit(data)
 
 
-@pytest.mark.parametrize("est", (SpectralBiclustering(), SpectralCoclustering()))
+@pytest.mark.parametrize(
+    "est", (SpectralBiclustering(), SpectralCoclustering())
+)
 def test_n_features_in_(est):
 
     X, _, _ = make_biclusters((3, 3), 3, random_state=0)
@@ -246,7 +254,10 @@ def test_n_features_in_(est):
 @pytest.mark.parametrize("n_jobs", [None, 1])
 def test_n_jobs_deprecated(klass, n_jobs):
     # FIXME: remove in 0.25
-    depr_msg = "'n_jobs' was deprecated in version 0.23 and will be removed " "in 0.25."
+    depr_msg = (
+        "'n_jobs' was deprecated in version 0.23 and will be removed "
+        "in 0.25."
+    )
     S, _, _ = make_biclusters((30, 30), 3, noise=0.5, random_state=0)
     est = klass(random_state=0, n_jobs=n_jobs)
 

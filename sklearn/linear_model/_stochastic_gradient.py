@@ -56,7 +56,9 @@ MAX_INT = np.iinfo(np.int32).max
 class _ValidationScoreCallback:
     """Callback for early stopping based on validation score"""
 
-    def __init__(self, estimator, X_val, y_val, sample_weight_val, classes=None):
+    def __init__(
+        self, estimator, X_val, y_val, sample_weight_val, classes=None
+    ):
         self.estimator = clone(estimator)
         self.estimator.t_ = 1  # to pass check_is_fitted
         if classes is not None:
@@ -185,7 +187,11 @@ class BaseSGD(SparseCoefMixin, BaseEstimator, metaclass=ABCMeta):
         try:
             loss_ = self.loss_functions[loss]
             loss_class, args = loss_[0], loss_[1:]
-            if loss in ("huber", "epsilon_insensitive", "squared_epsilon_insensitive"):
+            if loss in (
+                "huber",
+                "epsilon_insensitive",
+                "squared_epsilon_insensitive",
+            ):
                 args = (self.epsilon,)
             return loss_class(*args)
         except KeyError:
@@ -195,7 +201,9 @@ class BaseSGD(SparseCoefMixin, BaseEstimator, metaclass=ABCMeta):
         try:
             return LEARNING_RATE_TYPES[learning_rate]
         except KeyError:
-            raise ValueError("learning rate %s " "is not supported. " % learning_rate)
+            raise ValueError(
+                "learning rate %s " "is not supported. " % learning_rate
+            )
 
     def _get_penalty_type(self, penalty):
         penalty = str(penalty).lower()
@@ -213,7 +221,9 @@ class BaseSGD(SparseCoefMixin, BaseEstimator, metaclass=ABCMeta):
             if coef_init is not None:
                 coef_init = np.asarray(coef_init, order="C")
                 if coef_init.shape != (n_classes, n_features):
-                    raise ValueError("Provided ``coef_`` does not match " "dataset. ")
+                    raise ValueError(
+                        "Provided ``coef_`` does not match " "dataset. "
+                    )
                 self.coef_ = coef_init
             else:
                 self.coef_ = np.zeros(
@@ -229,14 +239,18 @@ class BaseSGD(SparseCoefMixin, BaseEstimator, metaclass=ABCMeta):
                     )
                 self.intercept_ = intercept_init
             else:
-                self.intercept_ = np.zeros(n_classes, dtype=np.float64, order="C")
+                self.intercept_ = np.zeros(
+                    n_classes, dtype=np.float64, order="C"
+                )
         else:
             # allocate coef_ for binary problem
             if coef_init is not None:
                 coef_init = np.asarray(coef_init, dtype=np.float64, order="C")
                 coef_init = coef_init.ravel()
                 if coef_init.shape != (n_features,):
-                    raise ValueError("Provided coef_init does not " "match dataset.")
+                    raise ValueError(
+                        "Provided coef_init does not " "match dataset."
+                    )
                 self.coef_ = coef_init
             else:
                 self.coef_ = np.zeros(n_features, dtype=np.float64, order="C")
@@ -256,7 +270,9 @@ class BaseSGD(SparseCoefMixin, BaseEstimator, metaclass=ABCMeta):
         if self.average > 0:
             self._standard_coef = self.coef_
             self._standard_intercept = self.intercept_
-            self._average_coef = np.zeros(self.coef_.shape, dtype=np.float64, order="C")
+            self._average_coef = np.zeros(
+                self.coef_.shape, dtype=np.float64, order="C"
+            )
             self._average_intercept = np.zeros(
                 self._standard_intercept.shape, dtype=np.float64, order="C"
             )
@@ -532,7 +548,10 @@ class BaseSGDClassifier(LinearClassifierMixin, BaseSGD, metaclass=ABCMeta):
         "squared_loss": (SquaredLoss,),
         "huber": (Huber, DEFAULT_EPSILON),
         "epsilon_insensitive": (EpsilonInsensitive, DEFAULT_EPSILON),
-        "squared_epsilon_insensitive": (SquaredEpsilonInsensitive, DEFAULT_EPSILON),
+        "squared_epsilon_insensitive": (
+            SquaredEpsilonInsensitive,
+            DEFAULT_EPSILON,
+        ),
     }
 
     @abstractmethod
@@ -739,7 +758,9 @@ class BaseSGDClassifier(LinearClassifierMixin, BaseSGD, metaclass=ABCMeta):
             )
         return self
 
-    def _fit_binary(self, X, y, alpha, C, sample_weight, learning_rate, max_iter):
+    def _fit_binary(
+        self, X, y, alpha, C, sample_weight, learning_rate, max_iter
+    ):
         """Fit a binary classifier on X and y. """
         coef, intercept, n_iter_ = fit_binary(
             self,
@@ -773,7 +794,9 @@ class BaseSGDClassifier(LinearClassifierMixin, BaseSGD, metaclass=ABCMeta):
             # intercept is a float, need to convert it to an array of length 1
             self.intercept_ = np.atleast_1d(intercept)
 
-    def _fit_multiclass(self, X, y, alpha, C, learning_rate, sample_weight, max_iter):
+    def _fit_multiclass(
+        self, X, y, alpha, C, learning_rate, sample_weight, max_iter
+    ):
         """Fit a multi-class classifier by combining binary classifiers
 
         Each binary classifier predicts one class versus all others. This
@@ -890,7 +913,9 @@ class BaseSGDClassifier(LinearClassifierMixin, BaseSGD, metaclass=ABCMeta):
             intercept_init=None,
         )
 
-    def fit(self, X, y, coef_init=None, intercept_init=None, sample_weight=None):
+    def fit(
+        self, X, y, coef_init=None, intercept_init=None, sample_weight=None
+    ):
         """Fit linear model with Stochastic Gradient Descent.
 
         Parameters
@@ -1216,7 +1241,8 @@ class SGDClassifier(BaseSGDClassifier):
     def _check_proba(self):
         if self.loss not in ("log", "modified_huber"):
             raise AttributeError(
-                "probability estimates are not available for" " loss=%r" % self.loss
+                "probability estimates are not available for"
+                " loss=%r" % self.loss
             )
 
     @property
@@ -1347,7 +1373,10 @@ class BaseSGDRegressor(RegressorMixin, BaseSGD):
         "squared_loss": (SquaredLoss,),
         "huber": (Huber, DEFAULT_EPSILON),
         "epsilon_insensitive": (EpsilonInsensitive, DEFAULT_EPSILON),
-        "squared_epsilon_insensitive": (SquaredEpsilonInsensitive, DEFAULT_EPSILON),
+        "squared_epsilon_insensitive": (
+            SquaredEpsilonInsensitive,
+            DEFAULT_EPSILON,
+        ),
     }
 
     @abstractmethod
@@ -1427,14 +1456,18 @@ class BaseSGDRegressor(RegressorMixin, BaseSGD):
 
         # Allocate datastructures from input arguments
         if getattr(self, "coef_", None) is None:
-            self._allocate_parameter_mem(1, n_features, coef_init, intercept_init)
+            self._allocate_parameter_mem(
+                1, n_features, coef_init, intercept_init
+            )
         elif n_features != self.coef_.shape[-1]:
             raise ValueError(
                 "Number of features %d does not match previous "
                 "data %d." % (n_features, self.coef_.shape[-1])
             )
         if self.average > 0 and getattr(self, "_average_coef", None) is None:
-            self._average_coef = np.zeros(n_features, dtype=np.float64, order="C")
+            self._average_coef = np.zeros(
+                n_features, dtype=np.float64, order="C"
+            )
             self._average_intercept = np.zeros(1, dtype=np.float64, order="C")
 
         self._fit_regressor(
@@ -1533,7 +1566,9 @@ class BaseSGDRegressor(RegressorMixin, BaseSGD):
 
         return self
 
-    def fit(self, X, y, coef_init=None, intercept_init=None, sample_weight=None):
+    def fit(
+        self, X, y, coef_init=None, intercept_init=None, sample_weight=None
+    ):
         """Fit linear model with Stochastic Gradient Descent.
 
         Parameters
@@ -1585,7 +1620,10 @@ class BaseSGDRegressor(RegressorMixin, BaseSGD):
 
         X = check_array(X, accept_sparse="csr")
 
-        scores = safe_sparse_dot(X, self.coef_.T, dense_output=True) + self.intercept_
+        scores = (
+            safe_sparse_dot(X, self.coef_.T, dense_output=True)
+            + self.intercept_
+        )
         return scores.ravel()
 
     def predict(self, X):
@@ -1637,7 +1675,13 @@ class BaseSGDRegressor(RegressorMixin, BaseSGD):
             average_coef = None  # Not used
             average_intercept = [0]  # Not used
 
-        coef, intercept, average_coef, average_intercept, self.n_iter_ = _plain_sgd(
+        (
+            coef,
+            intercept,
+            average_coef,
+            average_intercept,
+            self.n_iter_,
+        ) = _plain_sgd(
             coef,
             intercept[0],
             average_coef,

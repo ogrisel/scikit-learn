@@ -49,12 +49,16 @@ def _one_vs_one_coef(dual_coef, n_support, support_vectors):
             sv2 = support_vectors[sv_locs[class2] : sv_locs[class2 + 1], :]
 
             # dual coef for class1 SVs:
-            alpha1 = dual_coef[class2 - 1, sv_locs[class1] : sv_locs[class1 + 1]]
+            alpha1 = dual_coef[
+                class2 - 1, sv_locs[class1] : sv_locs[class1 + 1]
+            ]
             # dual coef for class2 SVs:
             alpha2 = dual_coef[class1, sv_locs[class2] : sv_locs[class2 + 1]]
             # build weight for class1 vs class2
 
-            coef.append(safe_sparse_dot(alpha1, sv1) + safe_sparse_dot(alpha2, sv2))
+            coef.append(
+                safe_sparse_dot(alpha1, sv1) + safe_sparse_dot(alpha2, sv2)
+            )
     return coef
 
 
@@ -93,7 +97,8 @@ class BaseLibSVM(BaseEstimator, metaclass=ABCMeta):
 
         if self._impl not in LIBSVM_IMPL:
             raise ValueError(
-                "impl should be one of %s, %s was given" % (LIBSVM_IMPL, self._impl)
+                "impl should be one of %s, %s was given"
+                % (LIBSVM_IMPL, self._impl)
             )
 
         if gamma == 0:
@@ -222,7 +227,11 @@ class BaseLibSVM(BaseEstimator, metaclass=ABCMeta):
         elif isinstance(self.gamma, str):
             if self.gamma == "scale":
                 # var = E[X^2] - E[X]^2 if sparse
-                X_var = (X.multiply(X)).mean() - (X.mean()) ** 2 if sparse else X.var()
+                X_var = (
+                    (X.multiply(X)).mean() - (X.mean()) ** 2
+                    if sparse
+                    else X.var()
+                )
                 self._gamma = 1.0 / (X.shape[1] * X_var) if X_var != 0 else 1.0
             elif self.gamma == "auto":
                 self._gamma = 1.0 / X.shape[1]
@@ -321,7 +330,9 @@ class BaseLibSVM(BaseEstimator, metaclass=ABCMeta):
 
         self._warn_from_fit_status()
 
-    def _sparse_fit(self, X, y, sample_weight, solver_type, kernel, random_seed):
+    def _sparse_fit(
+        self, X, y, sample_weight, solver_type, kernel, random_seed
+    ):
         X.data = np.asarray(X.data, dtype=np.float64, order="C")
         X.sort_indices()
 
@@ -378,7 +389,8 @@ class BaseLibSVM(BaseEstimator, metaclass=ABCMeta):
                 0, dual_coef_indices.size + 1, dual_coef_indices.size / n_class
             )
             self.dual_coef_ = sp.csr_matrix(
-                (dual_coef_data, dual_coef_indices, dual_coef_indptr), (n_class, n_SV)
+                (dual_coef_data, dual_coef_indices, dual_coef_indptr),
+                (n_class, n_SV),
             )
 
     def predict(self, X):
@@ -512,7 +524,9 @@ class BaseLibSVM(BaseEstimator, metaclass=ABCMeta):
         return dec_func
 
     def _dense_decision_function(self, X):
-        X = check_array(X, dtype=np.float64, order="C", accept_large_sparse=False)
+        X = check_array(
+            X, dtype=np.float64, order="C", accept_large_sparse=False
+        )
 
         kernel = self.kernel
         if callable(kernel):
@@ -693,7 +707,9 @@ class BaseSVC(ClassifierMixin, BaseLibSVM, metaclass=ABCMeta):
         y_ = column_or_1d(y, warn=True)
         check_classification_targets(y)
         cls, y = np.unique(y_, return_inverse=True)
-        self.class_weight_ = compute_class_weight(self.class_weight, classes=cls, y=y_)
+        self.class_weight_ = compute_class_weight(
+            self.class_weight, classes=cls, y=y_
+        )
         if len(cls) < 2:
             raise ValueError(
                 "The number of classes has to be greater than one; got %d"
@@ -755,7 +771,8 @@ class BaseSVC(ClassifierMixin, BaseLibSVM, metaclass=ABCMeta):
         check_is_fitted(self)
         if self.break_ties and self.decision_function_shape == "ovo":
             raise ValueError(
-                "break_ties must be False when " "decision_function_shape is 'ovo'"
+                "break_ties must be False when "
+                "decision_function_shape is 'ovo'"
             )
 
         if (
@@ -778,7 +795,9 @@ class BaseSVC(ClassifierMixin, BaseLibSVM, metaclass=ABCMeta):
                 "predict_proba is not available when " " probability=False"
             )
         if self._impl not in ("c_svc", "nu_svc"):
-            raise AttributeError("predict_proba only implemented for SVC" " and NuSVC")
+            raise AttributeError(
+                "predict_proba only implemented for SVC" " and NuSVC"
+            )
 
     @property
     def predict_proba(self):
@@ -814,10 +833,13 @@ class BaseSVC(ClassifierMixin, BaseLibSVM, metaclass=ABCMeta):
         X = self._validate_for_predict(X)
         if self.probA_.size == 0 or self.probB_.size == 0:
             raise NotFittedError(
-                "predict_proba is not available when fitted " "with probability=False"
+                "predict_proba is not available when fitted "
+                "with probability=False"
             )
         pred_proba = (
-            self._sparse_predict_proba if self._sparse else self._dense_predict_proba
+            self._sparse_predict_proba
+            if self._sparse
+            else self._dense_predict_proba
         )
         return pred_proba(X)
 
@@ -990,13 +1012,15 @@ def _get_liblinear_solver_type(multi_class, penalty, loss, dual):
             if solver_num is None:
                 error_string = (
                     "The combination of penalty='%s' and "
-                    "loss='%s' are not supported when dual=%s" % (penalty, loss, dual)
+                    "loss='%s' are not supported when dual=%s"
+                    % (penalty, loss, dual)
                 )
             else:
                 return solver_num
     raise ValueError(
         "Unsupported set of arguments: %s, "
-        "Parameters: penalty=%r, loss=%r, dual=%r" % (error_string, penalty, loss, dual)
+        "Parameters: penalty=%r, loss=%r, dual=%r"
+        % (error_string, penalty, loss, dual)
     )
 
 
@@ -1119,7 +1143,9 @@ def _fit_liblinear(
                 " class: %r" % classes_[0]
             )
 
-        class_weight_ = compute_class_weight(class_weight, classes=classes_, y=y)
+        class_weight_ = compute_class_weight(
+            class_weight, classes=classes_, y=y
+        )
     else:
         class_weight_ = np.empty(0, dtype=np.float64)
         y_ind = y
@@ -1176,7 +1202,8 @@ def _fit_liblinear(
     n_iter_ = max(n_iter_)
     if n_iter_ >= max_iter:
         warnings.warn(
-            "Liblinear failed to converge, increase " "the number of iterations.",
+            "Liblinear failed to converge, increase "
+            "the number of iterations.",
             ConvergenceWarning,
         )
 

@@ -135,7 +135,9 @@ class SelectorMixin(TransformerMixin, metaclass=ABCMeta):
         return Xt
 
 
-def _get_feature_importances(estimator, getter, transform_func=None, norm_order=1):
+def _get_feature_importances(
+    estimator, getter, transform_func=None, norm_order=1
+):
     """
     Retrieve and aggregate (ndim > 1)  the feature importances
     from an estimator. Also optionally applies transformation.

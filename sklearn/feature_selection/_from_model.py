@@ -51,7 +51,8 @@ def _calculate_threshold(estimator, importances, threshold):
 
         else:
             raise ValueError(
-                "Expected threshold='mean' or threshold='median' " "got %s" % threshold
+                "Expected threshold='mean' or threshold='median' "
+                "got %s" % threshold
             )
 
     else:
