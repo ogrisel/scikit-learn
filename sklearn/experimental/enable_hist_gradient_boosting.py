@@ -21,16 +21,13 @@ flake8 to ignore the import, which appears as unused.
 
 from ..ensemble._hist_gradient_boosting.gradient_boosting import (
     HistGradientBoostingClassifier,
-    HistGradientBoostingRegressor
+    HistGradientBoostingRegressor,
 )
 
 from .. import ensemble
 
 # use settattr to avoid mypy errors when monkeypatching
-setattr(ensemble, "HistGradientBoostingClassifier",
-        HistGradientBoostingClassifier)
-setattr(ensemble, "HistGradientBoostingRegressor",
-        HistGradientBoostingRegressor)
+setattr(ensemble, "HistGradientBoostingClassifier", HistGradientBoostingClassifier)
+setattr(ensemble, "HistGradientBoostingRegressor", HistGradientBoostingRegressor)
 
-ensemble.__all__ += ['HistGradientBoostingClassifier',
-                     'HistGradientBoostingRegressor']
+ensemble.__all__ += ["HistGradientBoostingClassifier", "HistGradientBoostingRegressor"]

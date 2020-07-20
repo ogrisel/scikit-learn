@@ -16,8 +16,9 @@ from sklearn.exceptions import NotFittedError
 
 
 class DelegatorData:
-    def __init__(self, name, construct, skip_methods=(),
-                 fit_args=make_classification()):
+    def __init__(
+        self, name, construct, skip_methods=(), fit_args=make_classification()
+    ):
         self.name = name
         self.construct = construct
         self.fit_args = fit_args
@@ -25,23 +26,33 @@ class DelegatorData:
 
 
 DELEGATING_METAESTIMATORS = [
-    DelegatorData('Pipeline', lambda est: Pipeline([('est', est)])),
-    DelegatorData('GridSearchCV',
-                  lambda est: GridSearchCV(
-                      est, param_grid={'param': [5]}, cv=2),
-                  skip_methods=['score']),
-    DelegatorData('RandomizedSearchCV',
-                  lambda est: RandomizedSearchCV(
-                      est, param_distributions={'param': [5]}, cv=2, n_iter=1),
-                  skip_methods=['score']),
-    DelegatorData('RFE', RFE,
-                  skip_methods=['transform', 'inverse_transform']),
-    DelegatorData('RFECV', RFECV,
-                  skip_methods=['transform', 'inverse_transform']),
-    DelegatorData('BaggingClassifier', BaggingClassifier,
-                  skip_methods=['transform', 'inverse_transform', 'score',
-                                'predict_proba', 'predict_log_proba',
-                                'predict'])
+    DelegatorData("Pipeline", lambda est: Pipeline([("est", est)])),
+    DelegatorData(
+        "GridSearchCV",
+        lambda est: GridSearchCV(est, param_grid={"param": [5]}, cv=2),
+        skip_methods=["score"],
+    ),
+    DelegatorData(
+        "RandomizedSearchCV",
+        lambda est: RandomizedSearchCV(
+            est, param_distributions={"param": [5]}, cv=2, n_iter=1
+        ),
+        skip_methods=["score"],
+    ),
+    DelegatorData("RFE", RFE, skip_methods=["transform", "inverse_transform"]),
+    DelegatorData("RFECV", RFECV, skip_methods=["transform", "inverse_transform"]),
+    DelegatorData(
+        "BaggingClassifier",
+        BaggingClassifier,
+        skip_methods=[
+            "transform",
+            "inverse_transform",
+            "score",
+            "predict_proba",
+            "predict_log_proba",
+            "predict",
+        ],
+    ),
 ]
 
 
@@ -51,8 +62,9 @@ def test_metaestimator_delegation():
         @property
         def wrapper(obj):
             if obj.hidden_method == method.__name__:
-                raise AttributeError('%r is hidden' % obj.hidden_method)
+                raise AttributeError("%r is hidden" % obj.hidden_method)
             return functools.partial(method, obj)
+
         return wrapper
 
     class SubEstimator(BaseEstimator):
@@ -102,8 +114,11 @@ def test_metaestimator_delegation():
             self._check_fit()
             return 1.0
 
-    methods = [k for k in SubEstimator.__dict__.keys()
-               if not k.startswith('_') and not k.startswith('fit')]
+    methods = [
+        k
+        for k in SubEstimator.__dict__.keys()
+        if not k.startswith("_") and not k.startswith("fit")
+    ]
     methods.sort()
 
     for delegator_data in DELEGATING_METAESTIMATORS:
@@ -114,25 +129,33 @@ def test_metaestimator_delegation():
                 continue
             assert hasattr(delegate, method)
             assert hasattr(delegator, method), (
-                    "%s does not have method %r when its delegate does"
-                    % (delegator_data.name, method))
+                "%s does not have method %r when its delegate does"
+                % (delegator_data.name, method)
+            )
             # delegation before fit raises a NotFittedError
-            if method == 'score':
-                assert_raises(NotFittedError, getattr(delegator, method),
-                              delegator_data.fit_args[0],
-                              delegator_data.fit_args[1])
+            if method == "score":
+                assert_raises(
+                    NotFittedError,
+                    getattr(delegator, method),
+                    delegator_data.fit_args[0],
+                    delegator_data.fit_args[1],
+                )
             else:
-                assert_raises(NotFittedError, getattr(delegator, method),
-                              delegator_data.fit_args[0])
+                assert_raises(
+                    NotFittedError,
+                    getattr(delegator, method),
+                    delegator_data.fit_args[0],
+                )
 
         delegator.fit(*delegator_data.fit_args)
         for method in methods:
             if method in delegator_data.skip_methods:
                 continue
             # smoke test delegation
-            if method == 'score':
-                getattr(delegator, method)(delegator_data.fit_args[0],
-                                           delegator_data.fit_args[1])
+            if method == "score":
+                getattr(delegator, method)(
+                    delegator_data.fit_args[0], delegator_data.fit_args[1]
+                )
             else:
                 getattr(delegator, method)(delegator_data.fit_args[0])
 
@@ -143,5 +166,6 @@ def test_metaestimator_delegation():
             delegator = delegator_data.construct(delegate)
             assert not hasattr(delegate, method)
             assert not hasattr(delegator, method), (
-                    "%s has method %r when its delegate does not"
-                    % (delegator_data.name, method))
+                "%s has method %r when its delegate does not"
+                % (delegator_data.name, method)
+            )

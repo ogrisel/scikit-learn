@@ -36,10 +36,11 @@ def _unique_python(values, *, return_inverse):
         uniques = sorted(set(values))
         uniques = np.array(uniques, dtype=values.dtype)
     except TypeError:
-        types = sorted(t.__qualname__
-                       for t in set(type(v) for v in values))
-        raise TypeError("Encoders require their input to be uniformly "
-                        f"strings or numbers. Got {types}")
+        types = sorted(t.__qualname__ for t in set(type(v) for v in values))
+        raise TypeError(
+            "Encoders require their input to be uniformly "
+            f"strings or numbers. Got {types}"
+        )
 
     if return_inverse:
         table = {val: i for i, val in enumerate(uniques)}
@@ -88,8 +89,9 @@ def _encode(values, *, uniques, check_unknown=True):
         if check_unknown:
             diff = _check_unknown(values, uniques)
             if diff:
-                raise ValueError(f"y contains previously unseen labels: "
-                                 f"{str(diff)}")
+                raise ValueError(
+                    f"y contains previously unseen labels: " f"{str(diff)}"
+                )
         return np.searchsorted(uniques, values)
 
 
@@ -131,8 +133,7 @@ def _check_unknown(values, known_values, return_mask=False):
             return diff
     else:
         unique_values = np.unique(values)
-        diff = list(np.setdiff1d(unique_values, known_values,
-                                 assume_unique=True))
+        diff = list(np.setdiff1d(unique_values, known_values, assume_unique=True))
         if return_mask:
             if diff:
                 valid_mask = np.in1d(values, known_values)

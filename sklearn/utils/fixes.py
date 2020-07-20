@@ -32,7 +32,7 @@ np_version = parse_version(np.__version__)
 sp_version = parse_version(scipy.__version__)
 
 
-if sp_version >= parse_version('1.4'):
+if sp_version >= parse_version("1.4"):
     from scipy.sparse.linalg import lobpcg
 else:
     # Backport of lobpcg functionality from scipy 1.4.0, can be removed
@@ -51,8 +51,8 @@ def _astype_copy_false(X):
     {ndarray, csr_matrix, csc_matrix}.astype when possible,
     otherwise don't specify
     """
-    if sp_version >= parse_version('1.1') or not sp.issparse(X):
-        return {'copy': False}
+    if sp_version >= parse_version("1.1") or not sp.issparse(X):
+        return {"copy": False}
     else:
         return {}
 
@@ -80,28 +80,32 @@ def _joblib_parallel_args(**kwargs):
     """
     import joblib
 
-    if parse_version(joblib.__version__) >= parse_version('0.12'):
+    if parse_version(joblib.__version__) >= parse_version("0.12"):
         return kwargs
 
-    extra_args = set(kwargs.keys()).difference({'prefer', 'require'})
+    extra_args = set(kwargs.keys()).difference({"prefer", "require"})
     if extra_args:
-        raise NotImplementedError('unhandled arguments %s with joblib %s'
-                                  % (list(extra_args), joblib.__version__))
+        raise NotImplementedError(
+            "unhandled arguments %s with joblib %s"
+            % (list(extra_args), joblib.__version__)
+        )
     args = {}
-    if 'prefer' in kwargs:
-        prefer = kwargs['prefer']
-        if prefer not in ['threads', 'processes', None]:
-            raise ValueError('prefer=%s is not supported' % prefer)
-        args['backend'] = {'threads': 'threading',
-                           'processes': 'multiprocessing',
-                           None: None}[prefer]
+    if "prefer" in kwargs:
+        prefer = kwargs["prefer"]
+        if prefer not in ["threads", "processes", None]:
+            raise ValueError("prefer=%s is not supported" % prefer)
+        args["backend"] = {
+            "threads": "threading",
+            "processes": "multiprocessing",
+            None: None,
+        }[prefer]
 
-    if 'require' in kwargs:
-        require = kwargs['require']
-        if require not in [None, 'sharedmem']:
-            raise ValueError('require=%s is not supported' % require)
-        if require == 'sharedmem':
-            args['backend'] = 'threading'
+    if "require" in kwargs:
+        require = kwargs["require"]
+        if require not in [None, "sharedmem"]:
+            raise ValueError("require=%s is not supported" % require)
+        if require == "sharedmem":
+            args["backend"] = "threading"
     return args
 
 
@@ -155,8 +159,8 @@ class loguniform(scipy.stats.reciprocal):
 
 
 @deprecated(
-    'MaskedArray is deprecated in version 0.23 and will be removed in version '
-    '0.25. Use numpy.ma.MaskedArray instead.'
+    "MaskedArray is deprecated in version 0.23 and will be removed in version "
+    "0.25. Use numpy.ma.MaskedArray instead."
 )
 class MaskedArray(_MaskedArray):
     pass  # TODO: remove in 0.25
@@ -165,24 +169,21 @@ class MaskedArray(_MaskedArray):
 def _take_along_axis(arr, indices, axis):
     """Implements a simplified version of np.take_along_axis if numpy
     version < 1.15"""
-    if np_version > parse_version('1.14'):
+    if np_version > parse_version("1.14"):
         return np.take_along_axis(arr=arr, indices=indices, axis=axis)
     else:
         if axis is None:
             arr = arr.flatten()
 
         if not np.issubdtype(indices.dtype, np.intp):
-            raise IndexError('`indices` must be an integer array')
+            raise IndexError("`indices` must be an integer array")
         if arr.ndim != indices.ndim:
             raise ValueError(
-                "`indices` and `arr` must have the same number of dimensions")
+                "`indices` and `arr` must have the same number of dimensions"
+            )
 
         shape_ones = (1,) * indices.ndim
-        dest_dims = (
-            list(range(axis)) +
-            [None] +
-            list(range(axis+1, indices.ndim))
-        )
+        dest_dims = list(range(axis)) + [None] + list(range(axis + 1, indices.ndim))
 
         # build a fancy index, consisting of orthogonal aranges, with the
         # requested index inserted at the right location
@@ -191,7 +192,7 @@ def _take_along_axis(arr, indices, axis):
             if dim is None:
                 fancy_index.append(indices)
             else:
-                ind_shape = shape_ones[:dim] + (-1,) + shape_ones[dim+1:]
+                ind_shape = shape_ones[:dim] + (-1,) + shape_ones[dim + 1 :]
                 fancy_index.append(np.arange(n).reshape(ind_shape))
 
         fancy_index = tuple(fancy_index)

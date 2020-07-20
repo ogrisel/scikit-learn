@@ -10,8 +10,9 @@ from ..utils import check_array
 from ..utils.validation import _deprecate_positional_args
 
 
-def _calculate_permutation_scores(estimator, X, y, col_idx, random_state,
-                                  n_repeats, scorer):
+def _calculate_permutation_scores(
+    estimator, X, y, col_idx, random_state, n_repeats, scorer
+):
     """Calculate score when `col_idx` is permuted."""
     random_state = check_random_state(random_state)
 
@@ -39,8 +40,9 @@ def _calculate_permutation_scores(estimator, X, y, col_idx, random_state,
 
 
 @_deprecate_positional_args
-def permutation_importance(estimator, X, y, *, scoring=None, n_repeats=5,
-                           n_jobs=None, random_state=None):
+def permutation_importance(
+    estimator, X, y, *, scoring=None, n_repeats=5, n_jobs=None, random_state=None
+):
     """Permutation importance for feature evaluation [BRE]_.
 
     The :term:`estimator` is required to be a fitted estimator. `X` can be the
@@ -120,7 +122,7 @@ def permutation_importance(estimator, X, y, *, scoring=None, n_repeats=5,
     array([0.2211..., 0.       , 0.       ])
     """
     if not hasattr(X, "iloc"):
-        X = check_array(X, force_all_finite='allow-nan', dtype=None)
+        X = check_array(X, force_all_finite="allow-nan", dtype=None)
 
     # Precompute random seed from the random state to be used
     # to get a fresh independent RandomState instance for each
@@ -133,11 +135,16 @@ def permutation_importance(estimator, X, y, *, scoring=None, n_repeats=5,
     scorer = check_scoring(estimator, scoring=scoring)
     baseline_score = scorer(estimator, X, y)
 
-    scores = Parallel(n_jobs=n_jobs)(delayed(_calculate_permutation_scores)(
-        estimator, X, y, col_idx, random_seed, n_repeats, scorer
-    ) for col_idx in range(X.shape[1]))
+    scores = Parallel(n_jobs=n_jobs)(
+        delayed(_calculate_permutation_scores)(
+            estimator, X, y, col_idx, random_seed, n_repeats, scorer
+        )
+        for col_idx in range(X.shape[1])
+    )
 
     importances = baseline_score - np.array(scores)
-    return Bunch(importances_mean=np.mean(importances, axis=1),
-                 importances_std=np.std(importances, axis=1),
-                 importances=importances)
+    return Bunch(
+        importances_mean=np.mean(importances, axis=1),
+        importances_std=np.std(importances, axis=1),
+        importances=importances,
+    )

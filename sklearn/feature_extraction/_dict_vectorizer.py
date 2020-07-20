@@ -90,9 +90,9 @@ class DictVectorizer(TransformerMixin, BaseEstimator):
     sklearn.preprocessing.OrdinalEncoder : handles nominal/categorical
       features encoded as columns of arbitrary data types.
     """
+
     @_deprecate_positional_args
-    def __init__(self, *, dtype=np.float64, separator="=", sparse=True,
-                 sort=True):
+    def __init__(self, *, dtype=np.float64, separator="=", sparse=True, sort=True):
         self.dtype = dtype
         self.separator = separator
         self.sparse = sparse
@@ -140,7 +140,8 @@ class DictVectorizer(TransformerMixin, BaseEstimator):
         assert array("i").itemsize == 4, (
             "sizeof(int) != 4 on your platform; please report this at"
             " https://github.com/scikit-learn/scikit-learn/issues and"
-            " include the output from platform.platform() in your bug report")
+            " include the output from platform.platform() in your bug report"
+        )
 
         dtype = self.dtype
         if fitting:
@@ -184,8 +185,9 @@ class DictVectorizer(TransformerMixin, BaseEstimator):
         indices = np.frombuffer(indices, dtype=np.intc)
         shape = (len(indptr) - 1, len(vocab))
 
-        result_matrix = sp.csr_matrix((values, indices, indptr),
-                                      shape=shape, dtype=dtype)
+        result_matrix = sp.csr_matrix(
+            (values, indices, indptr), shape=shape, dtype=dtype
+        )
 
         # Sort everything if asked
         if fitting and self.sort:
@@ -251,7 +253,7 @@ class DictVectorizer(TransformerMixin, BaseEstimator):
             Feature mappings for the samples in X.
         """
         # COO matrix is not subscriptable
-        X = check_array(X, accept_sparse=['csr', 'csc'])
+        X = check_array(X, accept_sparse=["csr", "csc"])
         n_samples = X.shape[0]
 
         names = self.feature_names_
@@ -355,10 +357,11 @@ class DictVectorizer(TransformerMixin, BaseEstimator):
             new_vocab[names[i]] = len(new_vocab)
 
         self.vocabulary_ = new_vocab
-        self.feature_names_ = [f for f, i in sorted(new_vocab.items(),
-                                                    key=itemgetter(1))]
+        self.feature_names_ = [
+            f for f, i in sorted(new_vocab.items(), key=itemgetter(1))
+        ]
 
         return self
 
     def _more_tags(self):
-        return {'X_types': ["dict"]}
+        return {"X_types": ["dict"]}

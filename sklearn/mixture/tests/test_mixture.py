@@ -8,11 +8,7 @@ from sklearn.mixture import GaussianMixture
 from sklearn.mixture import BayesianGaussianMixture
 
 
-@pytest.mark.parametrize(
-    "estimator",
-    [GaussianMixture(),
-     BayesianGaussianMixture()]
-)
+@pytest.mark.parametrize("estimator", [GaussianMixture(), BayesianGaussianMixture()])
 def test_gaussian_mixture_n_iter(estimator):
     # check that n_iter is the number of iteration performed.
     rng = np.random.RandomState(0)

@@ -20,8 +20,7 @@ from ..utils.optimize import _check_optimize_result
 from ..utils.validation import _deprecate_positional_args
 
 
-class GaussianProcessRegressor(MultiOutputMixin,
-                               RegressorMixin, BaseEstimator):
+class GaussianProcessRegressor(MultiOutputMixin, RegressorMixin, BaseEstimator):
     """Gaussian process regression (GPR).
 
     The implementation is based on Algorithm 2.1 of Gaussian Processes
@@ -150,10 +149,19 @@ class GaussianProcessRegressor(MultiOutputMixin,
     (array([653.0..., 592.1...]), array([316.6..., 316.6...]))
 
     """
+
     @_deprecate_positional_args
-    def __init__(self, kernel=None, *, alpha=1e-10,
-                 optimizer="fmin_l_bfgs_b", n_restarts_optimizer=0,
-                 normalize_y=False, copy_X_train=True, random_state=None):
+    def __init__(
+        self,
+        kernel=None,
+        *,
+        alpha=1e-10,
+        optimizer="fmin_l_bfgs_b",
+        n_restarts_optimizer=0,
+        normalize_y=False,
+        copy_X_train=True,
+        random_state=None,
+    ):
         self.kernel = kernel
         self.alpha = alpha
         self.optimizer = optimizer
@@ -178,19 +186,22 @@ class GaussianProcessRegressor(MultiOutputMixin,
         self : returns an instance of self.
         """
         if self.kernel is None:  # Use an RBF kernel as default
-            self.kernel_ = C(1.0, constant_value_bounds="fixed") \
-                * RBF(1.0, length_scale_bounds="fixed")
+            self.kernel_ = C(1.0, constant_value_bounds="fixed") * RBF(
+                1.0, length_scale_bounds="fixed"
+            )
         else:
             self.kernel_ = clone(self.kernel)
 
         self._rng = check_random_state(self.random_state)
 
         if self.kernel_.requires_vector_input:
-            X, y = self._validate_data(X, y, multi_output=True, y_numeric=True,
-                                       ensure_2d=True, dtype="numeric")
+            X, y = self._validate_data(
+                X, y, multi_output=True, y_numeric=True, ensure_2d=True, dtype="numeric"
+            )
         else:
-            X, y = self._validate_data(X, y, multi_output=True, y_numeric=True,
-                                       ensure_2d=False, dtype=None)
+            X, y = self._validate_data(
+                X, y, multi_output=True, y_numeric=True, ensure_2d=False, dtype=None
+            )
 
         # Normalize target value
         if self.normalize_y:
@@ -204,14 +215,15 @@ class GaussianProcessRegressor(MultiOutputMixin,
             self._y_train_mean = np.zeros(1)
             self._y_train_std = 1
 
-        if np.iterable(self.alpha) \
-           and self.alpha.shape[0] != y.shape[0]:
+        if np.iterable(self.alpha) and self.alpha.shape[0] != y.shape[0]:
             if self.alpha.shape[0] == 1:
                 self.alpha = self.alpha[0]
             else:
-                raise ValueError("alpha must be a scalar or an array"
-                                 " with same number of entries as y.(%d != %d)"
-                                 % (self.alpha.shape[0], y.shape[0]))
+                raise ValueError(
+                    "alpha must be a scalar or an array"
+                    " with same number of entries as y.(%d != %d)"
+                    % (self.alpha.shape[0], y.shape[0])
+                )
 
         self.X_train_ = np.copy(X) if self.copy_X_train else X
         self.y_train_ = np.copy(y) if self.copy_X_train else y
@@ -222,16 +234,20 @@ class GaussianProcessRegressor(MultiOutputMixin,
             def obj_func(theta, eval_gradient=True):
                 if eval_gradient:
                     lml, grad = self.log_marginal_likelihood(
-                        theta, eval_gradient=True, clone_kernel=False)
+                        theta, eval_gradient=True, clone_kernel=False
+                    )
                     return -lml, -grad
                 else:
-                    return -self.log_marginal_likelihood(theta,
-                                                         clone_kernel=False)
+                    return -self.log_marginal_likelihood(theta, clone_kernel=False)
 
             # First optimize starting from theta specified in kernel
-            optima = [(self._constrained_optimization(obj_func,
-                                                      self.kernel_.theta,
-                                                      self.kernel_.bounds))]
+            optima = [
+                (
+                    self._constrained_optimization(
+                        obj_func, self.kernel_.theta, self.kernel_.bounds
+                    )
+                )
+            ]
 
             # Additional runs are performed from log-uniform chosen initial
             # theta
@@ -239,14 +255,14 @@ class GaussianProcessRegressor(MultiOutputMixin,
                 if not np.isfinite(self.kernel_.bounds).all():
                     raise ValueError(
                         "Multiple optimizer restarts (n_restarts_optimizer>0) "
-                        "requires that all bounds are finite.")
+                        "requires that all bounds are finite."
+                    )
                 bounds = self.kernel_.bounds
                 for iteration in range(self.n_restarts_optimizer):
-                    theta_initial = \
-                        self._rng.uniform(bounds[:, 0], bounds[:, 1])
+                    theta_initial = self._rng.uniform(bounds[:, 0], bounds[:, 1])
                     optima.append(
-                        self._constrained_optimization(obj_func, theta_initial,
-                                                       bounds))
+                        self._constrained_optimization(obj_func, theta_initial, bounds)
+                    )
             # Select result from run with minimal (negative) log-marginal
             # likelihood
             lml_values = list(map(itemgetter(1), optima))
@@ -255,9 +271,9 @@ class GaussianProcessRegressor(MultiOutputMixin,
 
             self.log_marginal_likelihood_value_ = -np.min(lml_values)
         else:
-            self.log_marginal_likelihood_value_ = \
-                self.log_marginal_likelihood(self.kernel_.theta,
-                                             clone_kernel=False)
+            self.log_marginal_likelihood_value_ = self.log_marginal_likelihood(
+                self.kernel_.theta, clone_kernel=False
+            )
 
         # Precompute quantities required for predictions which are independent
         # of actual query points
@@ -268,11 +284,12 @@ class GaussianProcessRegressor(MultiOutputMixin,
             # self.L_ changed, self._K_inv needs to be recomputed
             self._K_inv = None
         except np.linalg.LinAlgError as exc:
-            exc.args = ("The kernel, %s, is not returning a "
-                        "positive definite matrix. Try gradually "
-                        "increasing the 'alpha' parameter of your "
-                        "GaussianProcessRegressor estimator."
-                        % self.kernel_,) + exc.args
+            exc.args = (
+                "The kernel, %s, is not returning a "
+                "positive definite matrix. Try gradually "
+                "increasing the 'alpha' parameter of your "
+                "GaussianProcessRegressor estimator." % self.kernel_,
+            ) + exc.args
             raise
         self.alpha_ = cho_solve((self.L_, True), self.y_train_)  # Line 3
         return self
@@ -314,7 +331,8 @@ class GaussianProcessRegressor(MultiOutputMixin,
         if return_std and return_cov:
             raise RuntimeError(
                 "Not returning standard deviation of predictions when "
-                "returning full covariance.")
+                "returning full covariance."
+            )
 
         if self.kernel is None or self.kernel.requires_vector_input:
             X = check_array(X, ensure_2d=True, dtype="numeric")
@@ -323,8 +341,9 @@ class GaussianProcessRegressor(MultiOutputMixin,
 
         if not hasattr(self, "X_train_"):  # Unfitted;predict based on GP prior
             if self.kernel is None:
-                kernel = (C(1.0, constant_value_bounds="fixed") *
-                          RBF(1.0, length_scale_bounds="fixed"))
+                kernel = C(1.0, constant_value_bounds="fixed") * RBF(
+                    1.0, length_scale_bounds="fixed"
+                )
             else:
                 kernel = self.kernel
             y_mean = np.zeros(X.shape[0])
@@ -348,7 +367,7 @@ class GaussianProcessRegressor(MultiOutputMixin,
                 y_cov = self.kernel_(X) - K_trans.dot(v)  # Line 6
 
                 # undo normalisation
-                y_cov = y_cov * self._y_train_std**2
+                y_cov = y_cov * self._y_train_std ** 2
 
                 return y_mean, y_cov
             elif return_std:
@@ -356,25 +375,25 @@ class GaussianProcessRegressor(MultiOutputMixin,
                 if self._K_inv is None:
                     # compute inverse K_inv of K based on its Cholesky
                     # decomposition L and its inverse L_inv
-                    L_inv = solve_triangular(self.L_.T,
-                                             np.eye(self.L_.shape[0]))
+                    L_inv = solve_triangular(self.L_.T, np.eye(self.L_.shape[0]))
                     self._K_inv = L_inv.dot(L_inv.T)
 
                 # Compute variance of predictive distribution
                 y_var = self.kernel_.diag(X)
-                y_var -= np.einsum("ij,ij->i",
-                                   np.dot(K_trans, self._K_inv), K_trans)
+                y_var -= np.einsum("ij,ij->i", np.dot(K_trans, self._K_inv), K_trans)
 
                 # Check if any of the variances is negative because of
                 # numerical issues. If yes: set the variance to 0.
                 y_var_negative = y_var < 0
                 if np.any(y_var_negative):
-                    warnings.warn("Predicted variances smaller than 0. "
-                                  "Setting those variances to 0.")
+                    warnings.warn(
+                        "Predicted variances smaller than 0. "
+                        "Setting those variances to 0."
+                    )
                     y_var[y_var_negative] = 0.0
 
                 # undo normalisation
-                y_var = y_var * self._y_train_std**2
+                y_var = y_var * self._y_train_std ** 2
 
                 return y_mean, np.sqrt(y_var)
             else:
@@ -409,15 +428,16 @@ class GaussianProcessRegressor(MultiOutputMixin,
         if y_mean.ndim == 1:
             y_samples = rng.multivariate_normal(y_mean, y_cov, n_samples).T
         else:
-            y_samples = \
-                [rng.multivariate_normal(y_mean[:, i], y_cov,
-                                         n_samples).T[:, np.newaxis]
-                 for i in range(y_mean.shape[1])]
+            y_samples = [
+                rng.multivariate_normal(y_mean[:, i], y_cov, n_samples).T[:, np.newaxis]
+                for i in range(y_mean.shape[1])
+            ]
             y_samples = np.hstack(y_samples)
         return y_samples
 
-    def log_marginal_likelihood(self, theta=None, eval_gradient=False,
-                                clone_kernel=True):
+    def log_marginal_likelihood(
+        self, theta=None, eval_gradient=False, clone_kernel=True
+    ):
         """Returns log-marginal likelihood of theta for training data.
 
         Parameters
@@ -448,8 +468,7 @@ class GaussianProcessRegressor(MultiOutputMixin,
         """
         if theta is None:
             if eval_gradient:
-                raise ValueError(
-                    "Gradient can only be evaluated for theta!=None")
+                raise ValueError("Gradient can only be evaluated for theta!=None")
             return self.log_marginal_likelihood_value_
 
         if clone_kernel:
@@ -467,8 +486,7 @@ class GaussianProcessRegressor(MultiOutputMixin,
         try:
             L = cholesky(K, lower=True)  # Line 2
         except np.linalg.LinAlgError:
-            return (-np.inf, np.zeros_like(theta)) \
-                if eval_gradient else -np.inf
+            return (-np.inf, np.zeros_like(theta)) if eval_gradient else -np.inf
 
         # Support multi-dimensional output of self.y_train_
         y_train = self.y_train_
@@ -489,8 +507,9 @@ class GaussianProcessRegressor(MultiOutputMixin,
             # Compute "0.5 * trace(tmp.dot(K_gradient))" without
             # constructing the full matrix tmp.dot(K_gradient) since only
             # its diagonal is required
-            log_likelihood_gradient_dims = \
-                0.5 * np.einsum("ijl,jik->kl", tmp, K_gradient)
+            log_likelihood_gradient_dims = 0.5 * np.einsum(
+                "ijl,jik->kl", tmp, K_gradient
+            )
             log_likelihood_gradient = log_likelihood_gradient_dims.sum(-1)
 
         if eval_gradient:
@@ -501,17 +520,16 @@ class GaussianProcessRegressor(MultiOutputMixin,
     def _constrained_optimization(self, obj_func, initial_theta, bounds):
         if self.optimizer == "fmin_l_bfgs_b":
             opt_res = scipy.optimize.minimize(
-                obj_func, initial_theta, method="L-BFGS-B", jac=True,
-                bounds=bounds)
+                obj_func, initial_theta, method="L-BFGS-B", jac=True, bounds=bounds
+            )
             _check_optimize_result("lbfgs", opt_res)
             theta_opt, func_min = opt_res.x, opt_res.fun
         elif callable(self.optimizer):
-            theta_opt, func_min = \
-                self.optimizer(obj_func, initial_theta, bounds=bounds)
+            theta_opt, func_min = self.optimizer(obj_func, initial_theta, bounds=bounds)
         else:
             raise ValueError("Unknown optimizer %s." % self.optimizer)
 
         return theta_opt, func_min
 
     def _more_tags(self):
-        return {'requires_fit': False}
+        return {"requires_fit": False}

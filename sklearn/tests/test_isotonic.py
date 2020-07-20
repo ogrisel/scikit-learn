@@ -5,14 +5,22 @@ import copy
 
 import pytest
 
-from sklearn.isotonic import (check_increasing, isotonic_regression,
-                              IsotonicRegression, _make_unique)
+from sklearn.isotonic import (
+    check_increasing,
+    isotonic_regression,
+    IsotonicRegression,
+    _make_unique,
+)
 
 from sklearn.utils.validation import check_array
-from sklearn.utils._testing import (assert_raises, assert_allclose,
-                                    assert_array_equal,
-                                    assert_array_almost_equal,
-                                    assert_warns_message, assert_no_warnings)
+from sklearn.utils._testing import (
+    assert_raises,
+    assert_allclose,
+    assert_array_equal,
+    assert_array_almost_equal,
+    assert_warns_message,
+    assert_no_warnings,
+)
 from sklearn.utils import shuffle
 
 from scipy.special import expit
@@ -27,8 +35,7 @@ def test_permutation_invariance():
     sample_weight = [1, 2, 3, 4, 5, 6, 7]
     x_s, y_s, sample_weight_s = shuffle(x, y, sample_weight, random_state=0)
     y_transformed = ir.fit_transform(x, y, sample_weight=sample_weight)
-    y_transformed_s = \
-        ir.fit(x_s, y_s, sample_weight=sample_weight_s).transform(x)
+    y_transformed_s = ir.fit(x_s, y_s, sample_weight=sample_weight_s).transform(x)
 
     assert_array_equal(y_transformed, y_transformed_s)
 
@@ -82,9 +89,9 @@ def test_check_ci_warn():
     y = [0, -1, 2, -3, 4, -5]
 
     # Check that we got increasing=False and CI interval warning
-    is_increasing = assert_warns_message(UserWarning, "interval",
-                                         check_increasing,
-                                         x, y)
+    is_increasing = assert_warns_message(
+        UserWarning, "interval", check_increasing, x, y
+    )
 
     assert not is_increasing
 
@@ -99,16 +106,15 @@ def test_isotonic_regression():
     assert_array_equal(y_, isotonic_regression(y))
 
     x = np.arange(len(y))
-    ir = IsotonicRegression(y_min=0., y_max=1.)
+    ir = IsotonicRegression(y_min=0.0, y_max=1.0)
     ir.fit(x, y)
     assert_array_equal(ir.fit(x, y).transform(x), ir.fit_transform(x, y))
     assert_array_equal(ir.transform(x), ir.predict(x))
 
     # check that it is immune to permutation
     perm = np.random.permutation(len(y))
-    ir = IsotonicRegression(y_min=0., y_max=1.)
-    assert_array_equal(ir.fit_transform(x[perm], y[perm]),
-                       ir.fit_transform(x, y)[perm])
+    ir = IsotonicRegression(y_min=0.0, y_max=1.0)
+    assert_array_equal(ir.fit_transform(x[perm], y[perm]), ir.fit_transform(x, y)[perm])
     assert_array_equal(ir.transform(x[perm]), ir.transform(x)[perm])
 
     # check we don't crash when all x are equal:
@@ -162,8 +168,19 @@ def test_isotonic_regression_ties_secondary_():
     """
     x = [8, 8, 8, 10, 10, 10, 12, 12, 12, 14, 14]
     y = [21, 23.5, 23, 24, 21, 25, 21.5, 22, 19, 23.5, 25]
-    y_true = [22.22222, 22.22222, 22.22222, 22.22222, 22.22222, 22.22222,
-              22.22222, 22.22222, 22.22222, 24.25, 24.25]
+    y_true = [
+        22.22222,
+        22.22222,
+        22.22222,
+        22.22222,
+        22.22222,
+        22.22222,
+        22.22222,
+        22.22222,
+        22.22222,
+        24.25,
+        24.25,
+    ]
 
     # Check fit, transform and fit_transform
     ir = IsotonicRegression()
@@ -189,7 +206,7 @@ def test_isotonic_regression_with_ties_in_differently_sized_groups():
     """
     x = np.array([0, 1, 1, 2, 3, 4])
     y = np.array([0, 0, 1, 0, 0, 1])
-    y_true = np.array([0., 0.25, 0.25, 0.25, 0.25, 1.])
+    y_true = np.array([0.0, 0.25, 0.25, 0.25, 0.25, 1.0])
     ir = IsotonicRegression()
     ir.fit(x, y)
     assert_array_almost_equal(ir.transform(x), y_true)
@@ -198,8 +215,7 @@ def test_isotonic_regression_with_ties_in_differently_sized_groups():
 
 def test_isotonic_regression_reversed():
     y = np.array([10, 9, 10, 7, 6, 6.1, 5])
-    y_ = IsotonicRegression(increasing=False).fit_transform(
-        np.arange(len(y)), y)
+    y_ = IsotonicRegression(increasing=False).fit_transform(np.arange(len(y)), y)
     assert_array_equal(np.ones(y_[:-1].shape), ((y_[:-1] - y_[1:]) >= 0))
 
 
@@ -209,13 +225,12 @@ def test_isotonic_regression_auto_decreasing():
     x = np.arange(len(y))
 
     # Create model and fit_transform
-    ir = IsotonicRegression(increasing='auto')
+    ir = IsotonicRegression(increasing="auto")
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         y_ = ir.fit_transform(x, y)
         # work-around for pearson divide warnings in scipy <= 0.17.0
-        assert all(["invalid value encountered in "
-                    in str(warn.message) for warn in w])
+        assert all(["invalid value encountered in " in str(warn.message) for warn in w])
 
     # Check that relationship decreases
     is_increasing = y_[0] < y_[-1]
@@ -228,13 +243,12 @@ def test_isotonic_regression_auto_increasing():
     x = np.arange(len(y))
 
     # Create model and fit_transform
-    ir = IsotonicRegression(increasing='auto')
+    ir = IsotonicRegression(increasing="auto")
     with warnings.catch_warnings(record=True) as w:
         warnings.simplefilter("always")
         y_ = ir.fit_transform(x, y)
         # work-around for pearson divide warnings in scipy <= 0.17.0
-        assert all(["invalid value encountered in "
-                    in str(warn.message) for warn in w])
+        assert all(["invalid value encountered in " in str(warn.message) for warn in w])
 
     # Check that relationship increases
     is_increasing = y_[0] < y_[-1]
@@ -257,7 +271,7 @@ def test_isotonic_sample_weight_parameter_default_value():
     rng = np.random.RandomState(42)
     n = 100
     x = np.arange(n)
-    y = rng.randint(-50, 50, size=(n,)) + 50. * np.log(1 + np.arange(n))
+    y = rng.randint(-50, 50, size=(n,)) + 50.0 * np.log(1 + np.arange(n))
     # check if value is correctly used
     weights = np.ones(n)
     y_set_value = ir.fit_transform(x, y, sample_weight=weights)
@@ -294,7 +308,7 @@ def test_isotonic_regression_oob_raise():
     x = np.arange(len(y))
 
     # Create model and fit
-    ir = IsotonicRegression(increasing='auto', out_of_bounds="raise")
+    ir = IsotonicRegression(increasing="auto", out_of_bounds="raise")
     ir.fit(x, y)
 
     # Check that an exception is thrown
@@ -307,7 +321,7 @@ def test_isotonic_regression_oob_clip():
     x = np.arange(len(y))
 
     # Create model and fit
-    ir = IsotonicRegression(increasing='auto', out_of_bounds="clip")
+    ir = IsotonicRegression(increasing="auto", out_of_bounds="clip")
     ir.fit(x, y)
 
     # Predict from  training and test x and check that min/max match.
@@ -323,7 +337,7 @@ def test_isotonic_regression_oob_nan():
     x = np.arange(len(y))
 
     # Create model and fit
-    ir = IsotonicRegression(increasing='auto', out_of_bounds="nan")
+    ir = IsotonicRegression(increasing="auto", out_of_bounds="nan")
     ir.fit(x, y)
 
     # Predict from  training and test x and check that we have two NaNs.
@@ -337,7 +351,7 @@ def test_isotonic_regression_oob_bad():
     x = np.arange(len(y))
 
     # Create model and fit
-    ir = IsotonicRegression(increasing='auto', out_of_bounds="xyz")
+    ir = IsotonicRegression(increasing="auto", out_of_bounds="xyz")
 
     # Make sure that we throw an error for bad out_of_bounds value
     assert_raises(ValueError, ir.fit, x, y)
@@ -349,7 +363,7 @@ def test_isotonic_regression_oob_bad_after():
     x = np.arange(len(y))
 
     # Create model and fit
-    ir = IsotonicRegression(increasing='auto', out_of_bounds="raise")
+    ir = IsotonicRegression(increasing="auto", out_of_bounds="raise")
 
     # Make sure that we throw an error for bad out_of_bounds value in transform
     ir.fit(x, y)
@@ -362,7 +376,7 @@ def test_isotonic_regression_pickle():
     x = np.arange(len(y))
 
     # Create model and fit
-    ir = IsotonicRegression(increasing='auto', out_of_bounds="clip")
+    ir = IsotonicRegression(increasing="auto", out_of_bounds="clip")
     ir.fit(x, y)
 
     ir_ser = pickle.dumps(ir, pickle.HIGHEST_PROTOCOL)
@@ -383,22 +397,43 @@ def test_isotonic_duplicate_min_entry():
 def test_isotonic_ymin_ymax():
     # Test from @NelleV's issue:
     # https://github.com/scikit-learn/scikit-learn/issues/6921
-    x = np.array([1.263, 1.318, -0.572, 0.307, -0.707, -0.176, -1.599, 1.059,
-                  1.396, 1.906, 0.210, 0.028, -0.081, 0.444, 0.018, -0.377,
-                  -0.896, -0.377, -1.327, 0.180])
-    y = isotonic_regression(x, y_min=0., y_max=0.1)
+    x = np.array(
+        [
+            1.263,
+            1.318,
+            -0.572,
+            0.307,
+            -0.707,
+            -0.176,
+            -1.599,
+            1.059,
+            1.396,
+            1.906,
+            0.210,
+            0.028,
+            -0.081,
+            0.444,
+            0.018,
+            -0.377,
+            -0.896,
+            -0.377,
+            -1.327,
+            0.180,
+        ]
+    )
+    y = isotonic_regression(x, y_min=0.0, y_max=0.1)
 
     assert np.all(y >= 0)
     assert np.all(y <= 0.1)
 
     # Also test decreasing case since the logic there is different
-    y = isotonic_regression(x, y_min=0., y_max=0.1, increasing=False)
+    y = isotonic_regression(x, y_min=0.0, y_max=0.1, increasing=False)
 
     assert np.all(y >= 0)
     assert np.all(y <= 0.1)
 
     # Finally, test with only one bound
-    y = isotonic_regression(x, y_min=0., increasing=False)
+    y = isotonic_regression(x, y_min=0.0, increasing=False)
 
     assert np.all(y >= 0)
 
@@ -433,8 +468,9 @@ def test_fast_predict():
     n_samples = 10 ** 3
     # X values over the -10,10 range
     X_train = 20.0 * rng.rand(n_samples) - 10
-    y_train = np.less(rng.rand(n_samples),
-                      expit(X_train)).astype('int64').astype('float64')
+    y_train = (
+        np.less(rng.rand(n_samples), expit(X_train)).astype("int64").astype("float64")
+    )
 
     weights = rng.rand(n_samples)
     # we also want to test that everything still works when some weights are 0
@@ -446,9 +482,9 @@ def test_fast_predict():
     # Build interpolation function with ALL input data, not just the
     # non-redundant subset. The following 2 lines are taken from the
     # .fit() method, without removing unnecessary points
-    X_train_fit, y_train_fit = slow_model._build_y(X_train, y_train,
-                                                   sample_weight=weights,
-                                                   trim_duplicates=False)
+    X_train_fit, y_train_fit = slow_model._build_y(
+        X_train, y_train, sample_weight=weights, trim_duplicates=False
+    )
     slow_model._build_f(X_train_fit, y_train_fit)
 
     # fit with just the necessary data
@@ -469,15 +505,15 @@ def test_isotonic_copy_before_fit():
 
 def test_isotonic_dtype():
     y = [2, 1, 4, 3, 5]
-    weights = np.array([.9, .9, .9, .9, .9], dtype=np.float64)
+    weights = np.array([0.9, 0.9, 0.9, 0.9, 0.9], dtype=np.float64)
     reg = IsotonicRegression()
 
     for dtype in (np.int32, np.int64, np.float32, np.float64):
         for sample_weight in (None, weights.astype(np.float32), weights):
             y_np = np.array(y, dtype=dtype)
-            expected_dtype = \
-                check_array(y_np, dtype=[np.float64, np.float32],
-                            ensure_2d=False).dtype
+            expected_dtype = check_array(
+                y_np, dtype=[np.float64, np.float32], ensure_2d=False
+            ).dtype
 
             res = isotonic_regression(y_np, sample_weight=sample_weight)
             assert res.dtype == expected_dtype
@@ -488,9 +524,7 @@ def test_isotonic_dtype():
             assert res.dtype == expected_dtype
 
 
-@pytest.mark.parametrize(
-    "y_dtype", [np.int32, np.int64, np.float32, np.float64]
-)
+@pytest.mark.parametrize("y_dtype", [np.int32, np.int64, np.float32, np.float64])
 def test_isotonic_mismatched_dtype(y_dtype):
     # regression test for #15004
     # check that data are converted when X and y dtype differ

@@ -25,7 +25,8 @@ from sklearn.utils._testing import (
     TempMemmap,
     create_memmap_backed_data,
     _delete_folder,
-    _convert_container)
+    _convert_container,
+)
 
 from sklearn.tree import DecisionTreeClassifier
 from sklearn.discriminant_analysis import LinearDiscriminantAnalysis
@@ -47,7 +48,7 @@ def test_assert_allclose_dense_sparse():
     for X in [x, y]:
         # basic compare
         with pytest.raises(AssertionError, match=msg):
-            assert_allclose_dense_sparse(X, X*2)
+            assert_allclose_dense_sparse(X, X * 2)
         assert_allclose_dense_sparse(X, X)
 
     with pytest.raises(ValueError, match="Can only compare two sparse"):
@@ -60,8 +61,8 @@ def test_assert_allclose_dense_sparse():
 
 
 def test_assert_raises_msg():
-    with assert_raises_regex(AssertionError, 'Hello world'):
-        with assert_raises(ValueError, msg='Hello world'):
+    with assert_raises_regex(AssertionError, "Hello world"):
+        with assert_raises(ValueError, msg="Hello world"):
             pass
 
 
@@ -72,25 +73,36 @@ def test_assert_raise_message():
     def _no_raise():
         pass
 
-    assert_raise_message(ValueError, "test",
-                         _raise_ValueError, "test")
+    assert_raise_message(ValueError, "test", _raise_ValueError, "test")
 
-    assert_raises(AssertionError,
-                  assert_raise_message, ValueError, "something else",
-                  _raise_ValueError, "test")
+    assert_raises(
+        AssertionError,
+        assert_raise_message,
+        ValueError,
+        "something else",
+        _raise_ValueError,
+        "test",
+    )
 
-    assert_raises(ValueError,
-                  assert_raise_message, TypeError, "something else",
-                  _raise_ValueError, "test")
+    assert_raises(
+        ValueError,
+        assert_raise_message,
+        TypeError,
+        "something else",
+        _raise_ValueError,
+        "test",
+    )
 
-    assert_raises(AssertionError,
-                  assert_raise_message, ValueError, "test",
-                  _no_raise)
+    assert_raises(AssertionError, assert_raise_message, ValueError, "test", _no_raise)
 
     # multiple exceptions in a tuple
-    assert_raises(AssertionError,
-                  assert_raise_message, (ValueError, AttributeError),
-                  "test", _no_raise)
+    assert_raises(
+        AssertionError,
+        assert_raise_message,
+        (ValueError, AttributeError),
+        "test",
+        _no_raise,
+    )
 
 
 def test_ignore_warning():
@@ -105,19 +117,20 @@ def test_ignore_warning():
 
     # Check the function directly
     assert_no_warnings(ignore_warnings(_warning_function))
-    assert_no_warnings(ignore_warnings(_warning_function,
-                                       category=DeprecationWarning))
-    assert_warns(DeprecationWarning, ignore_warnings(_warning_function,
-                                                     category=UserWarning))
-    assert_warns(UserWarning,
-                 ignore_warnings(_multiple_warning_function,
-                                 category=FutureWarning))
-    assert_warns(DeprecationWarning,
-                 ignore_warnings(_multiple_warning_function,
-                                 category=UserWarning))
-    assert_no_warnings(ignore_warnings(_warning_function,
-                                       category=(DeprecationWarning,
-                                                 UserWarning)))
+    assert_no_warnings(ignore_warnings(_warning_function, category=DeprecationWarning))
+    assert_warns(
+        DeprecationWarning, ignore_warnings(_warning_function, category=UserWarning)
+    )
+    assert_warns(
+        UserWarning, ignore_warnings(_multiple_warning_function, category=FutureWarning)
+    )
+    assert_warns(
+        DeprecationWarning,
+        ignore_warnings(_multiple_warning_function, category=UserWarning),
+    )
+    assert_no_warnings(
+        ignore_warnings(_warning_function, category=(DeprecationWarning, UserWarning))
+    )
 
     # Check the decorator
     @ignore_warnings
@@ -189,11 +202,11 @@ def test_ignore_warning():
     match = "'obj' should be a callable.+you should use 'category=UserWarning'"
 
     with pytest.raises(ValueError, match=match):
-        silence_warnings_func = ignore_warnings(warning_class)(
-            _warning_function)
+        silence_warnings_func = ignore_warnings(warning_class)(_warning_function)
         silence_warnings_func()
 
     with pytest.raises(ValueError, match=match):
+
         @ignore_warnings(warning_class)
         def test():
             pass
@@ -221,7 +234,7 @@ class TestWarns(unittest.TestCase):
             warnings.warn("yo", FutureWarning)
 
         failed = False
-        filters = sys.modules['warnings'].filters[:]
+        filters = sys.modules["warnings"].filters[:]
         try:
             try:
                 # Should raise an AssertionError
@@ -233,13 +246,14 @@ class TestWarns(unittest.TestCase):
             except AssertionError:
                 pass
         finally:
-            sys.modules['warnings'].filters = filters
+            sys.modules["warnings"].filters = filters
 
         if failed:
             raise AssertionError("wrong warning caught by assert_warn")
 
 
 # Tests for docstrings:
+
 
 def f_ok(a, b):
     """Function f
@@ -380,6 +394,7 @@ class Klass:
 class MockEst:
     def __init__(self):
         """MockEstimator"""
+
     def fit(self, X, y):
         return X
 
@@ -390,7 +405,7 @@ class MockEst:
         return X
 
     def score(self, X):
-        return 1.
+        return 1.0
 
 
 class MockMetaEstimator:
@@ -404,7 +419,7 @@ class MockMetaEstimator:
         """
         self.delegate = delegate
 
-    @if_delegate_has_method(delegate=('delegate'))
+    @if_delegate_has_method(delegate=("delegate"))
     def predict(self, X):
         """This is available only if delegate has predict.
 
@@ -415,7 +430,7 @@ class MockMetaEstimator:
         """
         return self.delegate.predict(X)
 
-    @if_delegate_has_method(delegate=('delegate'))
+    @if_delegate_has_method(delegate=("delegate"))
     @deprecated("Testing a deprecated delegated method")
     def score(self, X):
         """This is available only if delegate has score.
@@ -426,7 +441,7 @@ class MockMetaEstimator:
             Parameter y
         """
 
-    @if_delegate_has_method(delegate=('delegate'))
+    @if_delegate_has_method(delegate=("delegate"))
     def predict_proba(self, X):
         """This is available only if delegate has predict_proba.
 
@@ -437,20 +452,21 @@ class MockMetaEstimator:
         """
         return X
 
-    @deprecated('Testing deprecated function with wrong params')
+    @deprecated("Testing deprecated function with wrong params")
     def fit(self, X, y):
         """Incorrect docstring but should not be tested"""
 
 
 def test_check_docstring_parameters():
-    pytest.importorskip('numpydoc',
-                        reason="numpydoc is required to test the docstrings")
+    pytest.importorskip(
+        "numpydoc", reason="numpydoc is required to test the docstrings"
+    )
 
     incorrect = check_docstring_parameters(f_ok)
     assert incorrect == []
-    incorrect = check_docstring_parameters(f_ok, ignore=['b'])
+    incorrect = check_docstring_parameters(f_ok, ignore=["b"])
     assert incorrect == []
-    incorrect = check_docstring_parameters(f_missing, ignore=['b'])
+    incorrect = check_docstring_parameters(f_missing, ignore=["b"])
     assert incorrect == []
     with pytest.raises(RuntimeError, match="Unknown section Results"):
         check_docstring_parameters(f_bad_sections)
@@ -458,102 +474,109 @@ def test_check_docstring_parameters():
         check_docstring_parameters(Klass.f_bad_sections)
 
     incorrect = check_docstring_parameters(f_check_param_definition)
-    assert (
-        incorrect == [
-            "sklearn.utils.tests.test_testing.f_check_param_definition There "
-            "was no space between the param name and colon ('a: int')",
-
-            "sklearn.utils.tests.test_testing.f_check_param_definition There "
-            "was no space between the param name and colon ('b:')",
-
-            "sklearn.utils.tests.test_testing.f_check_param_definition "
-            "Parameter 'c :' has an empty type spec. Remove the colon",
-
-            "sklearn.utils.tests.test_testing.f_check_param_definition There "
-            "was no space between the param name and colon ('d:int')",
-        ])
+    assert incorrect == [
+        "sklearn.utils.tests.test_testing.f_check_param_definition There "
+        "was no space between the param name and colon ('a: int')",
+        "sklearn.utils.tests.test_testing.f_check_param_definition There "
+        "was no space between the param name and colon ('b:')",
+        "sklearn.utils.tests.test_testing.f_check_param_definition "
+        "Parameter 'c :' has an empty type spec. Remove the colon",
+        "sklearn.utils.tests.test_testing.f_check_param_definition There "
+        "was no space between the param name and colon ('d:int')",
+    ]
 
     messages = [
-            ["In function: sklearn.utils.tests.test_testing.f_bad_order",
-             "There's a parameter name mismatch in function docstring w.r.t."
-             " function signature, at index 0 diff: 'b' != 'a'",
-             "Full diff:",
-             "- ['b', 'a']",
-             "+ ['a', 'b']"],
-
-            ["In function: " +
-                "sklearn.utils.tests.test_testing.f_too_many_param_docstring",
-             "Parameters in function docstring have more items w.r.t. function"
-             " signature, first extra item: c",
-             "Full diff:",
-             "- ['a', 'b']",
-             "+ ['a', 'b', 'c']",
-             "?          +++++"],
-
-            ["In function: sklearn.utils.tests.test_testing.f_missing",
-             "Parameters in function docstring have less items w.r.t. function"
-             " signature, first missing item: b",
-             "Full diff:",
-             "- ['a', 'b']",
-             "+ ['a']"],
-
-            ["In function: sklearn.utils.tests.test_testing.Klass.f_missing",
-             "Parameters in function docstring have less items w.r.t. function"
-             " signature, first missing item: X",
-             "Full diff:",
-             "- ['X', 'y']",
-             "+ []"],
-
-            ["In function: " +
-             "sklearn.utils.tests.test_testing.MockMetaEstimator.predict",
-             "There's a parameter name mismatch in function docstring w.r.t."
-             " function signature, at index 0 diff: 'X' != 'y'",
-             "Full diff:",
-             "- ['X']",
-             "?   ^",
-             "+ ['y']",
-             "?   ^"],
-
-            ["In function: " +
-             "sklearn.utils.tests.test_testing.MockMetaEstimator."
-             + "predict_proba",
-             "Parameters in function docstring have less items w.r.t. function"
-             " signature, first missing item: X",
-             "Full diff:",
-             "- ['X']",
-             "+ []"],
-
-            ["In function: " +
-                "sklearn.utils.tests.test_testing.MockMetaEstimator.score",
-             "Parameters in function docstring have less items w.r.t. function"
-             " signature, first missing item: X",
-             "Full diff:",
-             "- ['X']",
-             "+ []"],
-
-            ["In function: " +
-                "sklearn.utils.tests.test_testing.MockMetaEstimator.fit",
-             "Parameters in function docstring have less items w.r.t. function"
-             " signature, first missing item: X",
-             "Full diff:",
-             "- ['X', 'y']",
-             "+ []"],
-
-            ]
+        [
+            "In function: sklearn.utils.tests.test_testing.f_bad_order",
+            "There's a parameter name mismatch in function docstring w.r.t."
+            " function signature, at index 0 diff: 'b' != 'a'",
+            "Full diff:",
+            "- ['b', 'a']",
+            "+ ['a', 'b']",
+        ],
+        [
+            "In function: "
+            + "sklearn.utils.tests.test_testing.f_too_many_param_docstring",
+            "Parameters in function docstring have more items w.r.t. function"
+            " signature, first extra item: c",
+            "Full diff:",
+            "- ['a', 'b']",
+            "+ ['a', 'b', 'c']",
+            "?          +++++",
+        ],
+        [
+            "In function: sklearn.utils.tests.test_testing.f_missing",
+            "Parameters in function docstring have less items w.r.t. function"
+            " signature, first missing item: b",
+            "Full diff:",
+            "- ['a', 'b']",
+            "+ ['a']",
+        ],
+        [
+            "In function: sklearn.utils.tests.test_testing.Klass.f_missing",
+            "Parameters in function docstring have less items w.r.t. function"
+            " signature, first missing item: X",
+            "Full diff:",
+            "- ['X', 'y']",
+            "+ []",
+        ],
+        [
+            "In function: "
+            + "sklearn.utils.tests.test_testing.MockMetaEstimator.predict",
+            "There's a parameter name mismatch in function docstring w.r.t."
+            " function signature, at index 0 diff: 'X' != 'y'",
+            "Full diff:",
+            "- ['X']",
+            "?   ^",
+            "+ ['y']",
+            "?   ^",
+        ],
+        [
+            "In function: "
+            + "sklearn.utils.tests.test_testing.MockMetaEstimator."
+            + "predict_proba",
+            "Parameters in function docstring have less items w.r.t. function"
+            " signature, first missing item: X",
+            "Full diff:",
+            "- ['X']",
+            "+ []",
+        ],
+        [
+            "In function: "
+            + "sklearn.utils.tests.test_testing.MockMetaEstimator.score",
+            "Parameters in function docstring have less items w.r.t. function"
+            " signature, first missing item: X",
+            "Full diff:",
+            "- ['X']",
+            "+ []",
+        ],
+        [
+            "In function: " + "sklearn.utils.tests.test_testing.MockMetaEstimator.fit",
+            "Parameters in function docstring have less items w.r.t. function"
+            " signature, first missing item: X",
+            "Full diff:",
+            "- ['X', 'y']",
+            "+ []",
+        ],
+    ]
 
     mock_meta = MockMetaEstimator(delegate=MockEst())
 
-    for msg, f in zip(messages,
-                      [f_bad_order,
-                       f_too_many_param_docstring,
-                       f_missing,
-                       Klass.f_missing,
-                       mock_meta.predict,
-                       mock_meta.predict_proba,
-                       mock_meta.score,
-                       mock_meta.fit]):
+    for msg, f in zip(
+        messages,
+        [
+            f_bad_order,
+            f_too_many_param_docstring,
+            f_missing,
+            Klass.f_missing,
+            mock_meta.predict,
+            mock_meta.predict_proba,
+            mock_meta.score,
+            mock_meta.fit,
+        ],
+    ):
         incorrect = check_docstring_parameters(f)
-        assert msg == incorrect, ('\n"%s"\n not in \n"%s"' % (msg, incorrect))
+        assert msg == incorrect, '\n"%s"\n not in \n"%s"' % (msg, incorrect)
 
 
 class RegistrationCounter:
@@ -565,50 +588,49 @@ class RegistrationCounter:
         assert to_register_func.func is _delete_folder
 
 
-def check_memmap(input_array, mmap_data, mmap_mode='r'):
+def check_memmap(input_array, mmap_data, mmap_mode="r"):
     assert isinstance(mmap_data, np.memmap)
-    writeable = mmap_mode != 'r'
+    writeable = mmap_mode != "r"
     assert mmap_data.flags.writeable is writeable
     np.testing.assert_array_equal(input_array, mmap_data)
 
 
 def test_tempmemmap(monkeypatch):
     registration_counter = RegistrationCounter()
-    monkeypatch.setattr(atexit, 'register', registration_counter)
+    monkeypatch.setattr(atexit, "register", registration_counter)
 
     input_array = np.ones(3)
     with TempMemmap(input_array) as data:
         check_memmap(input_array, data)
         temp_folder = os.path.dirname(data.filename)
-    if os.name != 'nt':
+    if os.name != "nt":
         assert not os.path.exists(temp_folder)
     assert registration_counter.nb_calls == 1
 
-    mmap_mode = 'r+'
+    mmap_mode = "r+"
     with TempMemmap(input_array, mmap_mode=mmap_mode) as data:
         check_memmap(input_array, data, mmap_mode=mmap_mode)
         temp_folder = os.path.dirname(data.filename)
-    if os.name != 'nt':
+    if os.name != "nt":
         assert not os.path.exists(temp_folder)
     assert registration_counter.nb_calls == 2
 
 
 def test_create_memmap_backed_data(monkeypatch):
     registration_counter = RegistrationCounter()
-    monkeypatch.setattr(atexit, 'register', registration_counter)
+    monkeypatch.setattr(atexit, "register", registration_counter)
 
     input_array = np.ones(3)
     data = create_memmap_backed_data(input_array)
     check_memmap(input_array, data)
     assert registration_counter.nb_calls == 1
 
-    data, folder = create_memmap_backed_data(input_array,
-                                             return_folder=True)
+    data, folder = create_memmap_backed_data(input_array, return_folder=True)
     check_memmap(input_array, data)
     assert folder == os.path.dirname(data.filename)
     assert registration_counter.nb_calls == 2
 
-    mmap_mode = 'r+'
+    mmap_mode = "r+"
     data = create_memmap_backed_data(input_array, mmap_mode=mmap_mode)
     check_memmap(input_array, data, mmap_mode)
     assert registration_counter.nb_calls == 3
@@ -622,16 +644,17 @@ def test_create_memmap_backed_data(monkeypatch):
 
 @pytest.mark.parametrize(
     "constructor_name, container_type",
-    [('list', list),
-     ('tuple', tuple),
-     ('array', np.ndarray),
-     ('sparse', sparse.csr_matrix),
-     ('dataframe', pytest.importorskip('pandas').DataFrame),
-     ('series', pytest.importorskip('pandas').Series),
-     ('index', pytest.importorskip('pandas').Index),
-     ('slice', slice)]
+    [
+        ("list", list),
+        ("tuple", tuple),
+        ("array", np.ndarray),
+        ("sparse", sparse.csr_matrix),
+        ("dataframe", pytest.importorskip("pandas").DataFrame),
+        ("series", pytest.importorskip("pandas").Series),
+        ("index", pytest.importorskip("pandas").Index),
+        ("slice", slice),
+    ],
 )
 def test_convert_container(constructor_name, container_type):
     container = [0, 1]
-    assert isinstance(_convert_container(container, constructor_name),
-                      container_type)
+    assert isinstance(_convert_container(container, constructor_name), container_type)

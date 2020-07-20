@@ -177,22 +177,25 @@ class IsolationForest(OutlierMixin, BaseBagging):
     >>> clf.predict([[0.1], [0], [90]])
     array([ 1,  1, -1])
     """
+
     @_deprecate_positional_args
-    def __init__(self, *,
-                 n_estimators=100,
-                 max_samples="auto",
-                 contamination="auto",
-                 max_features=1.,
-                 bootstrap=False,
-                 n_jobs=None,
-                 random_state=None,
-                 verbose=0,
-                 warm_start=False):
+    def __init__(
+        self,
+        *,
+        n_estimators=100,
+        max_samples="auto",
+        contamination="auto",
+        max_features=1.0,
+        bootstrap=False,
+        n_jobs=None,
+        random_state=None,
+        verbose=0,
+        warm_start=False,
+    ):
         super().__init__(
             base_estimator=ExtraTreeRegressor(
-                max_features=1,
-                splitter='random',
-                random_state=random_state),
+                max_features=1, splitter="random", random_state=random_state
+            ),
             # here above max_features has no links with self.max_features
             bootstrap=bootstrap,
             bootstrap_features=False,
@@ -202,7 +205,8 @@ class IsolationForest(OutlierMixin, BaseBagging):
             warm_start=warm_start,
             n_jobs=n_jobs,
             random_state=random_state,
-            verbose=verbose)
+            verbose=verbose,
+        )
 
         self.contamination = contamination
 
@@ -214,7 +218,7 @@ class IsolationForest(OutlierMixin, BaseBagging):
         # a thread-based backend rather than a process-based backend so as
         # to avoid suffering from communication overhead and extra memory
         # copies.
-        return _joblib_parallel_args(prefer='threads')
+        return _joblib_parallel_args(prefer="threads")
 
     def fit(self, X, y=None, sample_weight=None):
         """
@@ -238,7 +242,7 @@ class IsolationForest(OutlierMixin, BaseBagging):
         self : object
             Fitted estimator.
         """
-        X = check_array(X, accept_sparse=['csc'])
+        X = check_array(X, accept_sparse=["csc"])
         if issparse(X):
             # Pre-sort indices to avoid that each individual tree of the
             # ensemble sorts the indices.
@@ -251,33 +255,38 @@ class IsolationForest(OutlierMixin, BaseBagging):
         n_samples = X.shape[0]
 
         if isinstance(self.max_samples, str):
-            if self.max_samples == 'auto':
+            if self.max_samples == "auto":
                 max_samples = min(256, n_samples)
             else:
-                raise ValueError('max_samples (%s) is not supported.'
-                                 'Valid choices are: "auto", int or'
-                                 'float' % self.max_samples)
+                raise ValueError(
+                    "max_samples (%s) is not supported."
+                    'Valid choices are: "auto", int or'
+                    "float" % self.max_samples
+                )
 
         elif isinstance(self.max_samples, numbers.Integral):
             if self.max_samples > n_samples:
-                warn("max_samples (%s) is greater than the "
-                     "total number of samples (%s). max_samples "
-                     "will be set to n_samples for estimation."
-                     % (self.max_samples, n_samples))
+                warn(
+                    "max_samples (%s) is greater than the "
+                    "total number of samples (%s). max_samples "
+                    "will be set to n_samples for estimation."
+                    % (self.max_samples, n_samples)
+                )
                 max_samples = n_samples
             else:
                 max_samples = self.max_samples
         else:  # float
-            if not 0. < self.max_samples <= 1.:
-                raise ValueError("max_samples must be in (0, 1], got %r"
-                                 % self.max_samples)
+            if not 0.0 < self.max_samples <= 1.0:
+                raise ValueError(
+                    "max_samples must be in (0, 1], got %r" % self.max_samples
+                )
             max_samples = int(self.max_samples * X.shape[0])
 
         self.max_samples_ = max_samples
         max_depth = int(np.ceil(np.log2(max(max_samples, 2))))
-        super()._fit(X, y, max_samples,
-                     max_depth=max_depth,
-                     sample_weight=sample_weight)
+        super()._fit(
+            X, y, max_samples, max_depth=max_depth, sample_weight=sample_weight
+        )
 
         if self.contamination == "auto":
             # 0.5 plays a special role as described in the original paper.
@@ -286,8 +295,7 @@ class IsolationForest(OutlierMixin, BaseBagging):
             return self
 
         # else, define offset_ wrt contamination parameter
-        self.offset_ = np.percentile(self.score_samples(X),
-                                     100. * self.contamination)
+        self.offset_ = np.percentile(self.score_samples(X), 100.0 * self.contamination)
 
         return self
 
@@ -309,7 +317,7 @@ class IsolationForest(OutlierMixin, BaseBagging):
             be considered as an inlier according to the fitted model.
         """
         check_is_fitted(self)
-        X = check_array(X, accept_sparse='csr')
+        X = check_array(X, accept_sparse="csr")
         is_inlier = np.ones(X.shape[0], dtype=int)
         is_inlier[self.decision_function(X) < 0] = -1
         return is_inlier
@@ -375,12 +383,14 @@ class IsolationForest(OutlierMixin, BaseBagging):
         check_is_fitted(self)
 
         # Check data
-        X = check_array(X, accept_sparse='csr')
+        X = check_array(X, accept_sparse="csr")
         if self.n_features_ != X.shape[1]:
-            raise ValueError("Number of features of the model must "
-                             "match the input. Model n_features is {0} and "
-                             "input n_features is {1}."
-                             "".format(self.n_features_, X.shape[1]))
+            raise ValueError(
+                "Number of features of the model must "
+                "match the input. Model n_features is {0} and "
+                "input n_features is {1}."
+                "".format(self.n_features_, X.shape[1])
+            )
 
         # Take the opposite of the scores as bigger is better (here less
         # abnormal)
@@ -406,8 +416,9 @@ class IsolationForest(OutlierMixin, BaseBagging):
         #    the data needed to compute the scores -- the returned scores
         #    themselves are 1D.
 
-        chunk_n_rows = get_chunk_n_rows(row_bytes=16 * self._max_features,
-                                        max_n_rows=n_samples)
+        chunk_n_rows = get_chunk_n_rows(
+            row_bytes=16 * self._max_features, max_n_rows=n_samples
+        )
         slices = gen_batches(n_samples, chunk_n_rows)
 
         scores = np.zeros(n_samples, order="f")
@@ -449,16 +460,14 @@ class IsolationForest(OutlierMixin, BaseBagging):
 
         scores = 2 ** (
             -depths
-            / (len(self.estimators_)
-               * _average_path_length([self.max_samples_]))
+            / (len(self.estimators_) * _average_path_length([self.max_samples_]))
         )
         return scores
 
     def _more_tags(self):
         return {
-            '_xfail_checks': {
-                'check_sample_weights_invariance(kind=zeros)':
-                'zero sample_weight is not equivalent to removing samples',
+            "_xfail_checks": {
+                "check_sample_weights_invariance(kind=zeros)": "zero sample_weight is not equivalent to removing samples",
             }
         }
 
@@ -489,8 +498,8 @@ def _average_path_length(n_samples_leaf):
     mask_2 = n_samples_leaf == 2
     not_mask = ~np.logical_or(mask_1, mask_2)
 
-    average_path_length[mask_1] = 0.
-    average_path_length[mask_2] = 1.
+    average_path_length[mask_1] = 0.0
+    average_path_length[mask_2] = 1.0
     average_path_length[not_mask] = (
         2.0 * (np.log(n_samples_leaf[not_mask] - 1.0) + np.euler_gamma)
         - 2.0 * (n_samples_leaf[not_mask] - 1.0) / n_samples_leaf[not_mask]

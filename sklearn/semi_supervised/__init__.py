@@ -7,4 +7,4 @@ Propagation.
 
 from ._label_propagation import LabelPropagation, LabelSpreading
 
-__all__ = ['LabelPropagation', 'LabelSpreading']
+__all__ = ["LabelPropagation", "LabelSpreading"]

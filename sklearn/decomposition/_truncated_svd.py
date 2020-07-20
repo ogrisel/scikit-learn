@@ -118,9 +118,17 @@ class TruncatedSVD(TransformerMixin, BaseEstimator):
     class to data once, then keep the instance around to do transformations.
 
     """
+
     @_deprecate_positional_args
-    def __init__(self, n_components=2, *, algorithm="randomized", n_iter=5,
-                 random_state=None, tol=0.):
+    def __init__(
+        self,
+        n_components=2,
+        *,
+        algorithm="randomized",
+        n_iter=5,
+        random_state=None,
+        tol=0.0,
+    ):
         self.algorithm = algorithm
         self.n_components = n_components
         self.n_iter = n_iter
@@ -160,8 +168,7 @@ class TruncatedSVD(TransformerMixin, BaseEstimator):
         X_new : array, shape (n_samples, n_components)
             Reduced version of X. This will always be a dense array.
         """
-        X = self._validate_data(X, accept_sparse=['csr', 'csc'],
-                                ensure_min_features=2)
+        X = self._validate_data(X, accept_sparse=["csr", "csc"], ensure_min_features=2)
         random_state = check_random_state(self.random_state)
 
         if self.algorithm == "arpack":
@@ -175,11 +182,13 @@ class TruncatedSVD(TransformerMixin, BaseEstimator):
             k = self.n_components
             n_features = X.shape[1]
             if k >= n_features:
-                raise ValueError("n_components must be < n_features;"
-                                 " got %d >= %d" % (k, n_features))
-            U, Sigma, VT = randomized_svd(X, self.n_components,
-                                          n_iter=self.n_iter,
-                                          random_state=random_state)
+                raise ValueError(
+                    "n_components must be < n_features;"
+                    " got %d >= %d" % (k, n_features)
+                )
+            U, Sigma, VT = randomized_svd(
+                X, self.n_components, n_iter=self.n_iter, random_state=random_state
+            )
         else:
             raise ValueError("unknown algorithm %r" % self.algorithm)
 
@@ -211,7 +220,7 @@ class TruncatedSVD(TransformerMixin, BaseEstimator):
         X_new : array, shape (n_samples, n_components)
             Reduced version of X. This will always be a dense array.
         """
-        X = check_array(X, accept_sparse=['csr', 'csc'])
+        X = check_array(X, accept_sparse=["csr", "csc"])
         check_is_fitted(self)
         return safe_sparse_dot(X, self.components_.T)
 

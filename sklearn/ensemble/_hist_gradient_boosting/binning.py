@@ -63,7 +63,7 @@ def _find_binning_thresholds(data, max_bins, subsample, random_state):
         distinct_values = np.unique(col_data)
         if len(distinct_values) <= max_bins:
             midpoints = distinct_values[:-1] + distinct_values[1:]
-            midpoints *= .5
+            midpoints *= 0.5
         else:
             # We sort again the data in this case. We could compute
             # approximate midpoint percentiles using the output of
@@ -72,8 +72,9 @@ def _find_binning_thresholds(data, max_bins, subsample, random_state):
             # work on a fixed-size subsample of the full data.
             percentiles = np.linspace(0, 100, num=max_bins + 1)
             percentiles = percentiles[1:-1]
-            midpoints = np.percentile(col_data, percentiles,
-                                      interpolation='midpoint').astype(X_DTYPE)
+            midpoints = np.percentile(
+                col_data, percentiles, interpolation="midpoint"
+            ).astype(X_DTYPE)
             assert midpoints.shape[0] == max_bins - 1
 
         # We avoid having +inf thresholds: +inf thresholds are only allowed in
@@ -134,6 +135,7 @@ class _BinMapper(TransformerMixin, BaseEstimator):
         is less than ``n_bins - 1`` for a given feature, then there are
         empty (and unused) bins.
     """
+
     def __init__(self, n_bins=256, subsample=int(2e5), random_state=None):
         self.n_bins = n_bins
         self.subsample = subsample
@@ -158,18 +160,21 @@ class _BinMapper(TransformerMixin, BaseEstimator):
         """
         if not (3 <= self.n_bins <= 256):
             # min is 3: at least 2 distinct bins and a missing values bin
-            raise ValueError('n_bins={} should be no smaller than 3 '
-                             'and no larger than 256.'.format(self.n_bins))
+            raise ValueError(
+                "n_bins={} should be no smaller than 3 "
+                "and no larger than 256.".format(self.n_bins)
+            )
 
         X = check_array(X, dtype=[X_DTYPE], force_all_finite=False)
         max_bins = self.n_bins - 1
         self.bin_thresholds_ = _find_binning_thresholds(
-            X, max_bins, subsample=self.subsample,
-            random_state=self.random_state)
+            X, max_bins, subsample=self.subsample, random_state=self.random_state
+        )
 
         self.n_bins_non_missing_ = np.array(
             [thresholds.shape[0] + 1 for thresholds in self.bin_thresholds_],
-            dtype=np.uint32)
+            dtype=np.uint32,
+        )
 
         self.missing_values_bin_idx_ = self.n_bins - 1
 
@@ -194,11 +199,9 @@ class _BinMapper(TransformerMixin, BaseEstimator):
         check_is_fitted(self)
         if X.shape[1] != self.n_bins_non_missing_.shape[0]:
             raise ValueError(
-                'This estimator was fitted with {} features but {} got passed '
-                'to transform()'.format(self.n_bins_non_missing_.shape[0],
-                                        X.shape[1])
+                "This estimator was fitted with {} features but {} got passed "
+                "to transform()".format(self.n_bins_non_missing_.shape[0], X.shape[1])
             )
-        binned = np.zeros_like(X, dtype=X_BINNED_DTYPE, order='F')
-        _map_to_bins(X, self.bin_thresholds_, self.missing_values_bin_idx_,
-                     binned)
+        binned = np.zeros_like(X, dtype=X_BINNED_DTYPE, order="F")
+        _map_to_bins(X, self.bin_thresholds_, self.missing_values_bin_idx_, binned)
         return binned

@@ -21,9 +21,7 @@ from ..utils import check_array
 from ..utils.validation import _deprecate_positional_args
 
 
-class KNeighborsRegressor(KNeighborsMixin,
-                          RegressorMixin,
-                          NeighborsBase):
+class KNeighborsRegressor(KNeighborsMixin, RegressorMixin, NeighborsBase):
     """Regression based on k-nearest neighbors.
 
     The target is predicted by local interpolation of the targets
@@ -144,21 +142,35 @@ class KNeighborsRegressor(KNeighborsMixin,
     """
 
     @_deprecate_positional_args
-    def __init__(self, n_neighbors=5, *, weights='uniform',
-                 algorithm='auto', leaf_size=30,
-                 p=2, metric='minkowski', metric_params=None, n_jobs=None,
-                 **kwargs):
+    def __init__(
+        self,
+        n_neighbors=5,
+        *,
+        weights="uniform",
+        algorithm="auto",
+        leaf_size=30,
+        p=2,
+        metric="minkowski",
+        metric_params=None,
+        n_jobs=None,
+        **kwargs,
+    ):
         super().__init__(
-              n_neighbors=n_neighbors,
-              algorithm=algorithm,
-              leaf_size=leaf_size, metric=metric, p=p,
-              metric_params=metric_params, n_jobs=n_jobs, **kwargs)
+            n_neighbors=n_neighbors,
+            algorithm=algorithm,
+            leaf_size=leaf_size,
+            metric=metric,
+            p=p,
+            metric_params=metric_params,
+            n_jobs=n_jobs,
+            **kwargs,
+        )
         self.weights = _check_weights(weights)
 
     @property
     def _pairwise(self):
         # For cross-validation routines to split data correctly
-        return self.metric == 'precomputed'
+        return self.metric == "precomputed"
 
     def fit(self, X, y):
         """Fit the k-nearest neighbors regressor from the training dataset.
@@ -194,7 +206,7 @@ class KNeighborsRegressor(KNeighborsMixin,
         y : ndarray of shape (n_queries,) or (n_queries, n_outputs), dtype=int
             Target values.
         """
-        X = check_array(X, accept_sparse='csr')
+        X = check_array(X, accept_sparse="csr")
 
         neigh_dist, neigh_ind = self.kneighbors(X)
 
@@ -220,9 +232,7 @@ class KNeighborsRegressor(KNeighborsMixin,
         return y_pred
 
 
-class RadiusNeighborsRegressor(RadiusNeighborsMixin,
-                               RegressorMixin,
-                               NeighborsBase):
+class RadiusNeighborsRegressor(RadiusNeighborsMixin, RegressorMixin, NeighborsBase):
     """Regression based on neighbors within a fixed radius.
 
     The target is predicted by local interpolation of the targets
@@ -336,16 +346,29 @@ class RadiusNeighborsRegressor(RadiusNeighborsMixin,
     """
 
     @_deprecate_positional_args
-    def __init__(self, radius=1.0, *, weights='uniform',
-                 algorithm='auto', leaf_size=30,
-                 p=2, metric='minkowski', metric_params=None, n_jobs=None,
-                 **kwargs):
+    def __init__(
+        self,
+        radius=1.0,
+        *,
+        weights="uniform",
+        algorithm="auto",
+        leaf_size=30,
+        p=2,
+        metric="minkowski",
+        metric_params=None,
+        n_jobs=None,
+        **kwargs,
+    ):
         super().__init__(
-              radius=radius,
-              algorithm=algorithm,
-              leaf_size=leaf_size,
-              p=p, metric=metric, metric_params=metric_params,
-              n_jobs=n_jobs, **kwargs)
+            radius=radius,
+            algorithm=algorithm,
+            leaf_size=leaf_size,
+            p=p,
+            metric=metric,
+            metric_params=metric_params,
+            n_jobs=n_jobs,
+            **kwargs,
+        )
         self.weights = _check_weights(weights)
 
     def fit(self, X, y):
@@ -383,7 +406,7 @@ class RadiusNeighborsRegressor(RadiusNeighborsMixin,
                 dtype=double
             Target values.
         """
-        X = check_array(X, accept_sparse='csr')
+        X = check_array(X, accept_sparse="csr")
 
         neigh_dist, neigh_ind = self.radius_neighbors(X)
 
@@ -396,19 +419,28 @@ class RadiusNeighborsRegressor(RadiusNeighborsMixin,
         empty_obs = np.full_like(_y[0], np.nan)
 
         if weights is None:
-            y_pred = np.array([np.mean(_y[ind, :], axis=0)
-                               if len(ind) else empty_obs
-                               for (i, ind) in enumerate(neigh_ind)])
+            y_pred = np.array(
+                [
+                    np.mean(_y[ind, :], axis=0) if len(ind) else empty_obs
+                    for (i, ind) in enumerate(neigh_ind)
+                ]
+            )
 
         else:
-            y_pred = np.array([np.average(_y[ind, :], axis=0,
-                               weights=weights[i])
-                               if len(ind) else empty_obs
-                               for (i, ind) in enumerate(neigh_ind)])
+            y_pred = np.array(
+                [
+                    np.average(_y[ind, :], axis=0, weights=weights[i])
+                    if len(ind)
+                    else empty_obs
+                    for (i, ind) in enumerate(neigh_ind)
+                ]
+            )
 
         if np.any(np.isnan(y_pred)):
-            empty_warning_msg = ("One or more samples have no neighbors "
-                                 "within specified radius; predicting NaN.")
+            empty_warning_msg = (
+                "One or more samples have no neighbors "
+                "within specified radius; predicting NaN."
+            )
             warnings.warn(empty_warning_msg)
 
         if self._y.ndim == 1:

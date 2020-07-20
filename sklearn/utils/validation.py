@@ -60,15 +60,19 @@ def _deprecate_positional_args(f):
             return f(*args, **kwargs)
 
         # extra_args > 0
-        args_msg = ['{}={}'.format(name, arg)
-                    for name, arg in zip(kwonly_args[:extra_args],
-                                         args[-extra_args:])]
-        warnings.warn("Pass {} as keyword args. From version 0.25 "
-                      "passing these as positional arguments will "
-                      "result in an error".format(", ".join(args_msg)),
-                      FutureWarning)
+        args_msg = [
+            "{}={}".format(name, arg)
+            for name, arg in zip(kwonly_args[:extra_args], args[-extra_args:])
+        ]
+        warnings.warn(
+            "Pass {} as keyword args. From version 0.25 "
+            "passing these as positional arguments will "
+            "result in an error".format(", ".join(args_msg)),
+            FutureWarning,
+        )
         kwargs.update(zip(sig.parameters, args))
         return f(**kwargs)
+
     return inner_f
 
 
@@ -77,28 +81,32 @@ def _assert_all_finite(X, allow_nan=False, msg_dtype=None):
     # validation is also imported in extmath
     from .extmath import _safe_accumulator_op
 
-    if _get_config()['assume_finite']:
+    if _get_config()["assume_finite"]:
         return
     X = np.asanyarray(X)
     # First try an O(n) time, O(1) space solution for the common case that
     # everything is finite; fall back to O(n) space np.isfinite to prevent
     # false positives from overflow in sum method. The sum is also calculated
     # safely to reduce dtype induced overflows.
-    is_float = X.dtype.kind in 'fc'
+    is_float = X.dtype.kind in "fc"
     if is_float and (np.isfinite(_safe_accumulator_op(np.sum, X))):
         pass
     elif is_float:
         msg_err = "Input contains {} or a value too large for {!r}."
-        if (allow_nan and np.isinf(X).any() or
-                not allow_nan and not np.isfinite(X).all()):
-            type_err = 'infinity' if allow_nan else 'NaN, infinity'
+        if (
+            allow_nan
+            and np.isinf(X).any()
+            or not allow_nan
+            and not np.isfinite(X).all()
+        ):
+            type_err = "infinity" if allow_nan else "NaN, infinity"
             raise ValueError(
-                    msg_err.format
-                    (type_err,
-                     msg_dtype if msg_dtype is not None else X.dtype)
+                msg_err.format(
+                    type_err, msg_dtype if msg_dtype is not None else X.dtype
+                )
             )
     # for object dtype data, we only check for NaNs (GH-13254)
-    elif X.dtype == np.dtype('object') and not allow_nan:
+    elif X.dtype == np.dtype("object") and not allow_nan:
         if _object_dtype_isnan(X).any():
             raise ValueError("Input contains NaN")
 
@@ -152,17 +160,23 @@ def as_float_array(X, *, copy=True, force_all_finite=True):
     XT : {array, sparse matrix}
         An array of type float
     """
-    if isinstance(X, np.matrix) or (not isinstance(X, np.ndarray)
-                                    and not sp.issparse(X)):
-        return check_array(X, accept_sparse=['csr', 'csc', 'coo'],
-                           dtype=np.float64, copy=copy,
-                           force_all_finite=force_all_finite, ensure_2d=False)
+    if isinstance(X, np.matrix) or (
+        not isinstance(X, np.ndarray) and not sp.issparse(X)
+    ):
+        return check_array(
+            X,
+            accept_sparse=["csr", "csc", "coo"],
+            dtype=np.float64,
+            copy=copy,
+            force_all_finite=force_all_finite,
+            ensure_2d=False,
+        )
     elif sp.issparse(X) and X.dtype in [np.float32, np.float64]:
         return X.copy() if copy else X
     elif X.dtype in [np.float32, np.float64]:  # is numpy array
-        return X.copy('F' if X.flags['F_CONTIGUOUS'] else 'C') if copy else X
+        return X.copy("F" if X.flags["F_CONTIGUOUS"] else "C") if copy else X
     else:
-        if X.dtype.kind in 'uib' and X.dtype.itemsize <= 4:
+        if X.dtype.kind in "uib" and X.dtype.itemsize <= 4:
             return_dtype = np.float32
         else:
             return_dtype = np.float64
@@ -171,28 +185,27 @@ def as_float_array(X, *, copy=True, force_all_finite=True):
 
 def _is_arraylike(x):
     """Returns whether the input is array-like"""
-    return (hasattr(x, '__len__') or
-            hasattr(x, 'shape') or
-            hasattr(x, '__array__'))
+    return hasattr(x, "__len__") or hasattr(x, "shape") or hasattr(x, "__array__")
 
 
 def _num_samples(x):
     """Return number of samples in array-like x."""
-    message = 'Expected sequence or array-like, got %s' % type(x)
-    if hasattr(x, 'fit') and callable(x.fit):
+    message = "Expected sequence or array-like, got %s" % type(x)
+    if hasattr(x, "fit") and callable(x.fit):
         # Don't get num_samples from an ensembles length!
         raise TypeError(message)
 
-    if not hasattr(x, '__len__') and not hasattr(x, 'shape'):
-        if hasattr(x, '__array__'):
+    if not hasattr(x, "__len__") and not hasattr(x, "shape"):
+        if hasattr(x, "__array__"):
             x = np.asarray(x)
         else:
             raise TypeError(message)
 
-    if hasattr(x, 'shape') and x.shape is not None:
+    if hasattr(x, "shape") and x.shape is not None:
         if len(x.shape) == 0:
-            raise TypeError("Singleton array %r cannot be considered"
-                            " a valid collection." % x)
+            raise TypeError(
+                "Singleton array %r cannot be considered" " a valid collection." % x
+            )
         # Check that shape is returning an integer or default to len
         # Dask dataframes may not return numeric shape[0] value
         if isinstance(x.shape[0], numbers.Integral):
@@ -226,14 +239,16 @@ def check_memory(memory):
     """
 
     if memory is None or isinstance(memory, str):
-        if parse_version(joblib.__version__) < parse_version('0.12'):
+        if parse_version(joblib.__version__) < parse_version("0.12"):
             memory = joblib.Memory(cachedir=memory, verbose=0)
         else:
             memory = joblib.Memory(location=memory, verbose=0)
-    elif not hasattr(memory, 'cache'):
-        raise ValueError("'memory' should be None, a string or have the same"
-                         " interface as joblib.Memory."
-                         " Got memory='{}' instead.".format(memory))
+    elif not hasattr(memory, "cache"):
+        raise ValueError(
+            "'memory' should be None, a string or have the same"
+            " interface as joblib.Memory."
+            " Got memory='{}' instead.".format(memory)
+        )
     return memory
 
 
@@ -251,8 +266,10 @@ def check_consistent_length(*arrays):
     lengths = [_num_samples(X) for X in arrays if X is not None]
     uniques = np.unique(lengths)
     if len(uniques) > 1:
-        raise ValueError("Found input variables with inconsistent numbers of"
-                         " samples: %r" % [int(l) for l in lengths])
+        raise ValueError(
+            "Found input variables with inconsistent numbers of"
+            " samples: %r" % [int(l) for l in lengths]
+        )
 
 
 def _make_indexable(iterable):
@@ -292,8 +309,9 @@ def indexable(*iterables):
     return result
 
 
-def _ensure_sparse_format(spmatrix, accept_sparse, dtype, copy,
-                          force_all_finite, accept_large_sparse):
+def _ensure_sparse_format(
+    spmatrix, accept_sparse, dtype, copy, force_all_finite, accept_large_sparse
+):
     """Convert a sparse matrix to a given format.
 
     Checks the sparse format of spmatrix and converts if necessary.
@@ -349,14 +367,18 @@ def _ensure_sparse_format(spmatrix, accept_sparse, dtype, copy,
     _check_large_sparse(spmatrix, accept_large_sparse)
 
     if accept_sparse is False:
-        raise TypeError('A sparse matrix was passed, but dense '
-                        'data is required. Use X.toarray() to '
-                        'convert to a dense numpy array.')
+        raise TypeError(
+            "A sparse matrix was passed, but dense "
+            "data is required. Use X.toarray() to "
+            "convert to a dense numpy array."
+        )
     elif isinstance(accept_sparse, (list, tuple)):
         if len(accept_sparse) == 0:
-            raise ValueError("When providing 'accept_sparse' "
-                             "as a tuple or list, it must contain at "
-                             "least one string value.")
+            raise ValueError(
+                "When providing 'accept_sparse' "
+                "as a tuple or list, it must contain at "
+                "least one string value."
+            )
         # ensure correct sparse format
         if spmatrix.format not in accept_sparse:
             # create new with correct sparse
@@ -364,9 +386,11 @@ def _ensure_sparse_format(spmatrix, accept_sparse, dtype, copy,
             changed_format = True
     elif accept_sparse is not True:
         # any other type
-        raise ValueError("Parameter 'accept_sparse' should be a string, "
-                         "boolean or list of strings. You provided "
-                         "'accept_sparse={}'.".format(accept_sparse))
+        raise ValueError(
+            "Parameter 'accept_sparse' should be a string, "
+            "boolean or list of strings. You provided "
+            "'accept_sparse={}'.".format(accept_sparse)
+        )
 
     if dtype != spmatrix.dtype:
         # convert dtype
@@ -377,27 +401,42 @@ def _ensure_sparse_format(spmatrix, accept_sparse, dtype, copy,
 
     if force_all_finite:
         if not hasattr(spmatrix, "data"):
-            warnings.warn("Can't check %s sparse matrix for nan or inf."
-                          % spmatrix.format, stacklevel=2)
+            warnings.warn(
+                "Can't check %s sparse matrix for nan or inf." % spmatrix.format,
+                stacklevel=2,
+            )
         else:
-            _assert_all_finite(spmatrix.data,
-                               allow_nan=force_all_finite == 'allow-nan')
+            _assert_all_finite(spmatrix.data, allow_nan=force_all_finite == "allow-nan")
 
     return spmatrix
 
 
 def _ensure_no_complex_data(array):
-    if hasattr(array, 'dtype') and array.dtype is not None \
-            and hasattr(array.dtype, 'kind') and array.dtype.kind == "c":
-        raise ValueError("Complex data not supported\n"
-                         "{}\n".format(array))
+    if (
+        hasattr(array, "dtype")
+        and array.dtype is not None
+        and hasattr(array.dtype, "kind")
+        and array.dtype.kind == "c"
+    ):
+        raise ValueError("Complex data not supported\n" "{}\n".format(array))
 
 
 @_deprecate_positional_args
-def check_array(array, accept_sparse=False, *, accept_large_sparse=True,
-                dtype="numeric", order=None, copy=False, force_all_finite=True,
-                ensure_2d=True, allow_nd=False, ensure_min_samples=1,
-                ensure_min_features=1, estimator=None):
+def check_array(
+    array,
+    accept_sparse=False,
+    *,
+    accept_large_sparse=True,
+    dtype="numeric",
+    order=None,
+    copy=False,
+    force_all_finite=True,
+    ensure_2d=True,
+    allow_nd=False,
+    ensure_min_samples=1,
+    ensure_min_features=1,
+    estimator=None,
+):
 
     """Input validation on an array, list, sparse matrix or similar.
 
@@ -489,7 +528,7 @@ def check_array(array, accept_sparse=False, *, accept_large_sparse=True,
     dtype_numeric = isinstance(dtype, str) and dtype == "numeric"
 
     dtype_orig = getattr(array, "dtype", None)
-    if not hasattr(dtype_orig, 'kind'):
+    if not hasattr(dtype_orig, "kind"):
         # not a data type (e.g. a column named dtype in a pandas DataFrame)
         dtype_orig = None
 
@@ -497,13 +536,13 @@ def check_array(array, accept_sparse=False, *, accept_large_sparse=True,
     # DataFrame), and store them. If not, store None.
     dtypes_orig = None
     has_pd_integer_array = False
-    if hasattr(array, "dtypes") and hasattr(array.dtypes, '__array__'):
+    if hasattr(array, "dtypes") and hasattr(array.dtypes, "__array__"):
         # throw warning if columns are sparse. If all columns are sparse, then
         # array.sparse exists and sparsity will be perserved (later).
         with suppress(ImportError):
             from pandas.api.types import is_sparse
-            if (not hasattr(array, 'sparse') and
-                    array.dtypes.apply(is_sparse).any()):
+
+            if not hasattr(array, "sparse") and array.dtypes.apply(is_sparse).any():
                 warnings.warn(
                     "pandas.DataFrame with sparse columns found."
                     "It will be converted to a dense numpy array."
@@ -512,20 +551,36 @@ def check_array(array, accept_sparse=False, *, accept_large_sparse=True,
         dtypes_orig = list(array.dtypes)
         # pandas boolean dtype __array__ interface coerces bools to objects
         for i, dtype_iter in enumerate(dtypes_orig):
-            if dtype_iter.kind == 'b':
+            if dtype_iter.kind == "b":
                 dtypes_orig[i] = np.dtype(object)
             elif dtype_iter.name.startswith(("Int", "UInt")):
                 # name looks like an Integer Extension Array, now check for
                 # the dtype
                 with suppress(ImportError):
-                    from pandas import (Int8Dtype, Int16Dtype,
-                                        Int32Dtype, Int64Dtype,
-                                        UInt8Dtype, UInt16Dtype,
-                                        UInt32Dtype, UInt64Dtype)
-                    if isinstance(dtype_iter, (Int8Dtype, Int16Dtype,
-                                               Int32Dtype, Int64Dtype,
-                                               UInt8Dtype, UInt16Dtype,
-                                               UInt32Dtype, UInt64Dtype)):
+                    from pandas import (
+                        Int8Dtype,
+                        Int16Dtype,
+                        Int32Dtype,
+                        Int64Dtype,
+                        UInt8Dtype,
+                        UInt16Dtype,
+                        UInt32Dtype,
+                        UInt64Dtype,
+                    )
+
+                    if isinstance(
+                        dtype_iter,
+                        (
+                            Int8Dtype,
+                            Int16Dtype,
+                            Int32Dtype,
+                            Int64Dtype,
+                            UInt8Dtype,
+                            UInt16Dtype,
+                            UInt32Dtype,
+                            UInt64Dtype,
+                        ),
+                    ):
                         has_pd_integer_array = True
 
         if all(isinstance(dtype, np.dtype) for dtype in dtypes_orig):
@@ -551,9 +606,11 @@ def check_array(array, accept_sparse=False, *, accept_large_sparse=True,
         # If there are any pandas integer extension arrays,
         array = array.astype(dtype)
 
-    if force_all_finite not in (True, False, 'allow-nan'):
-        raise ValueError('force_all_finite should be a bool or "allow-nan"'
-                         '. Got {!r} instead'.format(force_all_finite))
+    if force_all_finite not in (True, False, "allow-nan"):
+        raise ValueError(
+            'force_all_finite should be a bool or "allow-nan"'
+            ". Got {!r} instead".format(force_all_finite)
+        )
 
     if estimator is not None:
         if isinstance(estimator, str):
@@ -565,16 +622,20 @@ def check_array(array, accept_sparse=False, *, accept_large_sparse=True,
     context = " by %s" % estimator_name if estimator is not None else ""
 
     # When all dataframe columns are sparse, convert to a sparse array
-    if hasattr(array, 'sparse') and array.ndim > 1:
+    if hasattr(array, "sparse") and array.ndim > 1:
         # DataFrame.sparse only supports `to_coo`
         array = array.sparse.to_coo()
 
     if sp.issparse(array):
         _ensure_no_complex_data(array)
-        array = _ensure_sparse_format(array, accept_sparse=accept_sparse,
-                                      dtype=dtype, copy=copy,
-                                      force_all_finite=force_all_finite,
-                                      accept_large_sparse=accept_large_sparse)
+        array = _ensure_sparse_format(
+            array,
+            accept_sparse=accept_sparse,
+            dtype=dtype,
+            copy=copy,
+            force_all_finite=force_all_finite,
+            accept_large_sparse=accept_large_sparse,
+        )
     else:
         # If np.array(..) gives ComplexWarning, then we convert the warning
         # to an error. This is needed because specifying a non complex
@@ -583,21 +644,21 @@ def check_array(array, accept_sparse=False, *, accept_large_sparse=True,
         # of warnings context manager.
         with warnings.catch_warnings():
             try:
-                warnings.simplefilter('error', ComplexWarning)
-                if dtype is not None and np.dtype(dtype).kind in 'iu':
+                warnings.simplefilter("error", ComplexWarning)
+                if dtype is not None and np.dtype(dtype).kind in "iu":
                     # Conversion float -> int should not contain NaN or
                     # inf (numpy#14412). We cannot use casting='safe' because
                     # then conversion float -> int would be disallowed.
                     array = np.asarray(array, order=order)
-                    if array.dtype.kind == 'f':
-                        _assert_all_finite(array, allow_nan=False,
-                                           msg_dtype=dtype)
+                    if array.dtype.kind == "f":
+                        _assert_all_finite(array, allow_nan=False, msg_dtype=dtype)
                     array = array.astype(dtype, casting="unsafe", copy=False)
                 else:
                     array = np.asarray(array, order=order, dtype=dtype)
             except ComplexWarning as complex_warning:
-                raise ValueError("Complex data not supported\n"
-                                 "{}\n".format(array)) from complex_warning
+                raise ValueError(
+                    "Complex data not supported\n" "{}\n".format(array)
+                ) from complex_warning
 
         # It is possible that the np.array(..) gave no warning. This happens
         # when no dtype conversion happened, for example dtype = None. The
@@ -612,14 +673,16 @@ def check_array(array, accept_sparse=False, *, accept_large_sparse=True,
                     "Expected 2D array, got scalar array instead:\narray={}.\n"
                     "Reshape your data either using array.reshape(-1, 1) if "
                     "your data has a single feature or array.reshape(1, -1) "
-                    "if it contains a single sample.".format(array))
+                    "if it contains a single sample.".format(array)
+                )
             # If input is 1D raise error
             if array.ndim == 1:
                 raise ValueError(
                     "Expected 2D array, got 1D array instead:\narray={}.\n"
                     "Reshape your data either using array.reshape(-1, 1) if "
                     "your data has a single feature or array.reshape(1, -1) "
-                    "if it contains a single sample.".format(array))
+                    "if it contains a single sample.".format(array)
+                )
 
         # in the future np.flexible dtypes will be handled like object dtypes
         if dtype_numeric and np.issubdtype(array.dtype, np.flexible):
@@ -630,34 +693,39 @@ def check_array(array, accept_sparse=False, *, accept_large_sparse=True,
                 "a float dtype before using it in scikit-learn, "
                 "for example by using "
                 "your_array = your_array.astype(np.float64).",
-                FutureWarning, stacklevel=2)
+                FutureWarning,
+                stacklevel=2,
+            )
 
         # make sure we actually converted to numeric:
         if dtype_numeric and array.dtype.kind == "O":
             array = array.astype(np.float64)
         if not allow_nd and array.ndim >= 3:
-            raise ValueError("Found array with dim %d. %s expected <= 2."
-                             % (array.ndim, estimator_name))
+            raise ValueError(
+                "Found array with dim %d. %s expected <= 2."
+                % (array.ndim, estimator_name)
+            )
 
         if force_all_finite:
-            _assert_all_finite(array,
-                               allow_nan=force_all_finite == 'allow-nan')
+            _assert_all_finite(array, allow_nan=force_all_finite == "allow-nan")
 
     if ensure_min_samples > 0:
         n_samples = _num_samples(array)
         if n_samples < ensure_min_samples:
-            raise ValueError("Found array with %d sample(s) (shape=%s) while a"
-                             " minimum of %d is required%s."
-                             % (n_samples, array.shape, ensure_min_samples,
-                                context))
+            raise ValueError(
+                "Found array with %d sample(s) (shape=%s) while a"
+                " minimum of %d is required%s."
+                % (n_samples, array.shape, ensure_min_samples, context)
+            )
 
     if ensure_min_features > 0 and array.ndim == 2:
         n_features = array.shape[1]
         if n_features < ensure_min_features:
-            raise ValueError("Found array with %d feature(s) (shape=%s) while"
-                             " a minimum of %d is required%s."
-                             % (n_features, array.shape, ensure_min_features,
-                                context))
+            raise ValueError(
+                "Found array with %d feature(s) (shape=%s) while"
+                " a minimum of %d is required%s."
+                % (n_features, array.shape, ensure_min_features, context)
+            )
 
     if copy and np.may_share_memory(array, array_orig):
         array = np.array(array, dtype=dtype, order=order)
@@ -671,25 +739,39 @@ def _check_large_sparse(X, accept_large_sparse=False):
     if not accept_large_sparse:
         supported_indices = ["int32"]
         if X.getformat() == "coo":
-            index_keys = ['col', 'row']
+            index_keys = ["col", "row"]
         elif X.getformat() in ["csr", "csc", "bsr"]:
-            index_keys = ['indices', 'indptr']
+            index_keys = ["indices", "indptr"]
         else:
             return
         for key in index_keys:
             indices_datatype = getattr(X, key).dtype
-            if (indices_datatype not in supported_indices):
-                raise ValueError("Only sparse matrices with 32-bit integer"
-                                 " indices are accepted. Got %s indices."
-                                 % indices_datatype)
+            if indices_datatype not in supported_indices:
+                raise ValueError(
+                    "Only sparse matrices with 32-bit integer"
+                    " indices are accepted. Got %s indices." % indices_datatype
+                )
 
 
 @_deprecate_positional_args
-def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
-              dtype="numeric", order=None, copy=False, force_all_finite=True,
-              ensure_2d=True, allow_nd=False, multi_output=False,
-              ensure_min_samples=1, ensure_min_features=1, y_numeric=False,
-              estimator=None):
+def check_X_y(
+    X,
+    y,
+    accept_sparse=False,
+    *,
+    accept_large_sparse=True,
+    dtype="numeric",
+    order=None,
+    copy=False,
+    force_all_finite=True,
+    ensure_2d=True,
+    allow_nd=False,
+    multi_output=False,
+    ensure_min_samples=1,
+    ensure_min_features=1,
+    y_numeric=False,
+    estimator=None,
+):
     """Input validation for standard estimators.
 
     Checks X and y for consistent length, enforces X to be 2D and y 1D. By
@@ -791,21 +873,28 @@ def check_X_y(X, y, accept_sparse=False, *, accept_large_sparse=True,
     if y is None:
         raise ValueError("y cannot be None")
 
-    X = check_array(X, accept_sparse=accept_sparse,
-                    accept_large_sparse=accept_large_sparse,
-                    dtype=dtype, order=order, copy=copy,
-                    force_all_finite=force_all_finite,
-                    ensure_2d=ensure_2d, allow_nd=allow_nd,
-                    ensure_min_samples=ensure_min_samples,
-                    ensure_min_features=ensure_min_features,
-                    estimator=estimator)
+    X = check_array(
+        X,
+        accept_sparse=accept_sparse,
+        accept_large_sparse=accept_large_sparse,
+        dtype=dtype,
+        order=order,
+        copy=copy,
+        force_all_finite=force_all_finite,
+        ensure_2d=ensure_2d,
+        allow_nd=allow_nd,
+        ensure_min_samples=ensure_min_samples,
+        ensure_min_features=ensure_min_features,
+        estimator=estimator,
+    )
     if multi_output:
-        y = check_array(y, accept_sparse='csr', force_all_finite=True,
-                        ensure_2d=False, dtype=None)
+        y = check_array(
+            y, accept_sparse="csr", force_all_finite=True, ensure_2d=False, dtype=None
+        )
     else:
         y = column_or_1d(y, warn=True)
         _assert_all_finite(y)
-    if y_numeric and y.dtype.kind == 'O':
+    if y_numeric and y.dtype.kind == "O":
         y = y.astype(np.float64)
 
     check_consistent_length(X, y)
@@ -835,15 +924,18 @@ def column_or_1d(y, *, warn=False):
         return np.ravel(y)
     if len(shape) == 2 and shape[1] == 1:
         if warn:
-            warnings.warn("A column-vector y was passed when a 1d array was"
-                          " expected. Please change the shape of y to "
-                          "(n_samples, ), for example using ravel().",
-                          DataConversionWarning, stacklevel=2)
+            warnings.warn(
+                "A column-vector y was passed when a 1d array was"
+                " expected. Please change the shape of y to "
+                "(n_samples, ), for example using ravel().",
+                DataConversionWarning,
+                stacklevel=2,
+            )
         return np.ravel(y)
 
     raise ValueError(
-        "y should be a 1d array, "
-        "got an array of shape {} instead.".format(shape))
+        "y should be a 1d array, " "got an array of shape {} instead.".format(shape)
+    )
 
 
 def check_random_state(seed):
@@ -863,8 +955,9 @@ def check_random_state(seed):
         return np.random.RandomState(seed)
     if isinstance(seed, np.random.RandomState):
         return seed
-    raise ValueError('%r cannot be used to seed a numpy.random.RandomState'
-                     ' instance' % seed)
+    raise ValueError(
+        "%r cannot be used to seed a numpy.random.RandomState" " instance" % seed
+    )
 
 
 def has_fit_parameter(estimator, parameter):
@@ -895,8 +988,7 @@ def has_fit_parameter(estimator, parameter):
 
 
 @_deprecate_positional_args
-def check_symmetric(array, *, tol=1E-10, raise_warning=True,
-                    raise_exception=False):
+def check_symmetric(array, *, tol=1e-10, raise_warning=True, raise_exception=False):
     """Make sure that array is 2D, square and symmetric.
 
     If the array is not symmetric, then a symmetrized version is returned.
@@ -923,13 +1015,14 @@ def check_symmetric(array, *, tol=1E-10, raise_warning=True,
         summed and zeros are eliminated.
     """
     if (array.ndim != 2) or (array.shape[0] != array.shape[1]):
-        raise ValueError("array must be 2-dimensional and square. "
-                         "shape = {0}".format(array.shape))
+        raise ValueError(
+            "array must be 2-dimensional and square. " "shape = {0}".format(array.shape)
+        )
 
     if sp.issparse(array):
         diff = array - array.T
         # only csr, csc, and coo have `data` attribute
-        if diff.format not in ['csr', 'csc', 'coo']:
+        if diff.format not in ["csr", "csc", "coo"]:
             diff = diff.tocsr()
         symmetric = np.all(abs(diff.data) < tol)
     else:
@@ -939,11 +1032,13 @@ def check_symmetric(array, *, tol=1E-10, raise_warning=True,
         if raise_exception:
             raise ValueError("Array must be symmetric")
         if raise_warning:
-            warnings.warn("Array is not symmetric, and will be converted "
-                          "to symmetric by average with its transpose.",
-                          stacklevel=2)
+            warnings.warn(
+                "Array is not symmetric, and will be converted "
+                "to symmetric by average with its transpose.",
+                stacklevel=2,
+            )
         if sp.issparse(array):
-            conversion = 'to' + array.format
+            conversion = "to" + array.format
             array = getattr(0.5 * (array + array.T), conversion)()
         else:
             array = 0.5 * (array + array.T)
@@ -1000,10 +1095,12 @@ def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
     if isclass(estimator):
         raise TypeError("{} is a class, not an instance.".format(estimator))
     if msg is None:
-        msg = ("This %(name)s instance is not fitted yet. Call 'fit' with "
-               "appropriate arguments before using this estimator.")
+        msg = (
+            "This %(name)s instance is not fitted yet. Call 'fit' with "
+            "appropriate arguments before using this estimator."
+        )
 
-    if not hasattr(estimator, 'fit'):
+    if not hasattr(estimator, "fit"):
         raise TypeError("%s is not an estimator instance." % (estimator))
 
     if attributes is not None:
@@ -1011,11 +1108,12 @@ def check_is_fitted(estimator, attributes=None, *, msg=None, all_or_any=all):
             attributes = [attributes]
         attrs = all_or_any([hasattr(estimator, attr) for attr in attributes])
     else:
-        attrs = [v for v in vars(estimator)
-                 if v.endswith("_") and not v.startswith("__")]
+        attrs = [
+            v for v in vars(estimator) if v.endswith("_") and not v.startswith("__")
+        ]
 
     if not attrs:
-        raise NotFittedError(msg % {'name': type(estimator).__name__})
+        raise NotFittedError(msg % {"name": type(estimator).__name__})
 
 
 def check_non_negative(X, whom):
@@ -1032,7 +1130,7 @@ def check_non_negative(X, whom):
     """
     # avoid X.min() on sparse matrix since it also sorts the indices
     if sp.issparse(X):
-        if X.format in ['lil', 'dok']:
+        if X.format in ["lil", "dok"]:
             X = X.tocsr()
         if X.data.size == 0:
             X_min = 0
@@ -1077,14 +1175,15 @@ def check_scalar(x, name, target_type, *, min_val=None, max_val=None):
     """
 
     if not isinstance(x, target_type):
-        raise TypeError('`{}` must be an instance of {}, not {}.'
-                        .format(name, target_type, type(x)))
+        raise TypeError(
+            "`{}` must be an instance of {}, not {}.".format(name, target_type, type(x))
+        )
 
     if min_val is not None and x < min_val:
-        raise ValueError('`{}`= {}, must be >= {}.'.format(name, x, min_val))
+        raise ValueError("`{}`= {}, must be >= {}.".format(name, x, min_val))
 
     if max_val is not None and x > max_val:
-        raise ValueError('`{}`= {}, must be <= {}.'.format(name, x, max_val))
+        raise ValueError("`{}`= {}, must be <= {}.".format(name, x, max_val))
 
 
 def _check_psd_eigenvalues(lambdas, enable_warnings=False):
@@ -1191,18 +1290,19 @@ def _check_psd_eigenvalues(lambdas, enable_warnings=False):
                 "There are significant imaginary parts in eigenvalues (%g "
                 "of the maximum real part). Either the matrix is not PSD, or "
                 "there was an issue while computing the eigendecomposition "
-                "of the matrix."
-                % (max_imag_abs / max_real_abs))
+                "of the matrix." % (max_imag_abs / max_real_abs)
+            )
 
         # warn about imaginary parts being removed
         if enable_warnings:
-            warnings.warn("There are imaginary parts in eigenvalues (%g "
-                          "of the maximum real part). Either the matrix is not"
-                          " PSD, or there was an issue while computing the "
-                          "eigendecomposition of the matrix. Only the real "
-                          "parts will be kept."
-                          % (max_imag_abs / max_real_abs),
-                          PositiveSpectrumWarning)
+            warnings.warn(
+                "There are imaginary parts in eigenvalues (%g "
+                "of the maximum real part). Either the matrix is not"
+                " PSD, or there was an issue while computing the "
+                "eigendecomposition of the matrix. Only the real "
+                "parts will be kept." % (max_imag_abs / max_real_abs),
+                PositiveSpectrumWarning,
+            )
 
     # Remove all imaginary parts (even if zero)
     lambdas = np.real(lambdas)
@@ -1210,41 +1310,49 @@ def _check_psd_eigenvalues(lambdas, enable_warnings=False):
     # Check that there are no significant negative eigenvalues
     max_eig = lambdas.max()
     if max_eig < 0:
-        raise ValueError("All eigenvalues are negative (maximum is %g). "
-                         "Either the matrix is not PSD, or there was an "
-                         "issue while computing the eigendecomposition of "
-                         "the matrix." % max_eig)
+        raise ValueError(
+            "All eigenvalues are negative (maximum is %g). "
+            "Either the matrix is not PSD, or there was an "
+            "issue while computing the eigendecomposition of "
+            "the matrix." % max_eig
+        )
 
     else:
         min_eig = lambdas.min()
-        if (min_eig < -significant_neg_ratio * max_eig
-                and min_eig < -significant_neg_value):
-            raise ValueError("There are significant negative eigenvalues (%g"
-                             " of the maximum positive). Either the matrix is "
-                             "not PSD, or there was an issue while computing "
-                             "the eigendecomposition of the matrix."
-                             % (-min_eig / max_eig))
+        if (
+            min_eig < -significant_neg_ratio * max_eig
+            and min_eig < -significant_neg_value
+        ):
+            raise ValueError(
+                "There are significant negative eigenvalues (%g"
+                " of the maximum positive). Either the matrix is "
+                "not PSD, or there was an issue while computing "
+                "the eigendecomposition of the matrix." % (-min_eig / max_eig)
+            )
         elif min_eig < 0:
             # Remove all negative values and warn about it
             if enable_warnings:
-                warnings.warn("There are negative eigenvalues (%g of the "
-                              "maximum positive). Either the matrix is not "
-                              "PSD, or there was an issue while computing the"
-                              " eigendecomposition of the matrix. Negative "
-                              "eigenvalues will be replaced with 0."
-                              % (-min_eig / max_eig),
-                              PositiveSpectrumWarning)
+                warnings.warn(
+                    "There are negative eigenvalues (%g of the "
+                    "maximum positive). Either the matrix is not "
+                    "PSD, or there was an issue while computing the"
+                    " eigendecomposition of the matrix. Negative "
+                    "eigenvalues will be replaced with 0." % (-min_eig / max_eig),
+                    PositiveSpectrumWarning,
+                )
             lambdas[lambdas < 0] = 0
 
     # Check for conditioning (small positive non-zeros)
     too_small_lambdas = (0 < lambdas) & (lambdas < small_pos_ratio * max_eig)
     if too_small_lambdas.any():
         if enable_warnings:
-            warnings.warn("Badly conditioned PSD matrix spectrum: the largest "
-                          "eigenvalue is more than %g times the smallest. "
-                          "Small eigenvalues will be replaced with 0."
-                          "" % (1 / small_pos_ratio),
-                          PositiveSpectrumWarning)
+            warnings.warn(
+                "Badly conditioned PSD matrix spectrum: the largest "
+                "eigenvalue is more than %g times the smallest. "
+                "Small eigenvalues will be replaced with 0."
+                "" % (1 / small_pos_ratio),
+                PositiveSpectrumWarning,
+            )
         lambdas[too_small_lambdas] = 0
 
     return lambdas
@@ -1291,15 +1399,17 @@ def _check_sample_weight(sample_weight, X, dtype=None):
         if dtype is None:
             dtype = [np.float64, np.float32]
         sample_weight = check_array(
-            sample_weight, accept_sparse=False, ensure_2d=False, dtype=dtype,
-            order="C"
+            sample_weight, accept_sparse=False, ensure_2d=False, dtype=dtype, order="C"
         )
         if sample_weight.ndim != 1:
             raise ValueError("Sample weights must be 1D array or scalar")
 
         if sample_weight.shape != (n_samples,):
-            raise ValueError("sample_weight.shape == {}, expected {}!"
-                             .format(sample_weight.shape, (n_samples,)))
+            raise ValueError(
+                "sample_weight.shape == {}, expected {}!".format(
+                    sample_weight.shape, (n_samples,)
+                )
+            )
     return sample_weight
 
 
@@ -1330,13 +1440,16 @@ def _allclose_dense_sparse(x, y, rtol=1e-7, atol=1e-9):
         y = y.tocsr()
         x.sum_duplicates()
         y.sum_duplicates()
-        return (np.array_equal(x.indices, y.indices) and
-                np.array_equal(x.indptr, y.indptr) and
-                np.allclose(x.data, y.data, rtol=rtol, atol=atol))
+        return (
+            np.array_equal(x.indices, y.indices)
+            and np.array_equal(x.indptr, y.indptr)
+            and np.allclose(x.data, y.data, rtol=rtol, atol=atol)
+        )
     elif not sp.issparse(x) and not sp.issparse(y):
         return np.allclose(x, y, rtol=rtol, atol=atol)
-    raise ValueError("Can only compare two sparse matrices, not a sparse "
-                     "matrix and an array")
+    raise ValueError(
+        "Can only compare two sparse matrices, not a sparse " "matrix and an array"
+    )
 
 
 def _check_fit_params(X, fit_params, indices=None):
@@ -1359,10 +1472,12 @@ def _check_fit_params(X, fit_params, indices=None):
         Validated parameters. We ensure that the values support indexing.
     """
     from . import _safe_indexing
+
     fit_params_validated = {}
     for param_key, param_value in fit_params.items():
-        if (not _is_arraylike(param_value) or
-                _num_samples(param_value) != _num_samples(X)):
+        if not _is_arraylike(param_value) or _num_samples(param_value) != _num_samples(
+            X
+        ):
             # Non-indexable pass-through (for now for backward-compatibility).
             # https://github.com/scikit-learn/scikit-learn/issues/15805
             fit_params_validated[param_key] = param_value

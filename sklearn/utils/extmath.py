@@ -38,11 +38,13 @@ def squared_norm(x):
         The Euclidean norm when x is a vector, the Frobenius norm when x
         is a matrix (2-d array).
     """
-    x = np.ravel(x, order='K')
+    x = np.ravel(x, order="K")
     if np.issubdtype(x.dtype, np.integer):
-        warnings.warn('Array type is integer, np.dot may overflow. '
-                      'Data should be float type to avoid this issue',
-                      UserWarning)
+        warnings.warn(
+            "Array type is integer, np.dot may overflow. "
+            "Data should be float type to avoid this issue",
+            UserWarning,
+        )
     return np.dot(x, x)
 
 
@@ -71,7 +73,7 @@ def row_norms(X, squared=False):
             X = sparse.csr_matrix(X)
         norms = csr_row_norms(X)
     else:
-        norms = np.einsum('ij,ij->i', X, X)
+        norms = np.einsum("ij,ij->i", X, X)
 
     if not squared:
         np.sqrt(norms, norms)
@@ -151,16 +153,20 @@ def safe_sparse_dot(a, b, *, dense_output=False):
     else:
         ret = a @ b
 
-    if (sparse.issparse(a) and sparse.issparse(b)
-            and dense_output and hasattr(ret, "toarray")):
+    if (
+        sparse.issparse(a)
+        and sparse.issparse(b)
+        and dense_output
+        and hasattr(ret, "toarray")
+    ):
         return ret.toarray()
     return ret
 
 
 @_deprecate_positional_args
-def randomized_range_finder(A, *, size, n_iter,
-                            power_iteration_normalizer='auto',
-                            random_state=None):
+def randomized_range_finder(
+    A, *, size, n_iter, power_iteration_normalizer="auto", random_state=None
+):
     """Computes an orthonormal matrix whose range approximates the range of A.
 
     Parameters
@@ -212,40 +218,48 @@ def randomized_range_finder(A, *, size, n_iter,
 
     # Generating normal random vectors with shape: (A.shape[1], size)
     Q = random_state.normal(size=(A.shape[1], size))
-    if A.dtype.kind == 'f':
+    if A.dtype.kind == "f":
         # Ensure f32 is preserved as f32
         Q = Q.astype(A.dtype, copy=False)
 
     # Deal with "auto" mode
-    if power_iteration_normalizer == 'auto':
+    if power_iteration_normalizer == "auto":
         if n_iter <= 2:
-            power_iteration_normalizer = 'none'
+            power_iteration_normalizer = "none"
         else:
-            power_iteration_normalizer = 'LU'
+            power_iteration_normalizer = "LU"
 
     # Perform power iterations with Q to further 'imprint' the top
     # singular vectors of A in Q
     for i in range(n_iter):
-        if power_iteration_normalizer == 'none':
+        if power_iteration_normalizer == "none":
             Q = safe_sparse_dot(A, Q)
             Q = safe_sparse_dot(A.T, Q)
-        elif power_iteration_normalizer == 'LU':
+        elif power_iteration_normalizer == "LU":
             Q, _ = linalg.lu(safe_sparse_dot(A, Q), permute_l=True)
             Q, _ = linalg.lu(safe_sparse_dot(A.T, Q), permute_l=True)
-        elif power_iteration_normalizer == 'QR':
-            Q, _ = linalg.qr(safe_sparse_dot(A, Q), mode='economic')
-            Q, _ = linalg.qr(safe_sparse_dot(A.T, Q), mode='economic')
+        elif power_iteration_normalizer == "QR":
+            Q, _ = linalg.qr(safe_sparse_dot(A, Q), mode="economic")
+            Q, _ = linalg.qr(safe_sparse_dot(A.T, Q), mode="economic")
 
     # Sample the range of A using by linear projection of Q
     # Extract an orthonormal basis
-    Q, _ = linalg.qr(safe_sparse_dot(A, Q), mode='economic')
+    Q, _ = linalg.qr(safe_sparse_dot(A, Q), mode="economic")
     return Q
 
 
 @_deprecate_positional_args
-def randomized_svd(M, n_components, *, n_oversamples=10, n_iter='auto',
-                   power_iteration_normalizer='auto', transpose='auto',
-                   flip_sign=True, random_state=0):
+def randomized_svd(
+    M,
+    n_components,
+    *,
+    n_oversamples=10,
+    n_iter="auto",
+    power_iteration_normalizer="auto",
+    transpose="auto",
+    flip_sign=True,
+    random_state=0,
+):
     """Computes a truncated randomized SVD
 
     Parameters
@@ -325,30 +339,34 @@ def randomized_svd(M, n_components, *, n_oversamples=10, n_iter='auto',
       A. Szlam et al. 2014
     """
     if isinstance(M, (sparse.lil_matrix, sparse.dok_matrix)):
-        warnings.warn("Calculating SVD of a {} is expensive. "
-                      "csr_matrix is more efficient.".format(
-                          type(M).__name__),
-                      sparse.SparseEfficiencyWarning)
+        warnings.warn(
+            "Calculating SVD of a {} is expensive. "
+            "csr_matrix is more efficient.".format(type(M).__name__),
+            sparse.SparseEfficiencyWarning,
+        )
 
     random_state = check_random_state(random_state)
     n_random = n_components + n_oversamples
     n_samples, n_features = M.shape
 
-    if n_iter == 'auto':
+    if n_iter == "auto":
         # Checks if the number of iterations is explicitly specified
         # Adjust n_iter. 7 was found a good compromise for PCA. See #5299
-        n_iter = 7 if n_components < .1 * min(M.shape) else 4
+        n_iter = 7 if n_components < 0.1 * min(M.shape) else 4
 
-    if transpose == 'auto':
+    if transpose == "auto":
         transpose = n_samples < n_features
     if transpose:
         # this implementation is a bit faster with smaller shape[1]
         M = M.T
 
     Q = randomized_range_finder(
-        M, size=n_random, n_iter=n_iter,
+        M,
+        size=n_random,
+        n_iter=n_iter,
         power_iteration_normalizer=power_iteration_normalizer,
-        random_state=random_state)
+        random_state=random_state,
+    )
 
     # project M to the (k + p) dimensional space using the basis vectors
     B = safe_sparse_dot(Q.T, M)
@@ -432,14 +450,14 @@ def weighted_mode(a, w, *, axis=0):
     if a.shape != w.shape:
         w = np.full(a.shape, w, dtype=w.dtype)
 
-    scores = np.unique(np.ravel(a))       # get ALL unique values
+    scores = np.unique(np.ravel(a))  # get ALL unique values
     testshape = list(a.shape)
     testshape[axis] = 1
     oldmostfreq = np.zeros(testshape)
     oldcounts = np.zeros(testshape)
     for score in scores:
         template = np.zeros(a.shape)
-        ind = (a == score)
+        ind = a == score
         template[ind] = w[ind]
         counts = np.expand_dims(np.sum(template, axis), axis)
         mostfrequent = np.where(counts > oldcounts, score, oldmostfreq)
@@ -645,10 +663,12 @@ def make_nonnegative(X, min_value=0):
     min_ = X.min()
     if min_ < min_value:
         if sparse.issparse(X):
-            raise ValueError("Cannot make the data matrix"
-                             " nonnegative because it is sparse."
-                             " Adding a value to every entry would"
-                             " make it no longer sparse.")
+            raise ValueError(
+                "Cannot make the data matrix"
+                " nonnegative because it is sparse."
+                " Adding a value to every entry would"
+                " make it no longer sparse."
+            )
         X = X + (min_value - min_)
     return X
 
@@ -746,15 +766,19 @@ def _incremental_mean_and_var(X, last_mean, last_variance, last_sample_count):
         updated_variance = None
     else:
         new_unnormalized_variance = (
-            _safe_accumulator_op(np.nanvar, X, axis=0) * new_sample_count)
+            _safe_accumulator_op(np.nanvar, X, axis=0) * new_sample_count
+        )
         last_unnormalized_variance = last_variance * last_sample_count
 
-        with np.errstate(divide='ignore', invalid='ignore'):
+        with np.errstate(divide="ignore", invalid="ignore"):
             last_over_new_count = last_sample_count / new_sample_count
             updated_unnormalized_variance = (
-                last_unnormalized_variance + new_unnormalized_variance +
-                last_over_new_count / updated_sample_count *
-                (last_sum / last_over_new_count - new_sum) ** 2)
+                last_unnormalized_variance
+                + new_unnormalized_variance
+                + last_over_new_count
+                / updated_sample_count
+                * (last_sum / last_over_new_count - new_sum) ** 2
+            )
 
         zeros = last_sample_count == 0
         updated_unnormalized_variance[zeros] = new_unnormalized_variance[zeros]
@@ -802,9 +826,14 @@ def stable_cumsum(arr, axis=None, rtol=1e-05, atol=1e-08):
     """
     out = np.cumsum(arr, axis=axis, dtype=np.float64)
     expected = np.sum(arr, axis=axis, dtype=np.float64)
-    if not np.all(np.isclose(out.take(-1, axis=axis), expected, rtol=rtol,
-                             atol=atol, equal_nan=True)):
-        warnings.warn('cumsum was found to be unstable: '
-                      'its last element does not correspond to sum',
-                      RuntimeWarning)
+    if not np.all(
+        np.isclose(
+            out.take(-1, axis=axis), expected, rtol=rtol, atol=atol, equal_nan=True
+        )
+    ):
+        warnings.warn(
+            "cumsum was found to be unstable: "
+            "its last element does not correspond to sum",
+            RuntimeWarning,
+        )
     return out

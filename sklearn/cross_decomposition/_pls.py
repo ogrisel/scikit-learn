@@ -20,11 +20,12 @@ from ..utils.validation import check_is_fitted, FLOAT_DTYPES
 from ..utils.validation import _deprecate_positional_args
 from ..exceptions import ConvergenceWarning
 
-__all__ = ['PLSCanonical', 'PLSRegression', 'PLSSVD']
+__all__ = ["PLSCanonical", "PLSRegression", "PLSSVD"]
 
 
-def _nipals_twoblocks_inner_loop(X, Y, mode="A", max_iter=500, tol=1e-06,
-                                 norm_y_weights=False):
+def _nipals_twoblocks_inner_loop(
+    X, Y, mode="A", max_iter=500, tol=1e-06, norm_y_weights=False
+):
     """Inner loop of the iterative NIPALS algorithm.
 
     Provides an alternative to the svd(X'Y); returns the first left and right
@@ -48,7 +49,7 @@ def _nipals_twoblocks_inner_loop(X, Y, mode="A", max_iter=500, tol=1e-06,
         # condition was changed to depend on the largest singular value
         X_t = X.dtype.char.lower()
         Y_t = Y.dtype.char.lower()
-        factor = {'f': 1E3, 'd': 1E6}
+        factor = {"f": 1e3, "d": 1e6}
 
         cond_X = factor[X_t] * eps
         cond_Y = factor[Y_t] * eps
@@ -93,8 +94,7 @@ def _nipals_twoblocks_inner_loop(X, Y, mode="A", max_iter=500, tol=1e-06,
         if np.dot(x_weights_diff.T, x_weights_diff) < tol or Y.shape[1] == 1:
             break
         if ite == max_iter:
-            warnings.warn('Maximum number of iterations reached',
-                          ConvergenceWarning)
+            warnings.warn("Maximum number of iterations reached", ConvergenceWarning)
             break
         x_weights_old = x_weights
         ite += 1
@@ -135,8 +135,9 @@ def _center_scale_xy(X, Y, scale=True):
     return X, Y, x_mean, y_mean, x_std, y_std
 
 
-class _PLS(TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator,
-           metaclass=ABCMeta):
+class _PLS(
+    TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator, metaclass=ABCMeta
+):
     """Partial Least Squares (PLS)
 
     This class implements the generic PLS algorithm, constructors' parameters
@@ -253,10 +254,19 @@ class _PLS(TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator,
     """
 
     @abstractmethod
-    def __init__(self, n_components=2, *, scale=True,
-                 deflation_mode="regression",
-                 mode="A", algorithm="nipals", norm_y_weights=False,
-                 max_iter=500, tol=1e-06, copy=True):
+    def __init__(
+        self,
+        n_components=2,
+        *,
+        scale=True,
+        deflation_mode="regression",
+        mode="A",
+        algorithm="nipals",
+        norm_y_weights=False,
+        max_iter=500,
+        tol=1e-06,
+        copy=True,
+    ):
         self.n_components = n_components
         self.deflation_mode = deflation_mode
         self.mode = mode
@@ -283,8 +293,9 @@ class _PLS(TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator,
 
         # copy since this will contains the residuals (deflated) matrices
         check_consistent_length(X, Y)
-        X = self._validate_data(X, dtype=np.float64, copy=self.copy,
-                                ensure_min_samples=2)
+        X = self._validate_data(
+            X, dtype=np.float64, copy=self.copy, ensure_min_samples=2
+        )
         Y = check_array(Y, dtype=np.float64, copy=self.copy, ensure_2d=False)
         if Y.ndim == 1:
             Y = Y.reshape(-1, 1)
@@ -294,19 +305,23 @@ class _PLS(TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator,
         q = Y.shape[1]
 
         if self.n_components < 1 or self.n_components > p:
-            raise ValueError('Invalid number of components: %d' %
-                             self.n_components)
+            raise ValueError("Invalid number of components: %d" % self.n_components)
         if self.algorithm not in ("svd", "nipals"):
-            raise ValueError("Got algorithm %s when only 'svd' "
-                             "and 'nipals' are known" % self.algorithm)
+            raise ValueError(
+                "Got algorithm %s when only 'svd' "
+                "and 'nipals' are known" % self.algorithm
+            )
         if self.algorithm == "svd" and self.mode == "B":
-            raise ValueError('Incompatible configuration: mode B is not '
-                             'implemented with svd algorithm')
+            raise ValueError(
+                "Incompatible configuration: mode B is not "
+                "implemented with svd algorithm"
+            )
         if self.deflation_mode not in ["canonical", "regression"]:
-            raise ValueError('The deflation mode is unknown')
+            raise ValueError("The deflation mode is unknown")
         # Scale (in place)
-        X, Y, self.x_mean_, self.y_mean_, self.x_std_, self.y_std_ = (
-            _center_scale_xy(X, Y, self.scale))
+        X, Y, self.x_mean_, self.y_mean_, self.x_std_, self.y_std_ = _center_scale_xy(
+            X, Y, self.scale
+        )
         # Residuals (deflated) matrices
         Xk = X
         Yk = Y
@@ -324,7 +339,7 @@ class _PLS(TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator,
         for k in range(self.n_components):
             if np.all(np.dot(Yk.T, Yk) < np.finfo(np.double).eps):
                 # Yk constant
-                warnings.warn('Y residual constant at iteration %s' % k)
+                warnings.warn("Y residual constant at iteration %s" % k)
                 break
             # 1) weights estimation (inner loop)
             # -----------------------------------
@@ -333,10 +348,14 @@ class _PLS(TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator,
                 Yk_mask = np.all(np.abs(Yk) < 10 * Y_eps, axis=0)
                 Yk[:, Yk_mask] = 0.0
 
-                x_weights, y_weights, n_iter_ = \
-                    _nipals_twoblocks_inner_loop(
-                        X=Xk, Y=Yk, mode=self.mode, max_iter=self.max_iter,
-                        tol=self.tol, norm_y_weights=self.norm_y_weights)
+                x_weights, y_weights, n_iter_ = _nipals_twoblocks_inner_loop(
+                    X=Xk,
+                    Y=Yk,
+                    mode=self.mode,
+                    max_iter=self.max_iter,
+                    tol=self.tol,
+                    norm_y_weights=self.norm_y_weights,
+                )
                 self.n_iter_.append(n_iter_)
             elif self.algorithm == "svd":
                 x_weights, y_weights = _svd_cross_product(X=Xk, Y=Yk)
@@ -354,7 +373,7 @@ class _PLS(TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator,
             y_scores = np.dot(Yk, y_weights) / y_ss
             # test for null variance
             if np.dot(x_scores.T, x_scores) < np.finfo(np.double).eps:
-                warnings.warn('X scores are null at iteration %s' % k)
+                warnings.warn("X scores are null at iteration %s" % k)
                 break
             # 2) Deflation (in place)
             # ----------------------
@@ -369,13 +388,11 @@ class _PLS(TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator,
             Xk -= np.dot(x_scores, x_loadings.T)
             if self.deflation_mode == "canonical":
                 # - regress Yk's on y_score, then subtract rank-one approx.
-                y_loadings = (np.dot(Yk.T, y_scores)
-                              / np.dot(y_scores.T, y_scores))
+                y_loadings = np.dot(Yk.T, y_scores) / np.dot(y_scores.T, y_scores)
                 Yk -= np.dot(y_scores, y_loadings.T)
             if self.deflation_mode == "regression":
                 # - regress Yk's on x_score, then subtract rank-one approx.
-                y_loadings = (np.dot(Yk.T, x_scores)
-                              / np.dot(x_scores.T, x_scores))
+                y_loadings = np.dot(Yk.T, x_scores) / np.dot(x_scores.T, x_scores)
                 Yk -= np.dot(x_scores, y_loadings.T)
             # 3) Store weights, scores and loadings # Notation:
             self.x_scores_[:, k] = x_scores.ravel()  # T
@@ -391,13 +408,13 @@ class _PLS(TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator,
         # U = Y C(Q'C)^-1 = YC* (W* : q x k matrix)
         self.x_rotations_ = np.dot(
             self.x_weights_,
-            pinv2(np.dot(self.x_loadings_.T, self.x_weights_),
-                  check_finite=False))
+            pinv2(np.dot(self.x_loadings_.T, self.x_weights_), check_finite=False),
+        )
         if Y.shape[1] > 1:
             self.y_rotations_ = np.dot(
                 self.y_weights_,
-                pinv2(np.dot(self.y_loadings_.T, self.y_weights_),
-                      check_finite=False))
+                pinv2(np.dot(self.y_loadings_.T, self.y_weights_), check_finite=False),
+            )
         else:
             self.y_rotations_ = np.ones(1)
 
@@ -523,8 +540,7 @@ class _PLS(TransformerMixin, RegressorMixin, MultiOutputMixin, BaseEstimator,
         return self.fit(X, y).transform(X, y)
 
     def _more_tags(self):
-        return {'poor_score': True,
-                'requires_y': False}
+        return {"poor_score": True, "requires_y": False}
 
 
 class PLSRegression(_PLS):
@@ -669,14 +685,21 @@ class PLSRegression(_PLS):
     Tenenhaus, M. (1998). La regression PLS: theorie et pratique. Paris:
     Editions Technic.
     """
+
     @_deprecate_positional_args
-    def __init__(self, n_components=2, *, scale=True,
-                 max_iter=500, tol=1e-06, copy=True):
+    def __init__(
+        self, n_components=2, *, scale=True, max_iter=500, tol=1e-06, copy=True
+    ):
         super().__init__(
-            n_components=n_components, scale=scale,
-            deflation_mode="regression", mode="A",
-            norm_y_weights=False, max_iter=max_iter, tol=tol,
-            copy=copy)
+            n_components=n_components,
+            scale=scale,
+            deflation_mode="regression",
+            mode="A",
+            norm_y_weights=False,
+            max_iter=max_iter,
+            tol=tol,
+            copy=copy,
+        )
 
 
 class PLSCanonical(_PLS):
@@ -818,14 +841,29 @@ class PLSCanonical(_PLS):
     CCA
     PLSSVD
     """
+
     @_deprecate_positional_args
-    def __init__(self, n_components=2, *, scale=True, algorithm="nipals",
-                 max_iter=500, tol=1e-06, copy=True):
+    def __init__(
+        self,
+        n_components=2,
+        *,
+        scale=True,
+        algorithm="nipals",
+        max_iter=500,
+        tol=1e-06,
+        copy=True,
+    ):
         super().__init__(
-            n_components=n_components, scale=scale,
-            deflation_mode="canonical", mode="A",
-            norm_y_weights=True, algorithm=algorithm,
-            max_iter=max_iter, tol=tol, copy=copy)
+            n_components=n_components,
+            scale=scale,
+            deflation_mode="canonical",
+            mode="A",
+            norm_y_weights=True,
+            algorithm=algorithm,
+            max_iter=max_iter,
+            tol=tol,
+            copy=copy,
+        )
 
 
 class PLSSVD(TransformerMixin, BaseEstimator):
@@ -887,6 +925,7 @@ class PLSSVD(TransformerMixin, BaseEstimator):
     PLSCanonical
     CCA
     """
+
     @_deprecate_positional_args
     def __init__(self, n_components=2, *, scale=True, copy=True):
         self.n_components = n_components
@@ -908,20 +947,24 @@ class PLSSVD(TransformerMixin, BaseEstimator):
         """
         # copy since this will contains the centered data
         check_consistent_length(X, Y)
-        X = self._validate_data(X, dtype=np.float64, copy=self.copy,
-                                ensure_min_samples=2)
+        X = self._validate_data(
+            X, dtype=np.float64, copy=self.copy, ensure_min_samples=2
+        )
         Y = check_array(Y, dtype=np.float64, copy=self.copy, ensure_2d=False)
         if Y.ndim == 1:
             Y = Y.reshape(-1, 1)
 
         if self.n_components > max(Y.shape[1], X.shape[1]):
-            raise ValueError("Invalid number of components n_components=%d"
-                             " with X of shape %s and Y of shape %s."
-                             % (self.n_components, str(X.shape), str(Y.shape)))
+            raise ValueError(
+                "Invalid number of components n_components=%d"
+                " with X of shape %s and Y of shape %s."
+                % (self.n_components, str(X.shape), str(Y.shape))
+            )
 
         # Scale (in place)
-        X, Y, self.x_mean_, self.y_mean_, self.x_std_, self.y_std_ = (
-            _center_scale_xy(X, Y, self.scale))
+        X, Y, self.x_mean_, self.y_mean_, self.x_std_, self.y_std_ = _center_scale_xy(
+            X, Y, self.scale
+        )
         # svd(X'Y)
         C = np.dot(X.T, Y)
 

@@ -19,16 +19,17 @@ class TreePredictor:
     nodes : ndarray of PREDICTOR_RECORD_DTYPE
         The nodes of the tree.
     """
+
     def __init__(self, nodes):
         self.nodes = nodes
 
     def get_n_leaf_nodes(self):
         """Return number of leaves."""
-        return int(self.nodes['is_leaf'].sum())
+        return int(self.nodes["is_leaf"].sum())
 
     def get_max_depth(self):
         """Return maximum depth among all leaves."""
-        return int(self.nodes['depth'].max())
+        return int(self.nodes["depth"].max())
 
     def predict(self, X):
         """Predict raw values for non-binned data.
