@@ -1,13 +1,15 @@
+import random
 import numpy as np
 import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from sklearn.datasets import make_classification, make_regression
 from sklearn.datasets import make_low_rank_matrix
-from sklearn.preprocessing import KBinsDiscretizer, MinMaxScaler
+from sklearn.preprocessing import KBinsDiscretizer, MinMaxScaler, OneHotEncoder
 from sklearn.model_selection import train_test_split
 from sklearn.base import clone, BaseEstimator, TransformerMixin
 from sklearn.base import is_regressor
 from sklearn.pipeline import make_pipeline
+from sklearn.compose import make_column_transformer
 from sklearn.metrics import r2_score
 from sklearn.metrics import mean_poisson_deviance
 from sklearn.dummy import DummyRegressor
@@ -926,3 +928,76 @@ def test_categorical_pandas_error_as_input(make_datasets, Est):
            "dataframe")
     with pytest.raises(ValueError, match=msg):
         est.fit(X, y)
+
+@pytest.mark.parametrize("Est", [
+    HistGradientBoostingClassifier,
+    HistGradientBoostingRegressor,
+])
+def test_categorical_one_hot_equivalance(Est):
+    # Check that the native categorical variable handling is mathematically
+    # equivalent to preprocessing with One-Hot encoding.
+    pd = pytest.importorskip("pandas")
+
+    rng = random.Random(0)
+    n_samples = 1000
+    X = pd.DataFrame({
+        "f1": [rng.choice(["a", "b", "c"]) for _ in range(n_samples)],
+        "f2": [rng.choice(["w", "x", "y", "z"]) for _ in range(n_samples)],
+    }).astype({"f1": 'category', "f2": 'category'})
+
+    def ground_truth(input_df, seed=0):
+        """Non deterministic decision function with non-linear interactions"""
+        rng = random.Random(seed)
+        outputs = []
+        for _, inputs in input_df.iterrows():
+            if inputs["f1"] == "a":
+                if inputs["f2"] == "x":
+                    out = 1
+                else:
+                    out = -1
+            elif inputs["f1"] == "b":
+                if inputs["f2"] == "x":
+                    out = -1
+                else:
+                    out = 1
+            elif inputs["f1"] == "c":
+                # flip a coin to make the learning problem more difficult and
+                # make the learned decision function uniquely dependent on the
+                # training set statistics.
+                out = rng.choice([1, -1])
+            outputs.append(out)
+        return np.asarray(outputs)
+
+    y = ground_truth(X)
+    X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+
+    hyperparams = {
+        "max_iter": 30,
+        "max_leaf_nodes": 31,
+        "random_state": 0,
+    }
+    native_est = Est(categorical_features="pandas", **hyperparams)
+    native_est.fit(X_train, y_train)
+    ohe_est = make_pipeline(
+        make_column_transformer(
+            (OneHotEncoder(sparse=False), ["f1", "f2"]),
+            remainder="passthrough",
+        ),
+        Est(**hyperparams),
+    )
+    ohe_est.fit(X_train, y_train)
+
+    assert native_est.score(X_test, y_test) < 0.9
+
+    if hasattr(native_est, "predict_proba"):
+        # Classifier
+        native_preds = native_est.predict_proba(X_test)
+        ohe_preds = ohe_est.predict_proba(X_test)
+    else:
+        # Regressor
+        native_preds = native_est.predict(X_test)
+        ohe_preds = ohe_est.predict(X_test)
+
+    # Native categorical features handling should be equivalent to one-hot
+    # encoding, therefore the learned decision function should be the same.
+    assert_allclose(native_preds, ohe_preds)
