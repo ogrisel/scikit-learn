@@ -53,12 +53,21 @@ METRICS_DEFAULT_PARAMS = {
     "minkowski": dict(p=(1, 1.5, 2, 3)),
     "chebyshev": {},
     "seuclidean": dict(V=(rng.random_sample(d),)),
-    "wminkowski": dict(p=(1, 1.5, 3), w=(rng.random_sample(d),)),
     "mahalanobis": dict(VI=(VI,)),
     "hamming": {},
     "canberra": {},
     "braycurtis": {},
 }
+if sp_version >= parse_version("1.8.0.dev0"):
+    # minkowski can now be weighted or not and wminkowski has been removed completely.
+    METRICS_DEFAULT_PARAMS["minkowski"] = dict(
+        p=(1, 1.5, 3), w=(None, rng.random_sample(d))
+    )
+else:
+    METRICS_DEFAULT_PARAMS["minkowski"] = dict(p=(1, 1.5, 3))
+    METRICS_DEFAULT_PARAMS["wminkowski"] = dict(
+        p=(1, 1.5, 3), w=(rng.random_sample(d),)
+    )
 
 
 @pytest.mark.parametrize("metric", METRICS_DEFAULT_PARAMS)
@@ -72,14 +81,11 @@ def test_cdist(metric, X1, X2):
             # See: https://github.com/scipy/scipy/issues/13861
             pytest.xfail("scipy#13861: cdist with 'mahalanobis' fails onmemmap data")
         elif metric == "wminkowski":
-            if sp_version >= parse_version("1.8.0.dev0"):
-                pytest.skip("wminkowski will be removed in SciPy 1.8.0")
-
             # wminkoski is deprecated in SciPy 1.6.0 and removed in 1.8.0
-            ExceptionToAssert = None
+            WarningToExpect = None
             if sp_version >= parse_version("1.6.0"):
-                ExceptionToAssert = DeprecationWarning
-            with pytest.warns(ExceptionToAssert):
+                WarningToExpect = DeprecationWarning
+            with pytest.warns(WarningToExpect):
                 D_true = cdist(X1, X2, metric, **kwargs)
         else:
             D_true = cdist(X1, X2, metric, **kwargs)

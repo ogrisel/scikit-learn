@@ -252,6 +252,9 @@ cdef class DistanceMetric:
         # In Minkowski special cases, return more efficient methods
         if metric is MinkowskiDistance:
             p = kwargs.pop('p', 2)
+            w = kwargs.pop('w', None)
+            if w is not None:
+                return WMinkowskiDistance(p, w, **kwargs)
             if p == 1:
                 return ManhattanDistance(**kwargs)
             elif p == 2:
