@@ -1,4 +1,5 @@
 import numpy as np
+from scipy import stats
 import pytest
 from numpy.testing import assert_allclose, assert_array_equal
 from sklearn._loss.loss import (
@@ -249,6 +250,22 @@ def test_absolute_error_sample_weight():
     sample_weight = rng.uniform(0, 1, size=n_samples)
     gbdt = HistGradientBoostingRegressor(loss="absolute_error")
     gbdt.fit(X, y, sample_weight=sample_weight)
+
+
+@pytest.mark.parametrize("quantile", [0.05, 0.5, 0.8])
+@pytest.mark.parametrize("dist", ["uniform", "norm", "expon", "cauchy"])
+def test_quantile_on_independent_target(quantile, dist):
+    # Check we can overfit the empirical quantile of a dataset with
+    # a constant input.
+    X = np.zeros((100, 1))
+    dist = getattr(stats, dist)
+    y = dist.rvs(size=X.shape[0], random_state=0)
+    model = HistGradientBoostingRegressor(
+        loss="quantile",
+        loss_param=quantile,
+    ).fit(X, y)
+    expected = np.quantile(y, q=quantile)
+    assert_allclose(model.predict([[0]]), [expected])
 
 
 @pytest.mark.parametrize("quantile", [0.2, 0.5, 0.8])
