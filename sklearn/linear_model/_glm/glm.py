@@ -31,37 +31,47 @@ from ...utils.validation import check_is_fitted, _check_sample_weight
 from .._linear_loss import LinearModelLoss
 
 
-def _solve_singular(H, g):
+def _solve_singular(H, g, method="lstsq"):
     """Find Newton step with singular hessian H.
 
-    We could use the approach with an L D L decomposition as in
-        Nocedal & Wright, Chapter 3.4 subsection
-        "Modified symmetric indefinite factorization"
-    but we use the much simpler (and more expensive?) least squares solver.
+    This either uses a traditional least squares solver from scipy or an
+    approach with an L D L decomposition as in
+        Nocedal & Wright, Chapter 3.4 subsection "Modified symmetric indefinite
+        factorization"
 
     Parameters
     ----------
     H : hessian matrix
+
     g : gradient
+
+    method : chose between LAPACK's lstq and Nocedal & Wright's method
 
     Returns
     -------
     x : Newton step
         H x = -g
     """
-    # hessian = L B L' with block diagonal B, block size <= 2
-    # L[perm, :] is lower triangular
-    # CODE: L, B, perm = scipy.linalg.ldl(H, lower=True)
-    # CODE: U, s, Vt = scipy.linalg.svd(B)
-    # CODE: delta = 1e-3  # TODO: Decide on size of this number
-    # CODE: tau = (s < delta) * (delta - s)
-    # F = U @ (tau[:, None] * Vt)
-    # hessian approximation = L (B + F) L' = L U (s + tau) Vt L'
-    # CODE: w = scipy.linalg.solve_triangular(L[perm], -g[perm], lower=True)
-    # w = scipy.linalg.solve(B + F, w)
-    # CODE: w = Vt.T @ (1 / (s + tau) * (U.T @ w))
-    # CODE: return scipy.linalg.solve_triangular(L.T[:, perm], w, lower=False)[perm]
-    return scipy.linalg.lstsq(H, -g)[0]
+    if method == "indefinite_factorization":
+        # hessian = L B L' with block diagonal B, block size <= 2
+        # L[perm, :] is lower triangular
+        L, B, perm = scipy.linalg.ldl(H, lower=True)
+        U, s, Vt = scipy.linalg.svd(B)
+        delta = 1e-3  # TODO: Decide on size of this number
+        tau = (s < delta) * (delta - s)
+        # F = U @ (tau[:, None] * Vt)
+        # hessian approximation = L (B + F) L' = L U (s + tau) Vt L'
+        w = scipy.linalg.solve_triangular(L[perm], -g[perm], lower=True)
+        # w = scipy.linalg.solve(B + F, w)
+        w = Vt.T @ (1 / (s + tau) * (U.T @ w))
+        return scipy.linalg.solve_triangular(L.T[:, perm], w, lower=False)[perm]
+    elif method == "lstsq":
+        return scipy.linalg.lstsq(H, -g)[0]
+    else:
+        raise ValueError(
+            f"Invalid {method=!r}, expected one of 'indefinite_factorization' or"
+            " 'lstsq'"
+        )
 
 
 class NewtonSolver(ABC):
@@ -316,8 +326,9 @@ class NewtonSolver(ABC):
             t *= beta
         else:
             warnings.warn(
-                f"Line search of Newton solver {self.__class__.__name__} did not "
-                "converge after 21 line search refinement iterations.",
+                f"Line search of Newton solver {self.__class__.__name__} at iteration"
+                f" #{self.iteration} did not converge after 21 line search refinement"
+                " iterations.",
                 ConvergenceWarning,
             )
 
@@ -456,11 +467,12 @@ class BaseCholeskyNewtonSolver(NewtonSolver):
                 )
         except (np.linalg.LinAlgError, scipy.linalg.LinAlgWarning) as e:
             warnings.warn(
-                f"The inner solver of {self.__class__.__name__} stumbled upon a "
-                "singular hessian matrix. Therefore, this iteration uses a step closer"
-                " to a gradient descent direction. Removing collinear features of X or"
-                " increasing the penalization strengths may resolve this issue."
-                " The original Linear Algebra message was:\n"
+                f"The inner solver of {self.__class__.__name__} stumbled upon a"
+                f" singular hessian matrix at iteration #{self.iteration}. Therefore,"
+                " this iteration uses a step closer to a gradient descent direction."
+                " Removing collinear features of X or progressively increasing the"
+                " regularization strength may resolve this issue. The original Linear"
+                " Algebra message was:\n"
                 + str(e),
                 scipy.linalg.LinAlgWarning,
             )

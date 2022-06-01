@@ -28,7 +28,7 @@ from sklearn.linear_model import (
 from sklearn.linear_model._glm import _GeneralizedLinearRegressor
 from sklearn.linear_model._linear_loss import LinearModelLoss
 from sklearn.exceptions import ConvergenceWarning
-from sklearn.metrics import d2_tweedie_score
+from sklearn.metrics import d2_tweedie_score, mean_poisson_deviance
 from sklearn.model_selection import train_test_split
 
 
@@ -794,14 +794,40 @@ def test_linalg_warning_with_newton_solver(global_random_seed):
     y = rng.normal(size=X_orig.shape[0])
     y[y < 0] = 0.0
 
+    # No warning raised on well-conditioned design, even without regularization.
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        # No warning raised on well-conditioned design
-        PoissonRegressor(solver="newton-cholesky", alpha=0.0).fit(X_orig, y)
+        reg = PoissonRegressor(solver="newton-cholesky", alpha=0.0).fit(X_orig, y)
+        reference_deviance = mean_poisson_deviance(y, reg.predict(X_orig))
 
+    # Fitting on collinear data without regularization should raise an
+    # informative warning:
     msg = (
         "The inner solver of CholeskyNewtonSolver stumbled upon a "
-        "singular hessian matrix. "
+        "singular hessian matrix"
+        ".*"
+        "increasing the regularization strength may resolve this issue"
     )
-    with pytest.warns(scipy.linalg.LinAlgWarning, match=msg):
-        PoissonRegressor(solver="newton-cholesky", alpha=0.0).fit(X_colinear, y)
+    with pytest.warns(scipy.linalg.LinAlgWarning, match=msg) as rec:
+        reg = PoissonRegressor(solver="newton-cholesky", alpha=0.0).fit(X_colinear, y)
+    # XXX: this cases raises a ton of convergence warnings:
+    # - for each iteration:
+    #   - one LinAlgWarning for the singular hessian
+    #   - one ConvergenceWarning for the subsequent line search
+    # - one final ConvergenceWarning for the solver
+    assert len(rec) == 2 * reg.max_iter + 1
+
+    # XXX: since the model with the fallback inner solver did not converge at
+    # all (see all the warnings above), the following assertion does not pass:
+    this_deviance = mean_poisson_deviance(y, reg.predict(X_colinear))
+    # assert this_deviance == pytest.approx(reference_deviance)
+
+    # Increasing the regularization slightly should make the problem go away:
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        reg = PoissonRegressor(solver="newton-cholesky", alpha=1e-12).fit(X_colinear, y)
+
+    # Since we use a small penalty, the deviance of the predictions should still
+    # be almost the same.
+    this_deviance = mean_poisson_deviance(y, reg.predict(X_colinear))
+    assert this_deviance == pytest.approx(reference_deviance)
