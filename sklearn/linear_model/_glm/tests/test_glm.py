@@ -810,7 +810,7 @@ def test_linalg_warning_with_newton_solver(global_random_seed):
     )
     with pytest.warns(scipy.linalg.LinAlgWarning, match=msg) as rec:
         reg = PoissonRegressor(solver="newton-cholesky", alpha=0.0).fit(X_colinear, y)
-    # XXX: this cases raises a ton of convergence warnings:
+    # XXX: this case raises a ton of convergence warnings:
     # - for each iteration:
     #   - one LinAlgWarning for the singular hessian
     #   - one ConvergenceWarning for the subsequent line search
