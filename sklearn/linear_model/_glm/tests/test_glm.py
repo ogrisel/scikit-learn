@@ -798,7 +798,7 @@ def test_linalg_warning_with_newton_solver(global_random_seed):
     with warnings.catch_warnings():
         warnings.simplefilter("error")
         reg = PoissonRegressor(solver="newton-cholesky", alpha=0.0).fit(X_orig, y)
-        reference_deviance = mean_poisson_deviance(y, reg.predict(X_orig))
+    reference_deviance = mean_poisson_deviance(y, reg.predict(X_orig))
 
     # Fitting on collinear data without regularization should raise an
     # informative warning:
