@@ -323,7 +323,7 @@ def test_glm_regression_vstacked_X(solver, fit_intercept, glm_dataset):
         intercept = 0
     model.fit(X, y)
 
-    rtol = 3e-5
+    rtol = 1e-4
     assert model.intercept_ == pytest.approx(intercept, rel=rtol)
     assert_allclose(model.coef_, coef, rtol=rtol)
 
@@ -431,7 +431,7 @@ def test_glm_regression_unpenalized_hstacked_X(solver, fit_intercept, glm_datase
         model_intercept = model.intercept_
         model_coef = model.coef_
 
-    rtol = 5e-5
+    rtol = 1e-4
     if n_samples > n_features:
         assert model_intercept == pytest.approx(intercept, rel=rtol)
         assert_allclose(model_coef, np.r_[coef, coef], rtol=rtol)
