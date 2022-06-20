@@ -264,10 +264,11 @@ class _GeneralizedLinearRegressor(RegressorMixin, BaseEstimator):
             coef = coef.astype(loss_dtype, copy=False)
         else:
             if self.fit_intercept:
+                # Note: zero init for both the coefficients and the intercept
+                # is needed if we want the unpenalized model to converge to the
+                # minimum nornm solution which is likely to generalize better
+                # than other solutions.
                 coef = np.zeros(n_features + 1, dtype=loss_dtype)
-                coef[-1] = linear_loss.base_loss.link.link(
-                    np.average(y, weights=sample_weight)
-                )
             else:
                 coef = np.zeros(n_features, dtype=loss_dtype)
 

@@ -5,7 +5,6 @@
 from functools import partial
 import itertools
 import re
-import warnings
 
 import numpy as np
 from numpy.testing import assert_allclose
@@ -269,14 +268,6 @@ def test_glm_regression_hstacked_X(solver, fit_intercept, glm_dataset):
         max_iter=1000,
     )
 
-    if solver == "lbfgs" and not fit_intercept:
-        # Sometimes (depending on global_random_seed) lbfgs fails with:
-        # Line search cannot locate an adequate point after MAXLS function and gradient
-        # evaluations. Previous x, f and g restored.
-        # Possible causes: 1 error in function or gradient evaluation;
-        #                  2 rounding error dominate computation.
-        pytest.xfail()
-
     model = clone(model).set_params(**params)
     X = X[:, :-1]  # remove intercept
     X = 0.5 * np.concatenate((X, X), axis=1)
@@ -291,8 +282,9 @@ def test_glm_regression_hstacked_X(solver, fit_intercept, glm_dataset):
     model.fit(X, y)
 
     rtol = 1e-4
-    assert model.intercept_ == pytest.approx(intercept, rel=rtol)
-    assert_allclose(model.coef_, np.r_[coef, coef], rtol=rtol)
+    atol = 1e-6
+    assert model.intercept_ == pytest.approx(intercept, rel=rtol, abs=atol)
+    assert_allclose(model.coef_, np.r_[coef, coef], rtol=rtol, atol=atol)
 
 
 @pytest.mark.parametrize("solver", SOLVERS)
@@ -372,30 +364,21 @@ def test_glm_regression_unpenalized(solver, fit_intercept, glm_dataset):
     # NOT return the minimum norm solution with fit_intercept=True.
     rtol = 5e-5
     if n_samples > n_features:
-        assert model.intercept_ == pytest.approx(intercept)
+        assert model.intercept_ == pytest.approx(intercept, rel=rtol)
         assert_allclose(model.coef_, coef, rtol=rtol)
     else:
-        # As it is an underdetermined problem, prediction = y. The following shows that
-        # we get a solution, i.e. a (non-unique) minimum of the objective function ...
-        assert_allclose(model.predict(X), y, rtol=1e-6)
-        if fit_intercept:
-            # But it is not the minimum norm solution. Otherwise the norms would be
-            # equal.
-            norm_solution = np.linalg.norm(np.r_[intercept, coef])
-            norm_model = np.linalg.norm(np.r_[model.intercept_, model.coef_])
-            assert norm_model > (1 + 1e-12) * norm_solution
+        # As it is an underdetermined problem, prediction = y. The following
+        # shows that we get a solution, i.e. a (non-unique) minimum of the
+        # objective function ...
+        assert_allclose(model.predict(X), y, rtol=rtol)
 
-            # See https://github.com/scikit-learn/scikit-learn/issues/23670.
-            # Note: Even adding a tiny penalty does not give the minimal norm solution.
-            # XXX: We could have naively expected LBFGS to find the minimal norm
-            # solution by adding a very small penalty. Even that fails for a reason we
-            # do not properly
-        else:
-            # When `fit_intercept=False`, LBFGS naturally converges to the minimum norm
-            # solution on this problem.
-            # XXX: Do we have any theoretical guarantees why this should be the case?
-            assert model.intercept_ == pytest.approx(intercept)
-            assert_allclose(model.coef_, coef, rtol=rtol)
+        # When initialized from zero weights and intercept, LBFGS naturally
+        # converges to the minimum norm solution on this problem.
+        #
+        # XXX: Do we have any theoretical guarantees why this should be the
+        # case?
+        assert model.intercept_ == pytest.approx(intercept, rel=rtol)
+        assert_allclose(model.coef_, coef, rtol=rtol)
 
 
 @pytest.mark.parametrize("solver", SOLVERS)
@@ -436,12 +419,7 @@ def test_glm_regression_unpenalized_hstacked_X(solver, fit_intercept, glm_datase
         X = 0.5 * np.concatenate((X, X), axis=1)
     assert np.linalg.matrix_rank(X) <= min(n_samples, n_features)
 
-    with warnings.catch_warnings():
-        if fit_intercept and n_samples < n_features:
-            # XXX: Investigate if the lack of convergence in this case should be
-            # considered a bug or not.
-            warnings.filterwarnings("ignore", category=ConvergenceWarning)
-        model.fit(X, y)
+    model.fit(X, y)
 
     if fit_intercept and n_samples < n_features:
         # Here we take special care.
@@ -453,28 +431,22 @@ def test_glm_regression_unpenalized_hstacked_X(solver, fit_intercept, glm_datase
         model_intercept = model.intercept_
         model_coef = model.coef_
 
-    rtol = 6e-5
+    rtol = 5e-5
     if n_samples > n_features:
-        assert model_intercept == pytest.approx(intercept)
-        assert_allclose(model_coef, np.r_[coef, coef], rtol=1e-4)
+        assert model_intercept == pytest.approx(intercept, rel=rtol)
+        assert_allclose(model_coef, np.r_[coef, coef], rtol=rtol)
     else:
         # As it is an underdetermined problem, prediction = y. The following shows that
         # we get a solution, i.e. a (non-unique) minimum of the objective function ...
-        assert_allclose(model.predict(X), y, rtol=1e-6)
-        if fit_intercept:
-            # Same as in test_glm_regression_unpenalized.
-            # But it is not the minimum norm solution. Otherwise the norms would be
-            # equal.
-            norm_solution = np.linalg.norm(
-                0.5 * np.r_[intercept, intercept, coef, coef]
-            )
-            norm_model = np.linalg.norm(np.r_[model.intercept_, model.coef_])
-            assert norm_model > (1 + 1e-12) * norm_solution
-            # For minimum norm solution, we would have
-            # assert model.intercept_ == pytest.approx(model.coef_[-1])
-        else:
-            assert model_intercept == pytest.approx(intercept)
-            assert_allclose(model_coef, np.r_[coef, coef], rtol=rtol)
+        assert_allclose(model.predict(X), y, rtol=rtol)
+
+        # When initialized from zero weights and intercept, LBFGS naturally
+        # converges to the minimum norm solution on this problem.
+        #
+        # XXX: Do we have any theoretical guarantees why this should be the
+        # case?
+        assert model_intercept == pytest.approx(intercept, rel=rtol)
+        assert_allclose(model_coef, np.r_[coef, coef], rtol=rtol)
 
 
 @pytest.mark.parametrize("solver", SOLVERS)
@@ -515,22 +487,20 @@ def test_glm_regression_unpenalized_vstacked_X(solver, fit_intercept, glm_datase
 
     rtol = 5e-5
     if n_samples > n_features:
-        assert model.intercept_ == pytest.approx(intercept)
+        assert model.intercept_ == pytest.approx(intercept, rel=rtol)
         assert_allclose(model.coef_, coef, rtol=rtol)
     else:
         # As it is an underdetermined problem, prediction = y. The following shows that
         # we get a solution, i.e. a (non-unique) minimum of the objective function ...
-        assert_allclose(model.predict(X), y, rtol=1e-6)
-        if fit_intercept:
-            # Same as in test_glm_regression_unpenalized.
-            # But it is not the minimum norm solution. Otherwise the norms would be
-            # equal.
-            norm_solution = np.linalg.norm(np.r_[intercept, coef])
-            norm_model = np.linalg.norm(np.r_[model.intercept_, model.coef_])
-            assert norm_model > (1 + 1e-12) * norm_solution
-        else:
-            assert model.intercept_ == pytest.approx(intercept)
-            assert_allclose(model.coef_, coef, rtol=rtol)
+        assert_allclose(model.predict(X), y, rtol=rtol)
+
+        # When initialized from zero weights and intercept, LBFGS naturally
+        # converges to the minimum norm solution on this problem.
+        #
+        # XXX: Do we have any theoretical guarantees why this should be the
+        # case?
+        assert model.intercept_ == pytest.approx(intercept, rel=rtol)
+        assert_allclose(model.coef_, coef, rtol=rtol)
 
 
 def test_sample_weights_validation():
