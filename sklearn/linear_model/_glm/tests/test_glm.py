@@ -936,7 +936,8 @@ def test_tweedie_score(regression_data, power, link):
     X, y = regression_data
     # make y positive
     y = np.abs(y) + 1.0
-    glm = TweedieRegressor(power=power, link=link).fit(X, y)
+    # Increasing max_iter is required for link='identity' and power>=2
+    glm = TweedieRegressor(power=power, link=link, max_iter=1000).fit(X, y)
     assert glm.score(X, y) == pytest.approx(
         d2_tweedie_score(y, glm.predict(X), power=power)
     )

@@ -7,6 +7,7 @@ Generalized Linear Models with Exponential Dispersion Family
 # License: BSD 3 clause
 
 import numbers
+import warnings
 
 import numpy as np
 import scipy.optimize
@@ -263,14 +264,29 @@ class _GeneralizedLinearRegressor(RegressorMixin, BaseEstimator):
                 coef = self.coef_
             coef = coef.astype(loss_dtype, copy=False)
         else:
+            # Note: zero init for both the coefficients and the intercept
+            # is needed if we want the unpenalized model to converge to the
+            # minimum nornm solution which is likely to generalize better
+            # than other solutions.
+            shape = (n_features + 1,) if self.fit_intercept else (n_features,)
+            coef = np.zeros(shape, dtype=loss_dtype)
+
             if self.fit_intercept:
-                # Note: zero init for both the coefficients and the intercept
-                # is needed if we want the unpenalized model to converge to the
-                # minimum nornm solution which is likely to generalize better
-                # than other solutions.
-                coef = np.zeros(n_features + 1, dtype=loss_dtype)
-            else:
-                coef = np.zeros(n_features, dtype=loss_dtype)
+                with warnings.catch_warnings():
+                    # Ignore log of zero warning
+                    warnings.filterwarnings("ignore", category=RuntimeWarning)
+                    valid_zero_intercept = self._base_loss.in_y_pred_range(
+                        self._base_loss.link.link([0.0])
+                    )
+                    if not valid_zero_intercept:
+                        # Initialize the intercept to a small positive value to
+                        # ensure that so
+                        # linear_loss.base_loss.link.link(raw_prediction) is in
+                        # the admissible range of the distribution family /
+                        # link function (in particular for Tweedie with p>=1
+                        # with identity link) to be able to compute the first
+                        # gradient.
+                        coef[-1] = 64 * np.finfo(loss_dtype).eps
 
         # Algorithms for optimization:
         # Note again that our losses implement 1/2 * deviance.

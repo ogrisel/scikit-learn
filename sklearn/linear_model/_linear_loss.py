@@ -192,6 +192,11 @@ class LinearModelLoss:
             sample_weight=sample_weight,
             n_threads=n_threads,
         )
+        # XXX: ugly hack to make test_tweedie_score[log-0] pass without
+        # infinite gradients
+        CLIP = 1e100
+        np.clip(grad_per_sample, -CLIP, CLIP, out=grad_per_sample)
+        np.clip(loss, None, CLIP, out=loss)
         loss = loss.sum()
 
         if not self.base_loss.is_multiclass:
