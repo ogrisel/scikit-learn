@@ -264,9 +264,10 @@ class _GeneralizedLinearRegressor(RegressorMixin, BaseEstimator):
                 coef = self.coef_
             coef = coef.astype(loss_dtype, copy=False)
         else:
-            # Note: zero init for both the coefficients and the intercept
-            # is needed if we want the unpenalized model to converge to the
-            # minimum nornm solution which is likely to generalize better
+            # Note: Instead of smarter starting values, we initialize both
+            # the coefficients and the intercept with zeros. This is needed
+            # if we want the unpenalized model to converge to the
+            # minimum norm solution which is likely to generalize better
             # than other solutions.
             shape = (n_features + 1,) if self.fit_intercept else (n_features,)
             coef = np.zeros(shape, dtype=loss_dtype)
@@ -280,7 +281,7 @@ class _GeneralizedLinearRegressor(RegressorMixin, BaseEstimator):
                     )
                     if not valid_zero_intercept:
                         # Initialize the intercept to a small positive value to
-                        # ensure that so
+                        # ensure that
                         # linear_loss.base_loss.link.link(raw_prediction) is in
                         # the admissible range of the distribution family /
                         # link function (in particular for Tweedie with p>=1

@@ -367,9 +367,8 @@ def test_glm_regression_unpenalized(solver, fit_intercept, glm_dataset):
         assert model.intercept_ == pytest.approx(intercept, rel=rtol)
         assert_allclose(model.coef_, coef, rtol=rtol)
     else:
-        # As it is an underdetermined problem, prediction = y. The following
-        # shows that we get a solution, i.e. a (non-unique) minimum of the
-        # objective function ...
+        # As it is an underdetermined problem, prediction = y. The following shows that
+        # we get a solution, i.e. a (non-unique) minimum of the objective function ...
         assert_allclose(model.predict(X), y, rtol=rtol)
 
         # When initialized from zero weights and intercept, LBFGS naturally
