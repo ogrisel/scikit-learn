@@ -7,12 +7,12 @@ Generalized Linear Models with Exponential Dispersion Family
 # License: BSD 3 clause
 
 import numbers
-import warnings
 
 import numpy as np
 import scipy.optimize
 
 from ..._loss.glm_distribution import TweedieDistribution
+from ..._loss.link import IdentityLink
 from ..._loss.loss import (
     HalfGammaLoss,
     HalfPoissonLoss,
@@ -272,22 +272,12 @@ class _GeneralizedLinearRegressor(RegressorMixin, BaseEstimator):
             shape = (n_features + 1,) if self.fit_intercept else (n_features,)
             coef = np.zeros(shape, dtype=loss_dtype)
 
-            if self.fit_intercept:
-                with warnings.catch_warnings():
-                    # Ignore log of zero warning
-                    warnings.filterwarnings("ignore", category=RuntimeWarning)
-                    valid_zero_intercept = self._base_loss.in_y_pred_range(
-                        self._base_loss.link.link([0.0])
-                    )
-                    if not valid_zero_intercept:
-                        # Initialize the intercept to a small positive value to
-                        # ensure that
-                        # linear_loss.base_loss.link.link(raw_prediction) is in
-                        # the admissible range of the distribution family /
-                        # link function (in particular for Tweedie with p>=1
-                        # with identity link) to be able to compute the first
-                        # gradient.
-                        coef[-1] = 64 * np.finfo(loss_dtype).eps
+            if self.fit_intercept and isinstance(self._base_loss.link, IdentityLink):
+                # Initialize the intercept to a small positive value to ensure
+                # that computing the first gradient result in a finite value.
+                # This would not be the case with the identity link with the
+                # Poisson family for instance.
+                coef[-1] = 64 * np.finfo(loss_dtype).eps
 
         # Algorithms for optimization:
         # Note again that our losses implement 1/2 * deviance.
