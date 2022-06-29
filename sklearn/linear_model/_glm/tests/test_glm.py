@@ -1062,20 +1062,53 @@ def test_linalg_warning_with_newton_solver(global_random_seed):
     y = rng.normal(size=X_orig.shape[0])
     y[y < 0] = 0.0
 
+    # Let's consider the deviance of constant baseline on this problem:
+    constant_model_deviance = mean_poisson_deviance(y, np.full_like(y, y.mean()))
+
     # No warning raised on well-conditioned design, even without regularization.
+    tol = 1e-10
     with warnings.catch_warnings():
         warnings.simplefilter("error")
-        reg = PoissonRegressor(solver="newton-cholesky", alpha=0.0).fit(X_orig, y)
-    reference_deviance = mean_poisson_deviance(y, reg.predict(X_orig))
+        reg = PoissonRegressor(solver="newton-cholesky", alpha=0.0, tol=tol).fit(
+            X_orig, y
+        )
+    original_newton_deviance = mean_poisson_deviance(y, reg.predict(X_orig))
+
+    # We check that the model could successfully overfit information in X_orig
+    # to improve upon the constant baseline (when evaluated on the traing set).
+    assert original_newton_deviance < constant_model_deviance - 1e-3
+
+    # LBFGS is robust to collinear design because its approximation of the
+    # Hessian is Symmeric Positive Definite by construction. Let's record its
+    # solution
+    with warnings.catch_warnings():
+        warnings.simplefilter("error")
+        reg = PoissonRegressor(solver="lbfgs", alpha=0.0, tol=tol).fit(X_collinear, y)
+    collinear_lbfgs_deviance = mean_poisson_deviance(y, reg.predict(X_collinear))
+    print()
+    print(f"{original_newton_deviance - collinear_lbfgs_deviance=}")
+
+    # The LBFGS solution on the collinear is expected to reach a comparable
+    # solution.
+    assert collinear_lbfgs_deviance == pytest.approx(
+        original_newton_deviance, rel=1e-4, abs=1e-8
+    )
 
     # Fitting on collinear data without regularization should raise an
-    # informative warning:
+    # informative warning and fallback to the LBFGS solver
     msg = (
         "The inner solver of CholeskyNewtonSolver stumbled upon a"
         " singular or very ill-conditioned hessian matrix"
     )
     with pytest.warns(scipy.linalg.LinAlgWarning, match=msg):
-        PoissonRegressor(solver="newton-cholesky", alpha=0.0).fit(X_collinear, y)
+        reg = PoissonRegressor(solver="newton-cholesky", alpha=0.0, tol=tol).fit(
+            X_collinear, y
+        )
+    collinear_newton_deviance = mean_poisson_deviance(y, reg.predict(X_collinear))
+
+    assert collinear_newton_deviance == pytest.approx(
+        collinear_lbfgs_deviance, rel=1e-5
+    )
 
     # Increasing the regularization slightly should make the problem go away:
     reg = PoissonRegressor(solver="newton-cholesky", alpha=1e-12).fit(X_collinear, y)
@@ -1083,4 +1116,4 @@ def test_linalg_warning_with_newton_solver(global_random_seed):
     # Since we use a small penalty, the deviance of the predictions should still
     # be almost the same.
     this_deviance = mean_poisson_deviance(y, reg.predict(X_collinear))
-    assert this_deviance == pytest.approx(reference_deviance)
+    assert this_deviance == pytest.approx(original_newton_deviance)
