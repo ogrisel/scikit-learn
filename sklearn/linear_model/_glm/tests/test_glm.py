@@ -141,11 +141,11 @@ def glm_dataset(global_random_seed, request):
     assert np.max(s) / np.min(s) < 100  # condition number of X
 
     if data_type == "long":
-        coef_unpenalized = rng.uniform(low=1, high=3, size=n_features)
+        coef_unpenalized = rng.uniform(low=0.1, high=1.0, size=n_features)
         coef_unpenalized *= rng.choice([-1, 1], size=n_features)
         raw_prediction = X @ coef_unpenalized
     else:
-        raw_prediction = rng.uniform(low=-3, high=3, size=n_samples)
+        raw_prediction = rng.uniform(low=-2, high=2, size=n_samples)
         # minimum norm solution min ||w||_2 such that raw_prediction = X w:
         # w = X'(XX')^-1 raw_prediction = V s^-1 U' raw_prediction
         coef_unpenalized = Vt.T @ np.diag(1 / s) @ U.T @ raw_prediction
@@ -290,7 +290,7 @@ def test_glm_regression_hstacked_X(solver, fit_intercept, glm_dataset):
         intercept = 0
     model.fit(X, y)
 
-    rtol = 2e-4 if solver == "lbfgs" else 5e-9
+    rtol = 3e-4 if solver == "lbfgs" else 5e-9
     assert model.intercept_ == pytest.approx(intercept, rel=rtol)
     assert_allclose(model.coef_, np.r_[coef, coef], rtol=rtol)
 
