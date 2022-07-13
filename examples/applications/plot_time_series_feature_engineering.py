@@ -57,6 +57,22 @@ lagged_df = pd.concat(
     axis="columns",
 ).dropna()
 
+# %%
+lagged_df = pd.concat(
+    [count]
+    + [count.shift(i).rename(f"count_lagged_{i}h") for i in range(1, 72)]
+    + [count.shift(7 * 24 + i).rename(f"count_lagged_7d_{i}h") for i in range(0, 72)]
+    + [
+        count.shift(1).rolling(24).mean().rename("lagged_mean_24h"),
+        count.shift(1).rolling(24).max().rename("lagged_max_24h"),
+        count.shift(1).rolling(24).min().rename("lagged_min_24h"),
+        count.shift(1).rolling(7 * 24).mean().rename("lagged_mean_7d"),
+        count.shift(1).rolling(7 * 24).max().rename("lagged_max_7d"),
+        count.shift(1).rolling(7 * 24).min().rename("lagged_min_7d"),
+    ],
+    axis="columns",
+).dropna()
+
 
 # %%
 X = lagged_df.drop("count", axis="columns")
@@ -229,6 +245,7 @@ lagged_df = pd.concat(
         count.shift(2).rename("count_lagged_2h"),
         count.shift(3).rename("count_lagged_3h"),
         count.shift(4).rename("count_lagged_4h"),
+        count.shift(23).rename("count_lagged_23h"),
         count.shift(24).rename("count_lagged_1d"),
         count.shift(24 + 1).rename("count_lagged_1d_1h"),
         count.shift(24 + 2).rename("count_lagged_1d_2h"),
@@ -240,6 +257,22 @@ lagged_df = pd.concat(
         count.shift(7 * 24 + 1).rename("count_lagged_7d_1h"),
         count.shift(7 * 24 + 2).rename("count_lagged_7d_2h"),
         count.shift(7 * 24 + 3).rename("count_lagged_7d_3h"),
+        count.shift(1).rolling(24).mean().rename("lagged_mean_24h"),
+        count.shift(1).rolling(24).max().rename("lagged_max_24h"),
+        count.shift(1).rolling(24).min().rename("lagged_min_24h"),
+        count.shift(1).rolling(7 * 24).mean().rename("lagged_mean_7d"),
+        count.shift(1).rolling(7 * 24).max().rename("lagged_max_7d"),
+        count.shift(1).rolling(7 * 24).min().rename("lagged_min_7d"),
+    ],
+    axis="columns",
+).dropna()
+
+# %%
+lagged_df = pd.concat(
+    [count]
+    + [count.shift(i).rename(f"count_lagged_{i}h") for i in range(1, 72)]
+    + [count.shift(7 * 24 + i).rename(f"count_lagged_7d_{i}h") for i in range(0, 72)]
+    + [
         count.shift(1).rolling(24).mean().rename("lagged_mean_24h"),
         count.shift(1).rolling(24).max().rename("lagged_max_24h"),
         count.shift(1).rolling(24).min().rename("lagged_min_24h"),
@@ -264,8 +297,8 @@ gbrt_mean_poisson.fit(X.iloc[train_0], y.iloc[train_0])
 gbrt_median = HistGradientBoostingRegressor(loss="quantile", quantile=0.5)
 gbrt_median.fit(X.iloc[train_0], y.iloc[train_0])
 
-gbrt_percentile_5 = HistGradientBoostingRegressor(loss="quantile", quantile=0.05)
-gbrt_percentile_5.fit(X.iloc[train_0], y.iloc[train_0])
+gbrt_percentile_05 = HistGradientBoostingRegressor(loss="quantile", quantile=0.05)
+gbrt_percentile_05.fit(X.iloc[train_0], y.iloc[train_0])
 
 gbrt_percentile_95 = HistGradientBoostingRegressor(loss="quantile", quantile=0.95)
 gbrt_percentile_95.fit(X.iloc[train_0], y.iloc[train_0])
@@ -273,12 +306,13 @@ gbrt_percentile_95.fit(X.iloc[train_0], y.iloc[train_0])
 
 # %%
 from sklearn.inspection import permutation_importance
+from sklearn.metrics import check_scoring
 
 
 def boxplot_importances(model, X, y, scoring="r2", **kwargs):
     pi_results = permutation_importance(model, X, y, scoring=scoring, **kwargs)
 
-    sorted_importances_idx = pi_results.importances_mean.argsort()
+    sorted_importances_idx = pi_results.importances_mean.argsort()[-15:]
     importances = pd.DataFrame(
         pi_results.importances[sorted_importances_idx].T,
         columns=X.columns[sorted_importances_idx],
@@ -286,20 +320,39 @@ def boxplot_importances(model, X, y, scoring="r2", **kwargs):
     ax = importances.plot.box(vert=False, whis=10)
     ax.set_title("Permutation Importances")
     ax.axvline(x=0, color="k", linestyle="--")
-    ax.set_xlabel("Decrease in $R^2$ score")
+    ref_score = check_scoring(model, scoring)(model, X, y)
+    ax.set_xlabel(f"Decrease in score (reference: {ref_score:.3f})")
     ax.figure.tight_layout()
 
 
 # %%
-boxplot_importances(gbrt_mse, X.iloc[test_0], y.iloc[test_0])
+boxplot_importances(gbrt_mse, X.iloc[test_0], y.iloc[test_0], scoring="r2")
 
 # %%
-boxplot_importances(gbrt_mean_poisson, X.iloc[test_0], y.iloc[test_0])
+boxplot_importances(gbrt_mean_poisson, X.iloc[test_0], y.iloc[test_0], scoring="r2")
 
 # %%
-boxplot_importances(gbrt_mean_poisson, X.iloc[train_0], y.iloc[train_0])
+from sklearn.metrics import d2_tweedie_score
+from functools import partial
+from sklearn.metrics import make_scorer
+
+d2_poisson_score = make_scorer(partial(d2_tweedie_score, power=1))
+boxplot_importances(
+    gbrt_mean_poisson, X.iloc[test_0], y.iloc[test_0], scoring=d2_poisson_score
+)
 
 # %%
-boxplot_importances(gbrt_percentile_95, X.iloc[test_0], y.iloc[test_0])
+from sklearn.metrics import d2_pinball_score
+
+d2_pinball_scorer_05 = make_scorer(partial(d2_pinball_score, alpha=0.05))
+boxplot_importances(
+    gbrt_percentile_05, X.iloc[test_0], y.iloc[test_0], scoring=d2_pinball_scorer_05
+)
+
+# %%
+d2_pinball_scorer_95 = make_scorer(partial(d2_pinball_score, alpha=0.95))
+boxplot_importances(
+    gbrt_percentile_95, X.iloc[test_0], y.iloc[test_0], scoring=d2_pinball_scorer_95
+)
 
 # %%
