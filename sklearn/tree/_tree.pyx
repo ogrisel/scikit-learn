@@ -15,7 +15,6 @@
 from cpython cimport Py_INCREF, PyObject, PyTypeObject
 
 from libc.stdlib cimport free
-from libc.math cimport fabs
 from libc.string cimport memcpy
 from libc.string cimport memset
 from libc.stdint cimport SIZE_MAX
@@ -185,7 +184,6 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
         cdef SIZE_t parent
         cdef bint is_left
         cdef SIZE_t n_node_samples = splitter.n_samples
-        cdef double weighted_n_samples = splitter.weighted_n_samples
         cdef double weighted_n_node_samples
         cdef SIZE_t node_id
 
@@ -295,7 +293,7 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
 
             if rc >= 0:
                 tree.max_depth = max_depth_seen
-        
+
         # free the memory created for the SplitRecord pointer
         free(split_ptr)
 
@@ -368,9 +366,6 @@ cdef class BestFirstTreeBuilder(TreeBuilder):
         # Parameters
         cdef Splitter splitter = self.splitter
         cdef SIZE_t max_leaf_nodes = self.max_leaf_nodes
-        cdef SIZE_t min_samples_leaf = self.min_samples_leaf
-        cdef double min_weight_leaf = self.min_weight_leaf
-        cdef SIZE_t min_samples_split = self.min_samples_split
 
         # Recursive partition (without actual recursion)
         splitter.init(X, y, sample_weight_ptr)
@@ -467,16 +462,13 @@ cdef class BestFirstTreeBuilder(TreeBuilder):
         """Adds node w/ partition ``[start, end)`` to the frontier. """
         cdef SplitRecord split
         cdef SplitRecord* split_ptr = <SplitRecord *>malloc(splitter.pointer_size())
-        
+
         cdef SIZE_t node_id
         cdef SIZE_t n_node_samples
         cdef SIZE_t n_constant_features = 0
-        cdef double weighted_n_samples = splitter.weighted_n_samples
         cdef double min_impurity_decrease = self.min_impurity_decrease
         cdef double weighted_n_node_samples
         cdef bint is_leaf
-        cdef SIZE_t n_left, n_right
-        cdef double imp_diff
 
         splitter.node_reset(start, end, &weighted_n_node_samples)
 
@@ -535,7 +527,7 @@ cdef class BestFirstTreeBuilder(TreeBuilder):
             res.improvement = 0.0
             res.impurity_left = impurity
             res.impurity_right = impurity
-        
+
         free(split_ptr)
         return 0
 
@@ -882,7 +874,7 @@ cdef class Tree:
                 # While node not a leaf
                 while node.left_child != _TREE_LEAF:
                     # ... and node.right_child != _TREE_LEAF:
-                    
+
                     # compute the feature value to compare against threshold
                     X_vector = X_ndarray[i, :]
                     feature_value = self._compute_feature(X_vector, node, node_id)
@@ -1161,7 +1153,7 @@ cdef class Tree:
                     # ... and node.right_child != _TREE_LEAF:
                     self._compute_feature_importances(
                         importance_data, node, node_id)
-                    
+
                 node += 1
                 node_id += 1
 
@@ -1179,7 +1171,7 @@ cdef class Tree:
     cdef void _compute_feature_importances(self, DOUBLE_t* importance_data,
                                 Node* node, SIZE_t node_id) nogil:
         """Compute feature importances from a Node in the Tree.
-        
+
         Wrapped in a private function to allow subclassing that
         computes feature importances.
         """
@@ -1573,7 +1565,6 @@ cdef _cost_complexity_prune(unsigned char[:] leaves_in_subtree, # OUT
 
         stack[CostComplexityPruningRecord] ccp_stack
         CostComplexityPruningRecord stack_record
-        int rc = 0
         SIZE_t node_idx
         stack[SIZE_t] node_indices_stack
 
@@ -1588,12 +1579,9 @@ cdef _cost_complexity_prune(unsigned char[:] leaves_in_subtree, # OUT
                                                     dtype=np.uint8)
         # nodes in subtree
         unsigned char[:] in_subtree = np.ones(shape=n_nodes, dtype=np.uint8)
-        DOUBLE_t[:] g_node = np.zeros(shape=n_nodes, dtype=np.float64)
         SIZE_t pruned_branch_node_idx
         DOUBLE_t subtree_alpha
         DOUBLE_t effective_alpha
-        SIZE_t child_l_idx
-        SIZE_t child_r_idx
         SIZE_t n_pruned_leaves
         DOUBLE_t r_diff
         DOUBLE_t max_float64 = np.finfo(np.float64).max
