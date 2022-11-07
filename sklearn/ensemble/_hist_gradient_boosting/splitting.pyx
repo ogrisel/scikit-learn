@@ -1145,6 +1145,8 @@ cpdef inline Y_DTYPE_C compute_node_value(
 
     value = -sum_gradient / (sum_hessian + l2_regularization + 1e-15)
 
+    # with gil:
+    #     print(f"raw node_value: {value:.4f}, bounds: {lower_bound:.4f} | {upper_bound:.4f}")
     if value < lower_bound:
         value = lower_bound
     elif value > upper_bound:

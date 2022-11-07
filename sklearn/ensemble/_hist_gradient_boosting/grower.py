@@ -564,6 +564,11 @@ class TreeGrower:
                     lower_right, upper_right = node.children_lower_bound, mid
             left_child_node.set_children_bounds(lower_left, upper_left)
             right_child_node.set_children_bounds(lower_right, upper_right)
+            print(
+                f"value {node.value:.4f}, threshold: {node.split_info.bin_idx}, bounds:"
+                f" {lower_left:.4f} | {upper_left:.4f} || {lower_right:.4f} |"
+                f" {upper_right:.4f}"
+            )
 
         # Compute histograms of children, and compute their best possible split
         # (if needed)

@@ -307,6 +307,13 @@ cdef class DepthFirstTreeBuilder(TreeBuilder):
                         left_child_min = middle_value
                         right_child_max = middle_value
 
+                    with gil:
+                        print(
+                            f"value: {tree.value[node_id * tree.value_stride]:.4f}, "
+                            f"threshold: {split.threshold:.4f}, ",
+                            f"bounds: {left_child_min:.4f} | {left_child_max:.4f} || {right_child_min:.4f} | {right_child_max:.4f}"
+                        )
+
                     # Push right child on stack
                     builder_stack.push({
                         "start": split.pos,
@@ -504,6 +511,13 @@ cdef class BestFirstTreeBuilder(TreeBuilder):
                         middle_value = tree._get_middle_value(record.node_id)
                         left_child_min = middle_value
                         right_child_max = middle_value
+
+                    with gil:
+                        print(
+                            f"value: {tree.value[record.node_id * tree.value_stride]:.4f}, "
+                            f"threshold: {node.threshold:.4f}, ",
+                            f"bounds: {left_child_min:.4f} | {left_child_max:.4f} || {right_child_min:.4f} | {right_child_max:.4f}"
+                        )
 
                     # Decrement number of split nodes available
                     max_split_nodes -= 1
@@ -1301,9 +1315,9 @@ cdef class Tree:
         # self.value conceptually has shape:
         #
         #            [node_count, n_outputs, max_n_classes]
-        # 
-        # but is here handled via a pointer and strides. 
-        # 
+        #
+        # but is here handled via a pointer and strides.
+        #
         # Monotonicity constraints are only supported for single-output
         # trees we can safely assume n_outputs == 1.
 
