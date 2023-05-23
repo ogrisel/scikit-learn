@@ -277,9 +277,22 @@ def randomized_range_finder(
         elif power_iteration_normalizer == "LU":
             Q, _ = linalg.lu(safe_sparse_dot(A, Q), permute_l=True)
             Q, _ = linalg.lu(safe_sparse_dot(A.T, Q), permute_l=True)
+        elif power_iteration_normalizer == "LU_indices":
+            permutation, Q, _ = linalg.lu(safe_sparse_dot(A, Q), matrix_p=False)
+            Q = Q[permutation]
+            permutation, Q, _ = linalg.lu(safe_sparse_dot(A.T, Q), matrix_p=False)
+            Q = Q[permutation]
+        elif power_iteration_normalizer == "LU_no_permute":
+            _, Q, _ = linalg.lu(safe_sparse_dot(A, Q), matrix_p=False)
+            _, Q, _ = linalg.lu(safe_sparse_dot(A.T, Q), matrix_p=False)
         elif power_iteration_normalizer == "QR":
             Q, _ = linalg.qr(safe_sparse_dot(A, Q), mode="economic")
             Q, _ = linalg.qr(safe_sparse_dot(A.T, Q), mode="economic")
+        else:
+            raise ValueError(
+                "Unrecognized value for "
+                f"power_iteration_normalizer: {power_iteration_normalizer}"
+            )
 
     # Sample the range of A using by linear projection of Q
     # Extract an orthonormal basis

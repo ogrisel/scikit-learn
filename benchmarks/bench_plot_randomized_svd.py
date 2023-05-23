@@ -195,9 +195,9 @@ def get_data(dataset_name):
     return X
 
 
-def plot_time_vs_s(time, norm, point_labels, title):
-    plt.figure()
-    colors = ["g", "b", "y"]
+def plot_time_vs_s(time, norm, point_labels, title, dataset_name):
+    plt.figure(figsize=(16, 10))
+    colors = ["g", "b", "y", "m", "c"]
     for i, l in enumerate(sorted(norm.keys())):
         if l != "fbpca":
             plt.plot(time[l], norm[l], label=l, marker="o", c=colors.pop())
@@ -217,6 +217,7 @@ def plot_time_vs_s(time, norm, point_labels, title):
     plt.suptitle(title)
     plt.ylabel("norm discrepancy")
     plt.xlabel("running time [s]")
+    plt.savefig(f"pca_{dataset_name.replace(' ', '_')}.png", bbox_inches="tight")
 
 
 def scatter_time_vs_s(time, norm, point_labels, title):
@@ -350,24 +351,27 @@ def bench_a(X, dataset_name, power_iter, n_oversamples, n_comps):
     X_fro_norm = norm_diff(X, norm="fro", msg=False)
 
     for pi in power_iter:
-        for pm in ["none", "LU", "QR"]:
+        for pm in ["none", "LU", "LU_indices", "LU_no_permute", "QR"]:
             print("n_iter = %d on sklearn - %s" % (pi, pm))
-            U, s, V, time = svd_timing(
-                X,
-                n_comps,
-                n_iter=pi,
-                power_iteration_normalizer=pm,
-                n_oversamples=n_oversamples,
-            )
-            label = "sklearn - %s" % pm
-            all_time[label].append(time)
-            if enable_spectral_norm:
-                A = U.dot(np.diag(s).dot(V))
-                all_spectral[label].append(
-                    norm_diff(X - A, norm=2, random_state=0) / X_spectral_norm
+            try:
+                U, s, V, time = svd_timing(
+                    X,
+                    n_comps,
+                    n_iter=pi,
+                    power_iteration_normalizer=pm,
+                    n_oversamples=n_oversamples,
                 )
-            f = scalable_frobenius_norm_discrepancy(X, U, s, V)
-            all_frobenius[label].append(f / X_fro_norm)
+                label = "sklearn - %s" % pm
+                all_time[label].append(time)
+                if enable_spectral_norm:
+                    A = U.dot(np.diag(s).dot(V))
+                    all_spectral[label].append(
+                        norm_diff(X - A, norm=2, random_state=0) / X_spectral_norm
+                    )
+                f = scalable_frobenius_norm_discrepancy(X, U, s, V)
+                all_frobenius[label].append(f / X_fro_norm)
+            except ValueError:
+                print("... failed on sklearn - %s" % pm)
 
         if fbpca_available:
             print("n_iter = %d on fbca" % (pi))
@@ -393,7 +397,7 @@ def bench_a(X, dataset_name, power_iter, n_oversamples, n_comps):
         title = "%s: spectral norm diff vs running time" % (dataset_name)
         plot_time_vs_s(all_time, all_spectral, power_iter, title)
     title = "%s: Frobenius norm diff vs running time" % (dataset_name)
-    plot_time_vs_s(all_time, all_frobenius, power_iter, title)
+    plot_time_vs_s(all_time, all_frobenius, power_iter, title, dataset_name)
 
 
 def bench_b(power_list):
@@ -518,10 +522,10 @@ if __name__ == "__main__":
             n_comps=np.minimum(n_comps, np.min(X.shape)),
         )
 
-    print(" >>>>>> Benching on simulated low rank matrix with variable rank")
-    bench_b(power_iter)
+    # print(" >>>>>> Benching on simulated low rank matrix with variable rank")
+    # bench_b(power_iter)
 
-    print(" >>>>>> Benching sklearn and fbpca default configurations")
-    bench_c(datasets + big_sparse_datasets, n_comps)
+    # print(" >>>>>> Benching sklearn and fbpca default configurations")
+    # bench_c(datasets + big_sparse_datasets, n_comps)
 
     plt.show()
