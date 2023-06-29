@@ -364,6 +364,21 @@ def get_namespace(*arrays):
 
     _check_array_api_dispatch(array_api_dispatch)
 
+    a_type = type(arrays[0])
+    if f"{a_type.__module__}.{a_type.__name__}" == "dask.array.core.Array":
+        import dask.array
+
+        dask_array_wrapper = _ArrayAPIWrapper(dask.array)
+        dask.array.float64 = numpy.float64
+        dask.array.float32 = numpy.float32
+        dask.array.float16 = numpy.float16
+        orig_dask_qr = dask.array.linalg.qr
+        dask.array.linalg.qr = lambda a, mode="economic": orig_dask_qr(a)
+
+        orig_dask_svd = dask.array.linalg.svd
+        dask.array.linalg.svd = lambda a, full_matrices=False: orig_dask_svd(a)
+        return dask_array_wrapper, True
+
     # array-api-compat is a required dependency of scikit-learn only when
     # configuring `array_api_dispatch=True`. Its import should therefore be
     # protected by _check_array_api_dispatch to display an informative error
