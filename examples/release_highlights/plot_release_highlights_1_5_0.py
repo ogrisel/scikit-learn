@@ -32,11 +32,14 @@ or with conda::
 from sklearn.datasets import make_classification
 from sklearn.linear_model import LogisticRegression
 from sklearn.metrics import confusion_matrix
+from sklearn.model_selection import train_test_split
 
-X, y = make_classification(n_samples=1_000, weights=[0.9, 0.1], random_state=0)
-classifier = LogisticRegression(random_state=0).fit(X, y)
 
-print("Confusion matrix:\n", confusion_matrix(y, classifier.predict(X)))
+X, y = make_classification(n_samples=30_000, weights=[0.9, 0.1], random_state=0)
+X_train, X_test, y_train, y_test = train_test_split(X, y, random_state=0)
+clf_05 = LogisticRegression(random_state=0).fit(X_train, y_train)
+
+print("Confusion matrix:\n", confusion_matrix(y_test, clf_05.predict(X_test)))
 
 # %%
 # Lowering the threshold, i.e. allowing more samples to be classified as the positive
@@ -44,9 +47,9 @@ print("Confusion matrix:\n", confusion_matrix(y, classifier.predict(X)))
 # (as is well known from the concavity of the ROC curve).
 from sklearn.model_selection import FixedThresholdClassifier
 
-wrapped_classifier = FixedThresholdClassifier(classifier, threshold=0.1).fit(X, y)
+clf_01 = FixedThresholdClassifier(clf_05, threshold=0.1).fit(X_train, y_train)
 
-print("Confusion matrix:\n", confusion_matrix(y, wrapped_classifier.predict(X)))
+print("Confusion matrix:\n", confusion_matrix(y_test, clf_01.predict(X_test)))
 
 # %%
 # TunedThresholdClassifierCV: Tuning the decision threshold of a binary classifier
@@ -55,33 +58,68 @@ print("Confusion matrix:\n", confusion_matrix(y, wrapped_classifier.predict(X)))
 # given metric, using :class:`~model_selection.TunedThresholdClassifierCV`.
 #
 # Due to the class imbalance in this dataset, the model with the default
-# decision threshold at 0.5 has a suboptimal balanced accuracy: this classifier
-# tends to over predict the majority class.
-from sklearn.metrics import balanced_accuracy_score
+# decision threshold at 0.5 has a suboptimal balanced accuracy and F1 score:
+# this classifier tends to over predict the majority class.
+from sklearn.metrics import balanced_accuracy_score, accuracy_score, f1_score
 
-print(f"Balanced accuracy: {balanced_accuracy_score(y, classifier.predict(X)):.2f}")
+print("Default decision threshold: 0.5")
+print(f"Accuracy: {accuracy_score(y_test, clf_05.predict(X_test)):.4f}")
+print(
+    f"Balanced accuracy: {balanced_accuracy_score(y_test, clf_05.predict(X_test)):.4f}"
+)
+print(f"F1 score: {f1_score(y_test, clf_05.predict(X_test)):.4f}")
+
+# %%
+
+from sklearn.model_selection import TunedThresholdClassifierCV
+
+accuracy_clf = TunedThresholdClassifierCV(clf_05, cv=5, scoring="accuracy").fit(
+    X_train, y_train
+)
+
+print(f"Decision threshold tuned for accuracy: {accuracy_clf.best_threshold_:.4f}")
+print(f"Accuracy: {accuracy_score(y_test, accuracy_clf.predict(X_test)):.4f}")
+print(
+    f"Balanced accuracy: {balanced_accuracy_score(y_test, accuracy_clf.predict(X_test)):.4f}"
+)
+print(f"F1 score: {f1_score(y_test, accuracy_clf.predict(X_test)):.4f}")
 
 # %%
 # Tuning the threshold to optimize the balanced accuracy gives a smaller threshold
 # that allows more samples to be classified as the positive class.
-from sklearn.model_selection import TunedThresholdClassifierCV
+balanced_accuracy_clf = TunedThresholdClassifierCV(
+    clf_05, cv=5, scoring="balanced_accuracy"
+).fit(X_train, y_train)
 
-tuned_classifier = TunedThresholdClassifierCV(
-    classifier, cv=5, scoring="balanced_accuracy"
-).fit(X, y)
-
-print(f"Tuned decision threshold: {tuned_classifier.best_threshold_:.4f}")
 print(
-    f"Balanced accuracy: {balanced_accuracy_score(y, tuned_classifier.predict(X)):.2f}"
+    f"Decision threshold tuned for balanced accuracy: {balanced_accuracy_clf.best_threshold_:.4f}"
 )
+print(f"Accuracy: {accuracy_score(y_test, balanced_accuracy_clf.predict(X_test)):.4f}")
+print(
+    f"Balanced accuracy: {balanced_accuracy_score(y, balanced_accuracy_clf.predict(X)):.4f}"
+)
+print(f"F1 score: {f1_score(y_test, balanced_accuracy_clf.predict(X_test)):.4f}")
 
 # %%
-# Note however, that the balanced accuracy is not necessarily the most
-# meaningful model selection metric for a given application. It often makes
-# sense to optimize the decision threshold directly for a business metric of
-# interest. **Custom business metrics can be defined by assigning different costs
-# to false positives and false negatives or different gains to true positives
-# and true negatives.** Furthermore, those costs and gains can depend on auxiliary
+# Tuning the threshold to optimize the F1 score leads to another threshold.
+f1_clf = TunedThresholdClassifierCV(clf_05, cv=5, scoring="f1").fit(X_train, y_train)
+
+print(f"Decision threshold tuned for F1 score: {f1_clf.best_threshold_:.4f}")
+print(f"Accuracy: {accuracy_score(y_test, f1_clf.predict(X_test)):.4f}")
+print(
+    f"Balanced accuracy: {balanced_accuracy_score(y_test, f1_clf.predict(X_test)):.4f}"
+)
+print(f"F1 score: {f1_score(y_test, f1_clf.predict(X_test)):.4f}")
+
+
+# %%
+# Note however, that neither the F1 score nor the balanced accuracy are
+# necessarily the most meaningful model selection metrics for a given
+# application. Instead, it makes sense to optimize for a business metric that
+# is derived from how the model decisions are used in the practice. **Custom
+# business metrics can be defined by assigning different costs to false
+# positives and false negatives or different gains to true positives and true
+# negatives.** Furthermore, those costs and gains often depend on auxiliary
 # metadata specific to each individual data point such as the amount of a
 # transaction in a fraud detection system.
 #
