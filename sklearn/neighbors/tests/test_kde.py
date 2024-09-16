@@ -16,7 +16,7 @@ from sklearn.utils._testing import assert_allclose
 
 # XXX Duplicated in test_neighbors_tree, test_kde
 def compute_kernel_slow(Y, X, kernel, h):
-    cho_cov = cholesky(np.cov(X.T), lower=True)
+    cho_cov = cholesky(np.cov(X.T, ddof=0), lower=True)
     X_scaled = solve_triangular(cho_cov, X.T, lower=True).T
     Y_scaled = solve_triangular(cho_cov, Y.T, lower=True).T
 
