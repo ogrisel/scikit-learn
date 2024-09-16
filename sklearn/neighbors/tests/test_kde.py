@@ -229,7 +229,7 @@ def test_kde_sample_weights(algorithm, metric, d, global_random_seed, bandwidth)
     scores_repetition = kde.score_samples(test_points)
     sample_repetition = kde.sample(random_state=1234)
     bandwidth_repetition = kde.bandwidth_
-    assert_allclose(np.exp(scores_weight), np.exp(scores_repetition), **tols)
+    assert_allclose(scores_weight, scores_repetition, **tols)
     assert_allclose(sample_weight, sample_repetition, **tols)
     assert bandwdith_weight == pytest.approx(bandwidth_repetition)
 
