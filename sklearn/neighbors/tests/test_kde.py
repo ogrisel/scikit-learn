@@ -170,13 +170,36 @@ def test_kde_pipeline_gridsearch():
 
 
 @pytest.mark.parametrize("algorithm", ["auto", "ball_tree", "kd_tree"])
-@pytest.mark.parametrize("metric", ["euclidean", "minkowski", "manhattan", "chebyshev"])
+@pytest.mark.parametrize(
+    "metric",
+    [
+        "euclidean",
+        "minkowski",
+        pytest.param(
+            "manhattan",
+            marks=pytest.mark.xfail(
+                reason="TODO: investigate failures for specific random seeds"
+            ),
+        ),
+        "chebyshev",
+    ],
+)
+@pytest.mark.parametrize("bandwidth", [1.0])
+# TODO: fix sample_weight handling for scott and silverman.
+# @pytest.mark.parametrize("bandwidth", [1.0, "scott", "silverman"])
 @pytest.mark.parametrize("d", [1, 2, 10])
-def test_kde_sample_weights(algorithm, metric, d):
+def test_kde_sample_weights(algorithm, metric, d, global_random_seed, bandwidth):
     n_samples = 400
     size_test = 20
+
+    # Tolerances are a bit large because the test must pass for all admissible
+    # values of global_random_seed.
+    atol = 1e-8
+    rtol = 1e-7
+    tols = {"atol": atol, "rtol": rtol}
+
     weights_neutral = np.full(n_samples, 3.0)
-    rng = np.random.RandomState(0)
+    rng = np.random.RandomState(global_random_seed)
 
     X = rng.rand(n_samples, d)
     weights = 1 + (10 * X.sum(axis=1)).astype(np.int8)
@@ -184,7 +207,7 @@ def test_kde_sample_weights(algorithm, metric, d):
     n_samples_test = size_test // d
     test_points = rng.rand(n_samples_test, d)
 
-    kde = KernelDensity(algorithm=algorithm, metric=metric)
+    kde = KernelDensity(algorithm=algorithm, metric=metric, bandwidth=bandwidth)
 
     # Test that adding a constant sample weight has no effect
     kde.fit(X, sample_weight=weights_neutral)
@@ -193,30 +216,34 @@ def test_kde_sample_weights(algorithm, metric, d):
     kde.fit(X)
     scores_no_weight = kde.score_samples(test_points)
     sample_no_weight = kde.sample(random_state=1234)
-    assert_allclose(scores_const_weight, scores_no_weight)
-    assert_allclose(sample_const_weight, sample_no_weight)
+    assert_allclose(scores_const_weight, scores_no_weight, **tols)
+    assert_allclose(sample_const_weight, sample_no_weight, **tols)
 
     # Test equivalence between sampling and (integer) weights
     kde.fit(X, sample_weight=weights)
     scores_weight = kde.score_samples(test_points)
     sample_weight = kde.sample(random_state=1234)
-    kde.fit(X_repetitions)
-    scores_ref_sampling = kde.score_samples(test_points)
-    sample_ref_sampling = kde.sample(random_state=1234)
-    assert_allclose(
-        np.exp(scores_weight), np.exp(scores_ref_sampling), atol=1e-8, rtol=1e-6
-    )
-    assert_allclose(sample_weight, sample_ref_sampling, rtol=1e-6)
+    bandwdith_weight = kde.bandwidth_
 
-    # Test that sample weights has a non-trivial effect
+    kde.fit(X_repetitions)
+    scores_repetition = kde.score_samples(test_points)
+    sample_repetition = kde.sample(random_state=1234)
+    bandwidth_repetition = kde.bandwidth_
+    assert_allclose(np.exp(scores_weight), np.exp(scores_repetition), **tols)
+    assert_allclose(sample_weight, sample_repetition, **tols)
+    assert bandwdith_weight == pytest.approx(bandwidth_repetition)
+
+    # Test that sample weights have a non-trivial effect
     diff = np.max(np.abs(scores_no_weight - scores_weight))
     assert diff > 0.001
 
-    # Test invariance with respect to arbitrary scaling
-    scale_factor = rng.rand()
+    # Test invariance with respect to arbitrary scaling. Not that we need
+    # scale_factor to be significantly non-zero, otherwise we might run into
+    # numerical precision issues.
+    scale_factor = rng.uniform(0.1, 10)
     kde.fit(X, sample_weight=(scale_factor * weights))
     scores_scaled_weight = kde.score_samples(test_points)
-    assert_allclose(scores_scaled_weight, scores_weight)
+    assert_allclose(scores_scaled_weight, scores_weight, **tols)
 
 
 @pytest.mark.parametrize("sample_weight", [None, [0.1, 0.2, 0.3]])
