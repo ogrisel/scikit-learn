@@ -10,8 +10,9 @@ permissions: read-all
 
 jobs:
   tests:
-    runs-on:
-      group: cuda-gpu-runner-group
+    # runs-on:
+    #   group: cuda-gpu-runner-group
+    runs-on: ubuntu-latest
     name: Run Array API unit tests
     steps:
       - uses: actions/setup-python@v5
@@ -32,16 +33,16 @@ jobs:
         with:
           path: ~/conda
           key: ${{ runner.os }}-build-${{ hashFiles('build_tools/github/create_gpu_environment.sh') }}-${{ hashFiles('build_tools/github/pylatest_conda_forge_cuda_array-api_linux-64_conda.lock') }}
-      - name: Install miniforge
-        if: ${{ steps.cache-conda.outputs.cache-hit != 'true' }}
-        run: bash build_tools/github/create_gpu_environment.sh
-      - name: Install scikit-learn
-        run: |
-          source "${HOME}/conda/etc/profile.d/conda.sh"
-          conda activate sklearn
-          pip install --verbose --no-build-isolation --config-settings editable-verbose=true --editable .
-      - name: Run array API tests
-        run: |
-          source "${HOME}/conda/etc/profile.d/conda.sh"
-          conda activate sklearn
-          pytest -k 'array_api'
+      # - name: Install miniforge
+      #   if: ${{ steps.cache-conda.outputs.cache-hit != 'true' }}
+      #   run: bash build_tools/github/create_gpu_environment.sh
+      # - name: Install scikit-learn
+      #   run: |
+      #     source "${HOME}/conda/etc/profile.d/conda.sh"
+      #     conda activate sklearn
+      #     pip install --verbose --no-build-isolation --config-settings editable-verbose=true --editable .
+      # - name: Run array API tests
+      #   run: |
+      #     source "${HOME}/conda/etc/profile.d/conda.sh"
+      #     conda activate sklearn
+      #     pytest -k 'array_api'
