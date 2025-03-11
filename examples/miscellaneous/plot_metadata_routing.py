@@ -482,17 +482,22 @@ print_routing(meta_est)
 
 class DefaultRoutingClassifier(ClassifierMixin, BaseEstimator):
     # Class-level default request for fit method
-    __metadata_request__fit = {"sample_weight": True}
+    __metadata_request__fit = {"other_metadata": True}
+
+    def __init__(self, group_aware=False):
+        self.group_aware = group_aware
 
     def __sklearn_default_request__(self):
-        # Instance-level default requests can override class-level defaults
-        # and add new method requests
-        values = super().__sklearn_default_request__()
-        values["predict"] = {"groups": True}  # Add new method request
-        return values
+        # Instance-level default requests can override class-level defaults and
+        # add new method requests. Since it is instance-level, those requests
+        # can depend on the instance's hyper-parameter values.
+        requests = super().__sklearn_default_request__()
+        if self.group_aware:
+            requests["predict"] = {"groups": True}  # Add new method request
+        return requests
 
-    def fit(self, X, y, sample_weight=None):
-        check_metadata(self, sample_weight=sample_weight)
+    def fit(self, X, y, other_metadata=None):
+        check_metadata(self, other_metadata=other_metadata)
         self.classes_ = np.array([0, 1])
         return self
 
@@ -502,7 +507,7 @@ class DefaultRoutingClassifier(ClassifierMixin, BaseEstimator):
 
 
 # Let's see the default routing configuration
-clf = DefaultRoutingClassifier()
+clf = DefaultRoutingClassifier(group_aware=True)
 print_routing(clf)
 
 # %%
@@ -512,7 +517,7 @@ with config_context(enable_metadata_routing="default_routing"):
 
 # %%
 # The routing can still be modified using set_*_request methods
-clf.set_fit_request(sample_weight=False)
+clf.set_fit_request(other_metadata=False)
 print_routing(clf)
 
 # %%
