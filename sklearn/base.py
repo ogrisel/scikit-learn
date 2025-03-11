@@ -498,6 +498,20 @@ class BaseEstimator(_HTMLDocumentationLinkMixin, _MetadataRequester):
         )
         _check_feature_names(self, *args, **kwargs)
 
+    def __sklearn_default_request__(self):
+        # sample_weight is requested by default in `fit` and `score` methods
+        # that actually accept it. This ensures that scikit-learn estimators
+        # implement the expected sample_weight semantics consistently. See the
+        # following reference for more details:
+        # https://scikit-learn.org/stable/glossary.html#term-sample_weight
+        default_requests = super().__sklearn_default_request__()
+        for method_name in ("fit", "score"):
+            method = getattr(self, method_name, None)
+            if "sample_weight" in inspect.signature(method).parameters:
+                default_requests[method_name]["sample_weight"] = True
+
+        return default_requests
+
 
 class ClassifierMixin:
     """Mixin class for all classifiers in scikit-learn.
