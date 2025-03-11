@@ -1358,11 +1358,15 @@ def test_unsupported_sample_weight_scorer():
     [
         GridSearchCV(estimator=LogisticRegression(), param_grid={"C": [1, 10, 100]}),
         RandomizedSearchCV(
-            estimator=Ridge(), param_distributions={"alpha": [1, 0.1, 0.01]}
+            estimator=Ridge(),
+            param_distributions={"alpha": [1, 0.1, 0.01]},
+            n_iter=2,
         ),
     ],
+    ids=["GridSearchCV+LogisticRegression", "RandomizedSearchCV+Ridge"],
 )
-def test_search_cv_sample_weight_equivalence(estimator):
+@pytest.mark.parametrize("enable_metadata_routing", ["default_routing", False])
+def test_search_cv_sample_weight_equivalence(estimator, enable_metadata_routing):
     estimator_weighted = clone(estimator)
     estimator_repeated = clone(estimator)
     set_random_state(estimator_weighted, random_state=0)
@@ -1395,8 +1399,9 @@ def test_search_cv_sample_weight_equivalence(estimator):
     y_weighted = _enforce_estimator_tags_y(estimator_weighted, y_weighted)
     y_repeated = _enforce_estimator_tags_y(estimator_repeated, y_repeated)
 
-    estimator_repeated.fit(X_repeated, y=y_repeated, sample_weight=None)
-    estimator_weighted.fit(X_weighted, y=y_weighted, sample_weight=sw)
+    with config_context(enable_metadata_routing=enable_metadata_routing):
+        estimator_repeated.fit(X_repeated, y=y_repeated, sample_weight=None)
+        estimator_weighted.fit(X_weighted, y=y_weighted, sample_weight=sw)
 
     # check that scores stored in cv_results_
     # are equal for the weighted/repeated datasets
