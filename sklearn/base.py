@@ -507,7 +507,11 @@ class BaseEstimator(_HTMLDocumentationLinkMixin, _MetadataRequester):
         default_requests = super().__sklearn_default_request__()
         for method_name in ("fit", "score"):
             method = getattr(self, method_name, None)
-            if "sample_weight" in inspect.signature(method).parameters:
+            if (
+                method is not None
+                and "sample_weight" in inspect.signature(method).parameters
+            ):
+
                 default_requests[method_name]["sample_weight"] = True
 
         return default_requests
