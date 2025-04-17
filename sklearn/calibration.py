@@ -15,6 +15,7 @@ from scipy.special import expit
 from sklearn.utils import Bunch
 
 from ._loss import HalfBinomialLoss
+from ._loss.link import LogitLink, MultinomialLogit
 from .base import (
     BaseEstimator,
     ClassifierMixin,
@@ -37,7 +38,7 @@ from .utils._param_validation import (
     validate_params,
 )
 from .utils._plotting import _BinaryClassifierCurveDisplayMixin, _validate_style_kwargs
-from .utils._response import _get_response_values, _process_predict_proba
+from .utils._response import _get_response_values
 from .utils.metadata_routing import (
     MetadataRouter,
     MethodMapping,
@@ -57,33 +58,93 @@ from .utils.validation import (
 )
 
 
+def _ensure_logits(predictions, response_method_name):
+    """Ensure that the predictions are in logits space.
+
+    When response method is "predict_proba", the logits are computed as
+    log(p) with shape (n_samples, n_classes) for multiclass and log(p / (1-
+    p)) for binary classification.
+
+    Whe
+
+    Parameters
+    ----------
+    predictions : array-like of shape (n_samples, n_classes) or (n_samples,)
+        The predictions to be converted.
+
+    response_method_name : str
+        The name of the response method used to obtain the predictions.
+
+    n_classes : int
+        The number of classes.
+
+    Returns
+    -------
+    logits : array-like of shape (n_samples, n_classes) or (n_samples, 1).
+        The logits.
+    """
+    if response_method_name == "predict_proba":
+        eps = np.finfo(predictions.dtype).eps
+        # Clip extreme predicted probabilities to ensure finite logits.
+        predictions = predictions.clip(eps, 1 - eps)
+        if predictions.ndim == 1:
+            # _get_response_values already extracts the 1d array for the
+            # positive class for binary classification.
+            predictions = LogitLink().link(predictions).reshape(-1, 1)
+        elif predictions.shape[1] == 2:
+            # In case we are fed with a 2D array that is the raw output of
+            # predict_proba on a binary classifier.
+            predictions = LogitLink().link(predictions[:, 1]).reshape(-1, 1)
+        elif predictions.shape[1] > 2:
+            predictions = MultinomialLogit().link(predictions)
+    elif response_method_name == "decision_function":
+        # For decision_function, we assume the predictions are already in logits
+        # space.
+        if predictions.ndim == 1:
+            # We just reshape the predictions to (n_samples, 1) for consistency.
+            predictions = predictions.reshape(-1, 1)
+        # XXX: check that the shape for the multiclass case is (n_samples,
+        # n_classes) and raise an explicit error if not. In particular, we
+        # cannot support estimators such as SVC with OvO conventions and
+        # predictions with shape (n_samples, n_classes * (n_classes - 1) / 2).
+        # As of now, this cannot happen because both sigmoid and isotonic
+        # calibrators only support binary classification and reduce multiclass
+        # problems to binary ones via OvR.
+    else:
+        raise ValueError(
+            f"Unknown response method name: {response_method_name}. "
+            "Expected 'decision_function' or 'predict_proba'."
+        )
+    return predictions
+
+
 class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator):
     """Probability calibration with isotonic regression or logistic regression.
 
     This class uses cross-validation to both estimate the parameters of a
     classifier and subsequently calibrate a classifier. With default
-    `ensemble=True`, for each cv split it
-    fits a copy of the base estimator to the training subset, and calibrates it
-    using the testing subset. For prediction, predicted probabilities are
-    averaged across these individual calibrated classifiers. When
-    `ensemble=False`, cross-validation is used to obtain unbiased predictions,
-    via :func:`~sklearn.model_selection.cross_val_predict`, which are then
-    used for calibration. For prediction, the base estimator, trained using all
-    the data, is used. This is the prediction method implemented when
-    `probabilities=True` for :class:`~sklearn.svm.SVC` and :class:`~sklearn.svm.NuSVC`
-    estimators (see :ref:`User Guide <scores_probabilities>` for details).
+    `ensemble=True`, for each cv split it fits a copy of the base estimator to
+    the training subset, and calibrates it using the testing subset. For
+    prediction, predicted probabilities are averaged across these individual
+    calibrated classifiers. When `ensemble=False`, cross-validation is used to
+    obtain unbiased predictions, via
+    :func:`~sklearn.model_selection.cross_val_predict`, which are then used for
+    calibration. For prediction, the base estimator, trained using all the
+    data, is used. This is the prediction method implemented when
+    `probabilities=True` for :class:`~sklearn.svm.SVC` and
+    :class:`~sklearn.svm.NuSVC` estimators (see :ref:`User Guide
+    <scores_probabilities>` for details).
 
     Already fitted classifiers can be calibrated by wrapping the model in a
-    :class:`~sklearn.frozen.FrozenEstimator`. In this case all provided
-    data is used for calibration. The user has to take care manually that data
-    for model fitting and calibration are disjoint.
+    :class:`~sklearn.frozen.FrozenEstimator`. In this case all provided data is
+    used for calibration. The user has to take care manually that data for
+    model fitting and calibration are disjoint.
 
     The calibration is based on the :term:`decision_function` method of the
     `estimator` if it exists, else on :term:`predict_proba`.
 
-    Read more in the :ref:`User Guide <calibration>`.
-    In order to learn more on the CalibratedClassifierCV class, see the
-    following calibration examples:
+    Read more in the :ref:`User Guide <calibration>`. In order to learn more on
+    the CalibratedClassifierCV class, see the following calibration examples:
     :ref:`sphx_glr_auto_examples_calibration_plot_calibration.py`,
     :ref:`sphx_glr_auto_examples_calibration_plot_calibration_curve.py`, and
     :ref:`sphx_glr_auto_examples_calibration_plot_calibration_multiclass.py`.
@@ -92,21 +153,21 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
     ----------
     estimator : estimator instance, default=None
         The classifier whose output need to be calibrated to provide more
-        accurate `predict_proba` outputs. The default classifier is
-        a :class:`~sklearn.svm.LinearSVC`.
+        accurate `predict_proba` outputs. The default classifier is a
+        :class:`~sklearn.svm.LinearSVC`.
 
         .. versionadded:: 1.2
 
     method : {'sigmoid', 'isotonic'}, default='sigmoid'
-        The method to use for calibration. Can be 'sigmoid' which
-        corresponds to Platt's method (i.e. a logistic regression model) or
-        'isotonic' which is a non-parametric approach. It is not advised to
-        use isotonic calibration with too few calibration samples
-        ``(<<1000)`` since it tends to overfit.
+        The method to use for calibration. Can be 'sigmoid' which corresponds
+        to Platt's method (i.e. a logistic regression model) or 'isotonic'
+        which is a non-parametric approach. It is not advised to use isotonic
+        calibration with too few calibration samples ``(<<1000)`` since it
+        tends to overfit.
 
     cv : int, cross-validation generator, or iterable, default=None
-        Determines the cross-validation splitting strategy.
-        Possible inputs for cv are:
+        Determines the cross-validation splitting strategy. Possible inputs for
+        cv are:
 
         - None, to use the default 5-fold cross-validation,
         - integer, to specify the number of folds.
@@ -129,9 +190,9 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
             instead.
 
     n_jobs : int, default=None
-        Number of jobs to run in parallel.
-        ``None`` means 1 unless in a :obj:`joblib.parallel_backend` context.
-        ``-1`` means using all processors.
+        Number of jobs to run in parallel. ``None`` means 1 unless in a
+        :obj:`joblib.parallel_backend` context. ``-1`` means using all
+        processors.
 
         Base estimator clones are fitted in parallel across cross-validation
         iterations. Therefore parallelism happens only when `cv != "prefit"`.
@@ -153,11 +214,11 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
         average predicted probabilities of all pairs.
 
         If `False`, `cv` is used to compute unbiased predictions, via
-        :func:`~sklearn.model_selection.cross_val_predict`, which are then
-        used for calibration. At prediction time, the classifier used is the
-        `estimator` trained on all the data.
-        Note that this method is also internally implemented  in
-        :mod:`sklearn.svm` estimators with the `probabilities=True` parameter.
+        :func:`~sklearn.model_selection.cross_val_predict`, which are then used
+        for calibration. At prediction time, the classifier used is the
+        `estimator` trained on all the data. Note that this method is also
+        internally implemented  in :mod:`sklearn.svm` estimators with the
+        `probabilities=True` parameter.
 
         .. versionadded:: 0.24
 
@@ -186,8 +247,8 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
 
         - When `ensemble=True`, `n_cv` fitted `estimator` and calibrator pairs.
           `n_cv` is the number of cross-validation folds.
-        - When `ensemble=False`, the `estimator`, fitted on all the data, and fitted
-          calibrator.
+        - When `ensemble=False`, the `estimator`, fitted on all the data, and
+          fitted calibrator.
 
         .. versionchanged:: 0.24
             Single calibrated classifier case when `ensemble=False`.
@@ -199,54 +260,60 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
 
     References
     ----------
-    .. [1] Obtaining calibrated probability estimates from decision trees
-           and naive Bayesian classifiers, B. Zadrozny & C. Elkan, ICML 2001
+    .. [1] Obtaining calibrated probability estimates from decision trees and
+           naive Bayesian classifiers, B. Zadrozny & C. Elkan, ICML 2001
 
-    .. [2] Transforming Classifier Scores into Accurate Multiclass
-           Probability Estimates, B. Zadrozny & C. Elkan, (KDD 2002)
+    .. [2] Transforming Classifier Scores into Accurate Multiclass Probability
+           Estimates, B. Zadrozny & C. Elkan, (KDD 2002)
 
     .. [3] Probabilistic Outputs for Support Vector Machines and Comparisons to
            Regularized Likelihood Methods, J. Platt, (1999)
 
-    .. [4] Predicting Good Probabilities with Supervised Learning,
-           A. Niculescu-Mizil & R. Caruana, ICML 2005
+    .. [4] Predicting Good Probabilities with Supervised Learning, A.
+           Niculescu-Mizil & R. Caruana, ICML 2005
 
     Examples
     --------
+    Without calibration, the GaussianNB classifier is over-confident, in
+    particular on its training set:
+
     >>> from sklearn.datasets import make_classification
     >>> from sklearn.naive_bayes import GaussianNB
     >>> from sklearn.calibration import CalibratedClassifierCV
     >>> X, y = make_classification(n_samples=100, n_features=2,
     ...                            n_redundant=0, random_state=42)
-    >>> base_clf = GaussianNB()
-    >>> calibrated_clf = CalibratedClassifierCV(base_clf, cv=3)
+    >>> GaussianNB().fit(X, y).predict_proba(X)[:, 1].max()
+    np.float64(0.9999...)
+
+    After calibration with internal cross-validation, the resulting classifier
+    is less over-confident:
+
+    >>> calibrated_clf = CalibratedClassifierCV(GaussianNB(), cv=3)
     >>> calibrated_clf.fit(X, y)
-    CalibratedClassifierCV(...)
+    CalibratedClassifierCV(cv=3, estimator=GaussianNB())
     >>> len(calibrated_clf.calibrated_classifiers_)
     3
-    >>> calibrated_clf.predict_proba(X)[:5, :]
-    array([[0.110..., 0.889...],
-           [0.072..., 0.927...],
-           [0.928..., 0.071...],
-           [0.928..., 0.071...],
-           [0.071..., 0.928...]])
+    >>> calibrated_clf.predict_proba(X)[:, 1].max()
+    np.float64(0.989...)
+
+    We can also calibrate a pre-fitted classifier. In this case, we need a held
+    out calibration set instead of relying on internal cross-validation:
+
     >>> from sklearn.model_selection import train_test_split
     >>> X, y = make_classification(n_samples=100, n_features=2,
     ...                            n_redundant=0, random_state=42)
     >>> X_train, X_calib, y_train, y_calib = train_test_split(
     ...        X, y, random_state=42
     ... )
-    >>> base_clf = GaussianNB()
-    >>> base_clf.fit(X_train, y_train)
-    GaussianNB()
+    >>> fitted_clf = GaussianNB().fit(X_train, y_train)
     >>> from sklearn.frozen import FrozenEstimator
-    >>> calibrated_clf = CalibratedClassifierCV(FrozenEstimator(base_clf))
+    >>> calibrated_clf = CalibratedClassifierCV(FrozenEstimator(fitted_clf))
     >>> calibrated_clf.fit(X_calib, y_calib)
     CalibratedClassifierCV(...)
     >>> len(calibrated_clf.calibrated_classifiers_)
     1
-    >>> calibrated_clf.predict_proba([[-0.5, 0.5]])
-    array([[0.936..., 0.063...]])
+    >>> calibrated_clf.predict_proba(X_calib)[:, 1].max()
+    np.float64(0.965...)
     """
 
     _parameter_constraints: dict = {
@@ -337,14 +404,16 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
             check_is_fitted(self.estimator, attributes=["classes_"])
             self.classes_ = self.estimator.classes_
 
-            predictions, _ = _get_response_values(
+            predictions, _, response_method_used = _get_response_values(
                 estimator,
                 X,
                 response_method=["decision_function", "predict_proba"],
+                return_response_method_used=True,
             )
-            if predictions.ndim == 1:
-                # Reshape binary output from `(n_samples,)` to `(n_samples, 1)`
-                predictions = predictions.reshape(-1, 1)
+            predictions = _ensure_logits(
+                predictions,
+                response_method_name=response_method_used,
+            )
 
             if sample_weight is not None:
                 # Check that the sample_weight dtype is consistent with the predictions
@@ -450,17 +519,10 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
                     n_jobs=self.n_jobs,
                     params=routed_params.estimator.fit,
                 )
-                if len(self.classes_) == 2:
-                    # Ensure shape (n_samples, 1) in the binary case
-                    if method_name == "predict_proba":
-                        # Select the probability column of the positive class
-                        predictions = _process_predict_proba(
-                            y_pred=predictions,
-                            target_type="binary",
-                            classes=self.classes_,
-                            pos_label=self.classes_[1],
-                        )
-                    predictions = predictions.reshape(-1, 1)
+                predictions = _ensure_logits(
+                    predictions,
+                    response_method_name=method_name,
+                )
 
                 if sample_weight is not None:
                     # Check that the sample_weight dtype is consistent with the
@@ -625,14 +687,16 @@ def _fit_classifier_calibrator_pair(
 
     estimator.fit(X_train, y_train, **fit_params_train)
 
-    predictions, _ = _get_response_values(
+    predictions, _, response_method_used = _get_response_values(
         estimator,
         X_test,
         response_method=["decision_function", "predict_proba"],
+        return_response_method_used=True,
     )
-    if predictions.ndim == 1:
-        # Reshape binary output from `(n_samples,)` to `(n_samples, 1)`
-        predictions = predictions.reshape(-1, 1)
+    predictions = _ensure_logits(
+        predictions,
+        response_method_name=response_method_used,
+    )
 
     if sample_weight is not None:
         # Check that the sample_weight dtype is consistent with the predictions
@@ -740,14 +804,16 @@ class _CalibratedClassifier:
         proba : array, shape (n_samples, n_classes)
             The predicted probabilities. Can be exact zeros.
         """
-        predictions, _ = _get_response_values(
+        predictions, _, response_method_used = _get_response_values(
             self.estimator,
             X,
             response_method=["decision_function", "predict_proba"],
+            return_response_method_used=True,
         )
-        if predictions.ndim == 1:
-            # Reshape binary output from `(n_samples,)` to `(n_samples, 1)`
-            predictions = predictions.reshape(-1, 1)
+        predictions = _ensure_logits(
+            predictions,
+            response_method_name=response_method_used,
+        )
 
         n_classes = len(self.classes)
 
@@ -759,8 +825,9 @@ class _CalibratedClassifier:
             pos_class_indices, predictions.T, self.calibrators
         ):
             if n_classes == 2:
-                # When binary, `predictions` consists only of predictions for
-                # clf.classes_[1] but `pos_class_indices` = 0
+                # When binary, `predictions` has shape (n_samples, 1) and
+                # consists only of predictions for clf.classes_[1] but
+                # `pos_class_indices` = 0
                 class_idx += 1
             proba[:, class_idx] = calibrator.predict(this_pred)
 
