@@ -13,6 +13,7 @@ from scipy.optimize import minimize
 from scipy.special import expit
 
 from sklearn.utils import Bunch
+from sklearn.utils.extmath import softmax
 
 from ._loss import HalfBinomialLoss
 from ._loss.link import LogitLink, MultinomialLogit
@@ -58,7 +59,7 @@ from .utils.validation import (
 )
 
 
-def _ensure_logits(predictions, response_method_name):
+def _ensure_logits(predictions, response_method_name, logit_type="sigmoid"):
     """Ensure that the predictions are in logits space.
 
     When response method is "predict_proba", the logits are computed as
@@ -83,10 +84,16 @@ def _ensure_logits(predictions, response_method_name):
     logits : array-like of shape (n_samples, n_classes) or (n_samples, 1).
         The logits.
     """
-    if response_method_name == "predict_proba":
+    if response_method_name == "predict_proba" or (
+        response_method_name == "decision_function" and logit_type == "sigmoid"
+    ):
+        if response_method_name == "decision_function" and logit_type == "sigmoid":
+            predictions = softmax(predictions)
+
         eps = np.finfo(predictions.dtype).eps
         # Clip extreme predicted probabilities to ensure finite logits.
         predictions = predictions.clip(eps, 1 - eps)
+
         if predictions.ndim == 1:
             # _get_response_values already extracts the 1d array for the
             # positive class for binary classification.
@@ -96,7 +103,16 @@ def _ensure_logits(predictions, response_method_name):
             # predict_proba on a binary classifier.
             predictions = LogitLink().link(predictions[:, 1]).reshape(-1, 1)
         elif predictions.shape[1] > 2:
-            predictions = MultinomialLogit().link(predictions)
+            if logit_type == "sigmoid":
+                # Assume OvR convention and recover Bernoulli logits
+                # for each class.
+                original_predictions = predictions.copy()
+                sigmoid_link = LogitLink()
+                for i in range(predictions.shape[1]):
+                    predictions[:, i] = sigmoid_link.link(original_predictions[:, i])
+            else:
+                predictions = MultinomialLogit().link(predictions)
+
     elif response_method_name == "decision_function":
         # For decision_function, we assume the predictions are already in logits
         # space.

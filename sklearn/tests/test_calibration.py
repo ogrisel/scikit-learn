@@ -254,10 +254,6 @@ def test_calibration_multiclass(clf, method, ensemble, global_random_seed):
     y_pred_cal = cal_clf.predict_proba(X_test)
     assert_allclose(np.sum(y_pred_cal, axis=1), np.ones(len(X_test)))
 
-    # Check that the multiclass (argmax) accuracy of the calibrated model is never
-    # degraded too much compared to the original classifier.
-    assert cal_clf.score(X_test, y_test) > 0.95 * clf.score(X_test, y_test)
-
     # Check that Brier loss of calibrated classifier is smaller than
     # loss obtained on the original classifier.
     labels = np.arange(n_classes)

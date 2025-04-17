@@ -13,25 +13,34 @@ class of an instance (red: class 1, green: class 2, blue: class 3).
 
 """
 
-# %%
-# Data
-# ----
-# Below, we generate a classification dataset with 2000 samples, 2 features
-# and 3 target classes. We then split the data as follows:
-#
-# * train: 600 samples (for training the classifier)
-# * valid: 400 samples (for calibrating predicted probabilities)
-# * test: 1000 samples
-
 # Authors: The scikit-learn developers
 # SPDX-License-Identifier: BSD-3-Clause
+
+# %%
+#
+# Data
+# ----
+#
+# Below, we generate a classification dataset with 3 target classes so that we
+# can visualize the probability simplex of probabilistic classifiers in a 2D
+# plot. We then split the data into three subsets: a training set, a
+# calibration set and a test set.
+#
+# We use a test set to get reliable estimates of the Brier score and log-loss
+# values.
+#
+# To simplify the example, we use also use a fixed calibration set that is as
+# large as the training set. In practice, this would limit the amount of data
+# available for training the classifier and instead we would be better off
+# using a ensemble of calibrated classifier using the internal cross-validation
+# of :class:`~sklearn.calibration.CalibratedClassifierCV`.
 
 import numpy as np
 
 from sklearn.datasets import make_blobs
 
 n_train = 1_000
-n_cal = 5_000
+n_cal = 1_000
 n_test = 30_000
 X, y = make_blobs(
     n_samples=n_train + n_cal + n_test,
@@ -49,33 +58,23 @@ X_test, y_test = X[n_train + n_cal :], y[n_train + n_cal :]
 # Fitting and calibration
 # -----------------------
 #
-# First, we will train a :class:`~sklearn.ensemble.RandomForestClassifier`
-# with 25 base estimators (trees) on the concatenated train and validation
-# data (1000 samples). This is the uncalibrated classifier.
+# First, we will train a base classifier that is expected to be poorly calibrated.
 
-from sklearn.linear_model import LogisticRegression
-from sklearn.pipeline import make_pipeline
-from sklearn.preprocessing import PolynomialFeatures, SplineTransformer
+from sklearn.ensemble import RandomForestClassifier
 
-# clf = RandomForestClassifier(n_estimators=25, max_depth=3)
-# clf = GaussianNB()
-clf = make_pipeline(
-    SplineTransformer(),
-    PolynomialFeatures(interaction_only=True, include_bias=False),
-    LogisticRegression(C=1e6),
-)
-# clf = make_pipeline(
-#     SplineTransformer(),
-#     PolynomialFeatures(interaction_only=True, include_bias=False),
-#     LogisticRegression(C=1e-1),
-# )
+clf = RandomForestClassifier(max_depth=7)
 clf.fit(X_train, y_train)
 
 # %%
-# To train the calibrated classifier, we start with the same
-# :class:`~sklearn.ensemble.RandomForestClassifier` but train it using only
-# the train data subset (600 samples) then calibrate, with `method='sigmoid'`,
-# using the valid data subset (400 samples) in a 2-stage process.
+#
+# Then we re-calibrated the model in a 2-stage process by fitting a sigmoid
+# correction to the predicted probabilities of the validation set. The sigmoid
+# calibration is done using the
+# :class:`~sklearn.calibration.CalibratedClassifierCV`. The
+# :class:`~sklearn.frozen.FrozenEstimator` is used to freeze the fitted
+# classifier to avoid re-fitting it when calling the
+# :meth:`~sklearn.calibration.CalibratedClassifierCV.fit` method. This way, we
+# ensure that the calibration data is not used to fit the base classifier.
 
 from sklearn.calibration import CalibratedClassifierCV
 from sklearn.frozen import FrozenEstimator
@@ -91,112 +90,103 @@ cal_clf.fit(X_valid, y_valid)
 
 import matplotlib.pyplot as plt
 
-plt.figure(figsize=(10, 10))
-colors = ["r", "g", "b"]
+
+def plot_simplex(
+    p_source,
+    p_target,
+    color_indices,
+    class_colors=["r", "g", "b"],
+    arrow_alpha=0.2,
+    grid_alpha=0.1,
+    max_arrows=500,
+    annotate=False,
+    title=None,
+    display_legend=True,
+    ax=None,
+):
+    """Plot a simplex with arrows from p_source to p_target."""
+    if ax is None:
+        _, ax = plt.subplots(figsize=(10, 10))
+    for i in range(min(p_source.shape[0], max_arrows)):
+        # Normalize the source and target probabilities to ensure they are in the simplex
+        p_source[i] /= p_source[i].sum()
+        p_target[i] /= p_target[i].sum()
+
+        # Plot the arrow from source to target
+        ax.arrow(
+            p_source[i, 0],
+            p_source[i, 1],
+            p_target[i, 0] - p_source[i, 0],
+            p_target[i, 1] - p_source[i, 1],
+            color=class_colors[color_indices[i]],
+            head_width=1e-2,
+            alpha=arrow_alpha,
+        )
+
+    # Plot perfect predictions, at each vertex
+    ax.plot([1.0], [0.0], "ro", ms=10, label="Class 1")
+    ax.plot([0.0], [1.0], "go", ms=10, label="Class 2")
+    ax.plot([0.0], [0.0], "bo", ms=10, label="Class 3")
+
+    # Plot boundaries of unit simplex
+    ax.plot([0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], "k", label="Simplex")
+
+    # Annotate points 6 points around the simplex, and mid point inside simplex
+    if annotate:
+        arrow_props = dict(facecolor="black", width=2.0, headwidth=7.0)
+        for text, xy, xytext in [
+            (
+                r"($\frac{1}{3}$, $\frac{1}{3}$, $\frac{1}{3}$)",
+                (1.0 / 3, 1.0 / 3),
+                (1.0 / 3, 0.23),
+            ),
+            (r"($\frac{1}{2}$, $0$, $\frac{1}{2}$)", (0.5, 0.0), (0.5, 0.1)),
+            (r"($0$, $\frac{1}{2}$, $\frac{1}{2}$)", (0.0, 0.5), (0.1, 0.5)),
+            (r"($\frac{1}{2}$, $\frac{1}{2}$, $0$)", (0.5, 0.5), (0.6, 0.6)),
+            (r"($0$, $0$, $1$)", (0, 0), (0.1, 0.1)),
+            (r"($1$, $0$, $0$)", (1, 0), (1, 0.1)),
+            (r"($0$, $1$, $0$)", (0, 1), (0.1, 1)),
+        ]:
+            ax.annotate(
+                text,
+                xy=xy,
+                xytext=xytext,
+                xycoords="data",
+                arrowprops=arrow_props,
+                horizontalalignment="center",
+                verticalalignment="center",
+            )
+
+    # Add grid
+    ax.grid(False)
+    for x in np.linspace(0, 1, 11):
+        ax.plot([0, x], [x, 0], "k", alpha=grid_alpha)
+        ax.plot([0, 0 + (1 - x) / 2], [x, x + (1 - x) / 2], "k", alpha=grid_alpha)
+        ax.plot([x, x + (1 - x) / 2], [0, 0 + (1 - x) / 2], "k", alpha=grid_alpha)
+
+    ax.set(
+        title=title,
+        xlabel="Probability class 1",
+        ylabel="Probability class 2",
+        xlim=(-0.05, 1.05),
+        ylim=(-0.05, 1.05),
+        aspect="equal",
+    )
+    if display_legend:
+        ax.legend(loc="best")
+
 
 uncal_clf_probs = clf.predict_proba(X_test)
 cal_clf_probs = cal_clf.predict_proba(X_test)
 
-# Plot arrows
-arrow_alpha = 0.2
-grid_alpha = 0.1
-for i in range(min(uncal_clf_probs.shape[0], 500)):
-    plt.arrow(
-        uncal_clf_probs[i, 0],
-        uncal_clf_probs[i, 1],
-        cal_clf_probs[i, 0] - uncal_clf_probs[i, 0],
-        cal_clf_probs[i, 1] - uncal_clf_probs[i, 1],
-        color=colors[y_test[i]],
-        head_width=1e-2,
-        alpha=arrow_alpha,
-    )
+plot_simplex(
+    uncal_clf_probs,
+    cal_clf_probs,
+    y_test,
+    annotate=True,
+    title="Change of predicted probabilities on test samples after sigmoid calibration",
+)
 
-# Plot perfect predictions, at each vertex
-plt.plot([1.0], [0.0], "ro", ms=20, label="Class 1")
-plt.plot([0.0], [1.0], "go", ms=20, label="Class 2")
-plt.plot([0.0], [0.0], "bo", ms=20, label="Class 3")
-
-# Plot boundaries of unit simplex
-plt.plot([0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], "k", label="Simplex")
-
-# Annotate points 6 points around the simplex, and mid point inside simplex
-plt.annotate(
-    r"($\frac{1}{3}$, $\frac{1}{3}$, $\frac{1}{3}$)",
-    xy=(1.0 / 3, 1.0 / 3),
-    xytext=(1.0 / 3, 0.23),
-    xycoords="data",
-    arrowprops=dict(facecolor="black", shrink=0.05),
-    horizontalalignment="center",
-    verticalalignment="center",
-)
-plt.plot([1.0 / 3], [1.0 / 3], "ko", ms=5)
-plt.annotate(
-    r"($\frac{1}{2}$, $0$, $\frac{1}{2}$)",
-    xy=(0.5, 0.0),
-    xytext=(0.5, 0.1),
-    xycoords="data",
-    arrowprops=dict(facecolor="black", shrink=0.05),
-    horizontalalignment="center",
-    verticalalignment="center",
-)
-plt.annotate(
-    r"($0$, $\frac{1}{2}$, $\frac{1}{2}$)",
-    xy=(0.0, 0.5),
-    xytext=(0.1, 0.5),
-    xycoords="data",
-    arrowprops=dict(facecolor="black", shrink=0.05),
-    horizontalalignment="center",
-    verticalalignment="center",
-)
-plt.annotate(
-    r"($\frac{1}{2}$, $\frac{1}{2}$, $0$)",
-    xy=(0.5, 0.5),
-    xytext=(0.6, 0.6),
-    xycoords="data",
-    arrowprops=dict(facecolor="black", shrink=0.05),
-    horizontalalignment="center",
-    verticalalignment="center",
-)
-plt.annotate(
-    r"($0$, $0$, $1$)",
-    xy=(0, 0),
-    xytext=(0.1, 0.1),
-    xycoords="data",
-    arrowprops=dict(facecolor="black", shrink=0.05),
-    horizontalalignment="center",
-    verticalalignment="center",
-)
-plt.annotate(
-    r"($1$, $0$, $0$)",
-    xy=(1, 0),
-    xytext=(1, 0.1),
-    xycoords="data",
-    arrowprops=dict(facecolor="black", shrink=0.05),
-    horizontalalignment="center",
-    verticalalignment="center",
-)
-plt.annotate(
-    r"($0$, $1$, $0$)",
-    xy=(0, 1),
-    xytext=(0.1, 1),
-    xycoords="data",
-    arrowprops=dict(facecolor="black", shrink=0.05),
-    horizontalalignment="center",
-    verticalalignment="center",
-)
-# Add grid
-plt.grid(False)
-for x in np.linspace(0, 1, 11):
-    plt.plot([0, x], [x, 0], "k", alpha=grid_alpha)
-    plt.plot([0, 0 + (1 - x) / 2], [x, x + (1 - x) / 2], "k", alpha=grid_alpha)
-    plt.plot([x, x + (1 - x) / 2], [0, 0 + (1 - x) / 2], "k", alpha=grid_alpha)
-
-plt.title("Change of predicted probabilities on test samples after sigmoid calibration")
-plt.xlabel("Probability class 1")
-plt.ylabel("Probability class 2")
-plt.xlim(-0.05, 1.05)
-plt.ylim(-0.05, 1.05)
-_ = plt.legend(loc="best")
 
 # %%
 # In the figure above, each vertex of the simplex represents
@@ -257,64 +247,52 @@ print(f" - calibrated classifier: {cal_loss:.3f}")
 # plot arrows for each. The arrows are colored according the highest
 # uncalibrated probability. This illustrates the learned calibration map:
 
-from scipy.stats import gmean
+from scipy.special import logit
 
-plt.figure(figsize=(10, 10))
-# Generate grid of probability values
-eps = np.finfo(np.float64).eps
-p1d = np.linspace(0, 1, 21)
-p0, p1 = np.meshgrid(p1d, p1d)
-p2 = 1 - p0 - p1
-p = np.c_[p0.ravel(), p1.ravel(), p2.ravel()]
-p = p[p[:, 2] >= 0]
-p = p.clip(0 + eps, 1 - eps)
-logits = np.log(p / gmean(p, axis=1)[:, np.newaxis])
 
-# Use the three class-wise calibrators to compute calibrated probabilities.
+def plot_calibrator_map(ovr_calibrators, **kwargs):
+    # Generate grid of probability values
+    eps = np.finfo(np.float64).eps
+    p1d = np.linspace(0, 1, 21)
+    p0, p1 = np.meshgrid(p1d, p1d)
+    p2 = 1 - p0 - p1
+    p = np.c_[p0.ravel(), p1.ravel(), p2.ravel()]
+    p = p[p[:, 2] >= 0]
+    p = p.clip(0 + eps, 1 - eps)
 
-calibrated_classifier = cal_clf.calibrated_classifiers_[0]
-calibrated_predictions = np.vstack(
-    [
-        calibrator.predict(logit_for_class)
-        for calibrator, logit_for_class in zip(
-            calibrated_classifier.calibrators, logits.T
-        )
-    ]
-).T
-
-# Re-normalize the calibrated predictions to make sure they stay inside the
-# simplex. This same renormalization step is performed internally by the
-# predict method of CalibratedClassifierCV on multiclass problems.
-calibrated_predictions /= calibrated_predictions.sum(axis=1)[:, None]
-
-# Plot changes in predicted probabilities induced by the calibrators
-for i in range(calibrated_predictions.shape[0]):
-    plt.arrow(
-        p[i, 0],
-        p[i, 1],
-        calibrated_predictions[i, 0] - p[i, 0],
-        calibrated_predictions[i, 1] - p[i, 1],
-        head_width=1e-2,
-        color=colors[np.argmax(p[i])],
-        alpha=arrow_alpha,
+    # Map the probabilities to the Bernoulli logits space used by scikit-learn OvR
+    # calibrators.
+    sigmoid_logits = np.concatenate(
+        [
+            logit(p[:, 0])[:, np.newaxis],
+            logit(p[:, 1])[:, np.newaxis],
+            logit(p[:, 2])[:, np.newaxis],
+        ],
+        axis=1,
     )
 
-# Plot the boundaries of the unit simplex
-plt.plot([0.0, 1.0, 0.0, 0.0], [0.0, 0.0, 1.0, 0.0], "k", label="Simplex")
+    # Use the three class-wise OvR calibrators to compute calibrated probabilities.
+    calibrated_predictions = np.vstack(
+        [
+            calibrator.predict(logit_for_class)
+            for calibrator, logit_for_class in zip(ovr_calibrators, sigmoid_logits.T)
+        ]
+    ).T
 
-plt.grid(False)
-for x in np.linspace(0, 1, 11):
-    plt.plot([0, x], [x, 0], "k", alpha=grid_alpha)
-    plt.plot([0, 0 + (1 - x) / 2], [x, x + (1 - x) / 2], "k", alpha=grid_alpha)
-    plt.plot([x, x + (1 - x) / 2], [0, 0 + (1 - x) / 2], "k", alpha=grid_alpha)
+    # Re-normalize the calibrated predictions to make sure they stay inside the
+    # simplex. This same renormalization step is performed internally by the
+    # predict method of CalibratedClassifierCV on multiclass problems.
+    calibrated_predictions /= calibrated_predictions.sum(axis=1)[:, None]
+    plot_simplex(
+        p,
+        calibrated_predictions,
+        np.argmax(p, axis=1),
+        **kwargs,
+    )
 
-plt.title("Learned sigmoid calibration map")
-plt.xlabel("Probability class 1")
-plt.ylabel("Probability class 2")
-plt.xlim(-0.05, 1.05)
-plt.ylim(-0.05, 1.05)
 
-plt.show()
+plot_calibrator_map(cal_clf.calibrated_classifiers_[0].calibrators)
+
 
 # %%
 # One can observe that, on average, the calibrator is pushing highly confident
@@ -328,4 +306,94 @@ plt.show()
 # All in all, the One-vs-Rest multiclass-calibration strategy implemented in
 # `CalibratedClassifierCV` should not be trusted blindly.
 
+
 # %%
+# Let's now do the same for various classifiers with different miscalibration
+# problems and the two calibration methods available in
+# `CalibratedClassifierCV` (sigmoid and isotonic).
+
+from collections import defaultdict
+
+import pandas as pd
+from threadpoolctl import threadpool_limits
+
+from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.naive_bayes import GaussianNB
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import PolynomialFeatures, SplineTransformer
+
+threadpool_limits(limits=1, user_api="openmp")
+
+base_classifiers = {
+    "Random Forest (deep)": RandomForestClassifier(max_depth=7),
+    "Random Forest (shallow)": RandomForestClassifier(max_depth=3),
+    "Gradient Boosting (deep)": HistGradientBoostingClassifier(max_leaf_nodes=31),
+    "Gradient Boosting (shallow)": HistGradientBoostingClassifier(max_leaf_nodes=3),
+    "Gaussian Naive Bayes": GaussianNB(),
+    "Polynomial classifier (low C)": make_pipeline(
+        SplineTransformer(),
+        PolynomialFeatures(interaction_only=True, include_bias=False),
+        LogisticRegression(C=1e-1, max_iter=1_000),
+    ),
+    "Polynomial classifier (high C)": make_pipeline(
+        SplineTransformer(),
+        PolynomialFeatures(interaction_only=True, include_bias=False),
+        LogisticRegression(C=1e6, max_iter=1_000),
+    ),
+}
+
+calibration_methods = ["sigmoid", "isotonic"]
+fig, axes = plt.subplots(
+    nrows=len(base_classifiers),
+    ncols=len(calibration_methods),
+    figsize=(10, 5 * len(base_classifiers)),
+    tight_layout=True,
+)
+
+scores = defaultdict(dict)
+
+for classifier_idx, (name, base_clf) in enumerate(base_classifiers.items()):
+    for method_idx, calibration_method in enumerate(calibration_methods):
+        base_clf.fit(X_train, y_train)
+        cal_clf = CalibratedClassifierCV(
+            FrozenEstimator(base_clf), method=calibration_method
+        )
+        cal_clf.fit(X_valid, y_valid)
+        plot_calibrator_map(
+            cal_clf.calibrated_classifiers_[0].calibrators,
+            title=f"{name} - {calibration_method}",
+            annotate=False,
+            ax=axes[classifier_idx, method_idx],
+            display_legend=(classifier_idx == 0 and method_idx == 0),
+        )
+        scores_for_classifier = scores[name]
+        scores_for_classifier.update(
+            {
+                "Classifier": name,
+                "Log-loss (original)": log_loss(y_test, base_clf.predict_proba(X_test)),
+                f"Log-loss ({calibration_method})": log_loss(
+                    y_test, cal_clf.predict_proba(X_test)
+                ),
+                "Brier score (original)": brier_score_loss(
+                    y_test, base_clf.predict_proba(X_test)
+                ),
+                f"Brier score ({calibration_method})": brier_score_loss(
+                    y_test, cal_clf.predict_proba(X_test)
+                ),
+            }
+        )
+
+reordered_columns = [
+    "Classifier",
+    "Log-loss (original)",
+    "Log-loss (sigmoid)",
+    "Log-loss (isotonic)",
+    "Brier score (original)",
+    "Brier score (sigmoid)",
+    "Brier score (isotonic)",
+]
+pd.DataFrame(scores.values())[reordered_columns].round(3)
+
+# %%
+plt.show()
