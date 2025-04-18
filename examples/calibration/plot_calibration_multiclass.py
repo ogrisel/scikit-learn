@@ -62,7 +62,7 @@ X_test, y_test = X[n_train + n_cal :], y[n_train + n_cal :]
 
 from sklearn.ensemble import RandomForestClassifier
 
-clf = RandomForestClassifier(max_depth=7)
+clf = RandomForestClassifier(max_depth=7, random_state=0)
 clf.fit(X_train, y_train)
 
 # %%
@@ -263,11 +263,7 @@ def plot_calibrator_map(ovr_calibrators, **kwargs):
     # Map the probabilities to the Bernoulli logits space used by scikit-learn OvR
     # calibrators.
     sigmoid_logits = np.concatenate(
-        [
-            logit(p[:, 0])[:, np.newaxis],
-            logit(p[:, 1])[:, np.newaxis],
-            logit(p[:, 2])[:, np.newaxis],
-        ],
+        [logit(p[:, class_idx])[:, np.newaxis] for class_idx in range(p.shape[1])],
         axis=1,
     )
 
@@ -315,32 +311,26 @@ plot_calibrator_map(cal_clf.calibrated_classifiers_[0].calibrators)
 from collections import defaultdict
 
 import pandas as pd
-from threadpoolctl import threadpool_limits
 
-from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 from sklearn.naive_bayes import GaussianNB
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import PolynomialFeatures, SplineTransformer
 
-threadpool_limits(limits=1, user_api="openmp")
-
 base_classifiers = {
-    "Random Forest (deep)": RandomForestClassifier(max_depth=7),
-    "Random Forest (shallow)": RandomForestClassifier(max_depth=3),
-    "Gradient Boosting (deep)": HistGradientBoostingClassifier(max_leaf_nodes=31),
-    "Gradient Boosting (shallow)": HistGradientBoostingClassifier(max_leaf_nodes=3),
-    "Gaussian Naive Bayes": GaussianNB(),
-    "Polynomial classifier (low C)": make_pipeline(
-        SplineTransformer(),
-        PolynomialFeatures(interaction_only=True, include_bias=False),
-        LogisticRegression(C=1e-1, max_iter=1_000),
-    ),
-    "Polynomial classifier (high C)": make_pipeline(
+    "Random Forest (deep)": RandomForestClassifier(max_depth=8, random_state=42),
+    "Random Forest (shallow)": RandomForestClassifier(max_depth=3, random_state=42),
+    "Polynomial classifier (low reg)": make_pipeline(
         SplineTransformer(),
         PolynomialFeatures(interaction_only=True, include_bias=False),
         LogisticRegression(C=1e6, max_iter=1_000),
     ),
+    "Polynomial classifier (high reg)": make_pipeline(
+        SplineTransformer(),
+        PolynomialFeatures(interaction_only=True, include_bias=False),
+        LogisticRegression(C=1e-1, max_iter=1_000),
+    ),
+    "Gaussian Naive Bayes": GaussianNB(),
 }
 
 calibration_methods = ["sigmoid", "isotonic"]
