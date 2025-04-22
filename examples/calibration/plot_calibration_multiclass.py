@@ -374,6 +374,43 @@ for classifier_idx, (name, base_clf) in enumerate(base_classifiers.items()):
             }
         )
 
+# %%
+#
+# We observe the following:
+#
+# - Some estimators such as highly regularized polynomial classifiers and
+#   shallow tree-based models tend to be under-confident by default and both
+#   kinds of post-hoc calibration move the predictions towards the edges or the
+#   corners of the simplex.
+#
+# - On the contrary, deep tree-based models and lowly regularized polynomial
+#   classifiers are over-confident by default and post-hoc calibration moves
+#   their predictions away from the edges of the simplex.
+#
+# - The Gaussian naive Bayes classifier receives the smallest corrections from
+#   the calibration:  the arrows are short and the calibrated probabilities are
+#   close to the uncalibrated probabilities. This result is expected for this
+#   dataset as the data is generated from a class-wise mixture of Gaussian
+#   distributions with independent features. This could be very different if
+#   the data generation process did not match the assumptions of the naive
+#   Bayes model.
+#
+# - The sigmoid calibration models induces a smooth mapping of the uncalibrated
+#   probabilities to the calibrated probabilities. This smoothness is a result
+#   of parametric modeling of the calibration function with a small number of
+#   parameters and the use of the smooth logistic function.
+#
+# - The isotonic calibration model induces a piecewise constant mapping of the
+#   uncalibrated probabilities to the calibrated probabilities. To adapt to the
+#   multiclass setting, the One-vs-Rest strategy is used. As a result, the
+#   calibration maps show locally converging arrows to a finite number of
+#   points in the simplex. This effect is more pronounced with smaller
+#   calibration sets.
+
+# %%
+#
+# We can also look at quantitative results:
+
 reordered_columns = [
     "Classifier",
     "Log-loss (original)",
@@ -384,6 +421,15 @@ reordered_columns = [
     "Brier score (isotonic)",
 ]
 pd.DataFrame(scores.values())[reordered_columns].round(3)
+
+# %%
+#
+# The table above shows that the sigmoid calibration method improves both the
+# log-loss and the Brier score for most classifiers on this task. The results
+# for the isotonic calibration method are more mixed. This could be due to the
+# small size of the calibration set: the extra flexibility of the isotonic
+# calibration method does not seem to be beneficial in this case and the
+# discrete nature of the calibration map can even be detrimental.
 
 # %%
 plt.show()
