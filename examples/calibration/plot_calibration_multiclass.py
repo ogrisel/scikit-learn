@@ -398,12 +398,12 @@ for classifier_idx, (name, base_clf) in enumerate(base_classifiers.items()):
 #   the data generation process did not match the assumptions of the naive
 #   Bayes model.
 #
-# - The sigmoid calibration models induces a smooth mapping of the uncalibrated
+# - The sigmoid calibration method induces a smooth mapping of the uncalibrated
 #   probabilities to the calibrated probabilities. This smoothness is a result
 #   of parametric modeling of the calibration function with a small number of
 #   parameters and the use of the smooth logistic function.
 #
-# - The isotonic calibration model induces a piecewise constant mapping of the
+# - The isotonic calibration method induces a piecewise constant mapping of the
 #   uncalibrated probabilities to the calibrated probabilities. To adapt to the
 #   multiclass setting, the One-vs-Rest strategy is used. As a result, the
 #   calibration maps show locally converging arrows to a finite number of
@@ -436,8 +436,8 @@ pd.DataFrame(scores.values())[reordered_columns].round(3)
 # To conclude, the One-vs-Rest multiclass-calibration strategies implemented in
 # `CalibratedClassifierCV` should not be trusted blindly and it's important to
 # check that post-hoc calibration is helpful from a quantitative point of view
-# by evaluating the classifier performance using strictly proper scoring rules
-# such as the log-loss or the Brier score.
+# by evaluating the classifier performance with and without calibration using
+# strictly proper scoring rules such as the log-loss or the Brier score.
 
 # %%
 plt.show()
@@ -485,7 +485,14 @@ for classifier_idx, (name, base_clf) in enumerate(base_classifiers.items()):
 scores_df = pd.DataFrame(scores).round(4)
 
 # %%
-scores_df.query("metric_name == 'log_loss' and calibration_method == 'sigmoid'")
+scores_df.query("metric_name == 'log_loss'").sort_values(
+    by=["classifier", "metric_with_cal"]
+)
+
+# %%
+scores_df.query("metric_name == 'brier_score_loss'").sort_values(
+    by=["classifier", "metric_with_cal"]
+)
 
 # %%
 scores_df.query(
