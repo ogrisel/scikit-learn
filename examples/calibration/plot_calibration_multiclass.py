@@ -3,7 +3,7 @@
 Probability Calibration for 3-class classification
 ==================================================
 
-This example illustrates how sigmoid :ref:`calibration <calibration>` changes
+This example illustrates how post-hoc :ref:`calibration <calibration>` changes
 predicted probabilities for a 3-class classification problem. Illustrated is
 the standard 2-simplex, where the three corners correspond to the three
 classes. Arrows point from the probability vectors predicted by an uncalibrated
@@ -26,8 +26,8 @@ class of an instance (red: class 1, green: class 2, blue: class 3).
 # plot. We then split the data into three subsets: a training set, a
 # calibration set and a test set.
 #
-# We use a test set to get reliable estimates of the Brier score and log-loss
-# values.
+# We use a large test set to get reliable estimates of the Brier score and
+# log-loss values.
 #
 # To simplify the example, we use also use a fixed calibration set that is as
 # large as the training set. In practice, this would limit the amount of data
@@ -51,7 +51,7 @@ X, y = make_blobs(
     random_state=42,
 )
 X_train, y_train = X[:n_train], y[:n_train]
-X_valid, y_valid = X[n_train : n_train + n_cal], y[n_train : n_train + n_cal]
+X_cal, y_cal = X[n_train : n_train + n_cal], y[n_train : n_train + n_cal]
 X_test, y_test = X[n_train + n_cal :], y[n_train + n_cal :]
 
 # %%
@@ -80,13 +80,13 @@ from sklearn.calibration import CalibratedClassifierCV
 from sklearn.frozen import FrozenEstimator
 
 cal_clf = CalibratedClassifierCV(FrozenEstimator(clf), method="sigmoid")
-cal_clf.fit(X_valid, y_valid)
+cal_clf.fit(X_cal, y_cal)
 
 # %%
 # Compare probabilities
 # ---------------------
 # Below we plot a 2-simplex with arrows showing the change in predicted
-# probabilities of the test samples.
+# probabilities predicted for some test data points.
 
 import matplotlib.pyplot as plt
 
@@ -108,11 +108,12 @@ def plot_simplex(
     if ax is None:
         _, ax = plt.subplots(figsize=(10, 10))
     for i in range(min(p_source.shape[0], max_arrows)):
-        # Normalize the source and target probabilities to ensure they are in the simplex
+        # Normalize the source and target probabilities to ensure they are in
+        # the simplex.
         p_source[i] /= p_source[i].sum()
         p_target[i] /= p_target[i].sum()
 
-        # Plot the arrow from source to target
+        # Plot the arrow from source to target.
         ax.arrow(
             p_source[i, 0],
             p_source[i, 1],
@@ -189,31 +190,27 @@ plot_simplex(
 
 
 # %%
-# In the figure above, each vertex of the simplex represents
-# a perfectly predicted class (e.g., 1, 0, 0). The mid point
-# inside the simplex represents predicting the three classes with equal
-# probability (i.e., 1/3, 1/3, 1/3). Each arrow starts at the
-# uncalibrated probabilities and end with the arrow head at the calibrated
-# probability. The color of the arrow represents the true class of that test
-# sample.
 #
-# The uncalibrated classifier is overly confident in its predictions and
-# incurs a large :ref:`log loss <log_loss>`. The calibrated classifier incurs
-# a lower :ref:`log loss <log_loss>` due to two factors. First, notice in the
-# figure above that the arrows generally point away from the edges of the
-# simplex, where the probability of one class is 0. Second, a large proportion
-# of the arrows point towards the true class, e.g., green arrows (samples where
-# the true class is 'green') generally point towards the green vertex. This
-# results in fewer over-confident, 0 predicted probabilities and at the same
-# time an increase in the predicted probabilities of the correct class.
-# Thus, the calibrated classifier produces more accurate predicted probabilities
-# that incur a lower :ref:`log loss <log_loss>`
+# In the figure above, each vertex of the simplex represents a predicted
+# class with maximum confidence (e.g., 1, 0, 0). The mid point inside the
+# simplex represents predicting the three classes with equal probability (i.e.,
+# 1/3, 1/3, 1/3). Each arrow starts at the uncalibrated probabilities and end
+# with the arrow head at the calibrated probability. The color of the arrow
+# represents the true class of that test sample.
+#
+# First, notice in the figure above that the arrows generally point away from
+# the edges of the simplex, where the probability of one class is 0. Second, a
+# large proportion of the arrows point towards the true class, e.g., green
+# arrows (samples where the true class is 'green') generally point towards the
+# green vertex. This results in fewer over-confident, 0 predicted probabilities
+# and at the same time an increase in the predicted probabilities of the
+# correct class.
 #
 # We can show this objectively by comparing the :ref:`log loss <log_loss>` of
-# the uncalibrated and calibrated classifiers on the predictions of the 1000
-# test samples. Note that an alternative would have been to increase the number
+# the uncalibrated and calibrated classifiers on the predictions of the test
+# data points. Note that an alternative would have been to increase the number
 # of base estimators (trees) of the
-# :class:`~sklearn.ensemble.RandomForestClassifier` which would have resulted
+# :class:`~sklearn.ensemble.RandomForestClassifier` which could have resulted
 # in a similar decrease in :ref:`log loss <log_loss>`.
 
 from sklearn.metrics import log_loss
@@ -239,13 +236,17 @@ print(f" - uncalibrated classifier: {loss:.3f}")
 print(f" - calibrated classifier: {cal_loss:.3f}")
 
 # %%
-# According to the Brier score, the calibrated classifier is not better than
-# the original model.
+# According to the Brier score, the calibrated classifier is also slightly
+# better than the original model.
 #
-# Finally we generate a grid of possible uncalibrated probabilities over
-# the 2-simplex, compute the corresponding calibrated probabilities and
-# plot arrows for each. The arrows are colored according the highest
-# uncalibrated probability. This illustrates the learned calibration map:
+# Be aware that an improvement in log-loss or Brier score on a test set is not
+# always guaranteed since the calibration set is finite and sometimes the base
+# classifier is already well calibrated.
+#
+# Finally, we generate a grid of possible uncalibrated probabilities over the
+# 2-simplex, compute the corresponding calibrated probabilities and plot arrows
+# for each. The arrows are colored according the highest uncalibrated
+# probability. This illustrates the learned calibration map:
 
 from scipy.special import logit
 
@@ -256,14 +257,17 @@ def plot_calibrator_map(ovr_calibrators, **kwargs):
     p1d = np.linspace(0, 1, 21)
     p0, p1 = np.meshgrid(p1d, p1d)
     p2 = 1 - p0 - p1
-    p = np.c_[p0.ravel(), p1.ravel(), p2.ravel()]
-    p = p[p[:, 2] >= 0]
-    p = p.clip(0 + eps, 1 - eps)
+    original_probability = np.c_[p0.ravel(), p1.ravel(), p2.ravel()]
+    original_probability = original_probability[original_probability[:, 2] >= 0]
+    original_probability = original_probability.clip(0 + eps, 1 - eps)
 
     # Map the probabilities to the Bernoulli logits space used by scikit-learn OvR
     # calibrators.
     sigmoid_logits = np.concatenate(
-        [logit(p[:, class_idx])[:, np.newaxis] for class_idx in range(p.shape[1])],
+        [
+            logit(original_probability[:, class_idx])[:, np.newaxis]
+            for class_idx in range(original_probability.shape[1])
+        ],
         axis=1,
     )
 
@@ -280,9 +284,9 @@ def plot_calibrator_map(ovr_calibrators, **kwargs):
     # predict method of CalibratedClassifierCV on multiclass problems.
     calibrated_predictions /= calibrated_predictions.sum(axis=1)[:, None]
     plot_simplex(
-        p,
+        original_probability,
         calibrated_predictions,
-        np.argmax(p, axis=1),
+        np.argmax(original_probability, axis=1),
         **kwargs,
     )
 
@@ -294,19 +298,20 @@ plot_calibrator_map(cal_clf.calibrated_classifiers_[0].calibrators)
 # One can observe that, on average, the calibrator is pushing highly confident
 # predictions away from the boundaries of the simplex while simultaneously
 # moving uncertain predictions towards one of three modes, one for each class.
-# We can also observe that the mapping is not symmetric. Furthermore some
-# arrows seems to cross class assignment boundaries which is not necessarily
-# what one would expect from a calibration map as it means that some predicted
-# classes will change after calibration.
 #
-# All in all, the One-vs-Rest multiclass-calibration strategy implemented in
-# `CalibratedClassifierCV` should not be trusted blindly.
+# We can also observe that the mapping is not symmetric. Furthermore some
+# arrows seems to cross class assignment boundaries: it means that some
+# predicted classes change when taking the argmax over the predicted
+# probabilities before and after calibration.
 
 
 # %%
-# Let's now do the same for various classifiers with different miscalibration
-# problems and the two calibration methods available in
-# `CalibratedClassifierCV` (sigmoid and isotonic).
+#
+# Let's now do the same for various classifiers with different mis-calibration
+# profiles and the two calibration methods available in
+# `CalibratedClassifierCV`, namely, "sigmoid" and "isotonic". Both methods are
+# implemented via an One-vs-Rest reduction to binary calibration followed by
+# sum-to-one normalization).
 
 from collections import defaultdict
 
@@ -346,10 +351,12 @@ scores = defaultdict(dict)
 for classifier_idx, (name, base_clf) in enumerate(base_classifiers.items()):
     for method_idx, calibration_method in enumerate(calibration_methods):
         base_clf.fit(X_train, y_train)
+        y_pred_uncal = base_clf.predict_proba(X_test)
         cal_clf = CalibratedClassifierCV(
             FrozenEstimator(base_clf), method=calibration_method
         )
-        cal_clf.fit(X_valid, y_valid)
+        cal_clf.fit(X_cal, y_cal)
+        y_pred_cal = cal_clf.predict_proba(X_test)
         plot_calibrator_map(
             cal_clf.calibrated_classifiers_[0].calibrators,
             title=f"{name} - {calibration_method}",
@@ -361,15 +368,11 @@ for classifier_idx, (name, base_clf) in enumerate(base_classifiers.items()):
         scores_for_classifier.update(
             {
                 "Classifier": name,
-                "Log-loss (original)": log_loss(y_test, base_clf.predict_proba(X_test)),
-                f"Log-loss ({calibration_method})": log_loss(
-                    y_test, cal_clf.predict_proba(X_test)
-                ),
-                "Brier score (original)": brier_score_loss(
-                    y_test, base_clf.predict_proba(X_test)
-                ),
+                "Log-loss (original)": log_loss(y_test, y_pred_uncal),
+                f"Log-loss ({calibration_method})": log_loss(y_test, y_pred_cal),
+                "Brier score (original)": brier_score_loss(y_test, y_pred_uncal),
                 f"Brier score ({calibration_method})": brier_score_loss(
-                    y_test, cal_clf.predict_proba(X_test)
+                    y_test, y_pred_cal
                 ),
             }
         )
@@ -406,10 +409,9 @@ for classifier_idx, (name, base_clf) in enumerate(base_classifiers.items()):
 #   calibration maps show locally converging arrows to a finite number of
 #   points in the simplex. This effect is more pronounced with smaller
 #   calibration sets.
-
-# %%
 #
-# We can also look at quantitative results:
+# Let us now consider the quantitative evaluation results of the available
+# calibration methods:
 
 reordered_columns = [
     "Classifier",
@@ -430,6 +432,92 @@ pd.DataFrame(scores.values())[reordered_columns].round(3)
 # small size of the calibration set: the extra flexibility of the isotonic
 # calibration method does not seem to be beneficial in this case and the
 # discrete nature of the calibration map can even be detrimental.
+#
+# To conclude, the One-vs-Rest multiclass-calibration strategies implemented in
+# `CalibratedClassifierCV` should not be trusted blindly and it's important to
+# check that post-hoc calibration is helpful from a quantitative point of view
+# by evaluating the classifier performance using strictly proper scoring rules
+# such as the log-loss or the Brier score.
 
 # %%
 plt.show()
+
+# %%
+#
+# Extra experiments to quantify the effect of the logit preprocessing
+# -------------------------------------------------------------------
+#
+# We compare the same pipelines on the same data, but this time we use the
+# internal CV procedure of `CalibratedClassifierCV` since we don't want to plot
+# the calibration maps and instead focus on quantitative results. %%
+scores = []
+
+for classifier_idx, (name, base_clf) in enumerate(base_classifiers.items()):
+    for method_idx, calibration_method in enumerate(calibration_methods):
+        for logit_preprocessing in ["sigmoid", "softmax", None]:
+            base_clf.fit(X_train, y_train)
+            y_pred_uncal = base_clf.predict_proba(X_test)
+
+            cal_clf = CalibratedClassifierCV(
+                base_clf,
+                method=calibration_method,
+                logit_preprocessing=logit_preprocessing,
+            )
+            cal_clf.fit(X_train, y_train)
+            y_pred_cal = cal_clf.predict_proba(X_test)
+            for metric in [log_loss, brier_score_loss]:
+                # Compute the metric for both uncalibrated and calibrated predictions
+                metric_uncal = metric(y_test, y_pred_uncal)
+                metric_cal = metric(y_test, y_pred_cal)
+                scores.append(
+                    {
+                        "classifier": name,
+                        "calibration_method": calibration_method,
+                        "logit_preprocessing": logit_preprocessing,
+                        "metric_without_cal": metric_uncal,
+                        "metric_with_cal": metric_cal,
+                        "metric_diff": metric_cal - metric_uncal,
+                        "metric_name": metric.__name__,
+                    }
+                )
+
+# %%
+scores_df = pd.DataFrame(scores).round(4)
+
+# %%
+scores_df.query("metric_name == 'log_loss' and calibration_method == 'sigmoid'")
+
+# %%
+scores_df.query(
+    "metric_name == 'brier_score_loss' and calibration_method == 'isotonic'"
+)
+
+# %%
+#
+# Find the best logit_preprocessing for each classifier and calibration method by
+# finding the lowest value of metric_diff
+grouped = scores_df.groupby(["classifier", "calibration_method", "metric_name"])[
+    "metric_diff"
+]
+best_logit_results = scores_df.loc[grouped.idxmin()].rename(
+    {"logit_preprocessing": "best_logit_preprocessing"}, axis=1
+)
+
+# %%
+best_logit_results.query(
+    "metric_name == 'log_loss' and calibration_method == 'sigmoid'"
+)
+# %%
+best_logit_results.query(
+    "metric_name == 'brier_score_loss' and calibration_method == 'sigmoid'"
+)
+
+# %%
+# %%
+best_logit_results.query(
+    "metric_name == 'log_loss' and calibration_method == 'isotonic'"
+)
+# %%
+best_logit_results.query(
+    "metric_name == 'brier_score_loss' and calibration_method == 'isotonic'"
+)
