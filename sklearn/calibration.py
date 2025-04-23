@@ -59,7 +59,7 @@ from .utils.validation import (
 )
 
 
-def _ensure_logits(predictions, response_method_name, logit_type="sigmoid"):
+def _ensure_logits(predictions, response_method_name, logit_preprocessing=None):
     """Ensure that the predictions are in logits space.
 
     When response method is "predict_proba", the logits are computed as
@@ -84,10 +84,38 @@ def _ensure_logits(predictions, response_method_name, logit_type="sigmoid"):
     logits : array-like of shape (n_samples, n_classes) or (n_samples, 1).
         The logits.
     """
+    if logit_preprocessing not in ("sigmoid", "softmax", None):
+        raise ValueError(
+            f"Unknown logit type: {logit_preprocessing}. Expected 'sigmoid', 'softmax'"
+            " or None."
+        )
+
+    # TODO: refactor this by treating the multiclass and binary cases
+    # separately to make the code clearer.
+
+    if logit_preprocessing is None:
+        if predictions.ndim == 1:
+            # Binary case: nothing to do besides ensuring consistent shape.
+            return predictions.reshape(-1, 1)
+        return predictions
+
     if response_method_name == "predict_proba" or (
-        response_method_name == "decision_function" and logit_type == "sigmoid"
+        response_method_name == "decision_function" and logit_preprocessing == "sigmoid"
     ):
-        if response_method_name == "decision_function" and logit_type == "sigmoid":
+        if (
+            response_method_name == "decision_function"
+            and logit_preprocessing == "sigmoid"
+        ):
+            if predictions.ndim == 1:
+                # Binary case: we assume that decision_function already returns
+                # sigmoid logits for the positive class so there is nothing to
+                # do besides ensuring consistent shape.
+                return predictions.reshape(-1, 1)
+
+            # Consider that the multiclass predictions are multinomial logits
+            # that need to be converted to OvR Bernoulli logits. So we first
+            # map multinomial probabilities to multinomial logits and then
+            # convert them to Bernoulli logits.
             predictions = softmax(predictions)
 
         eps = np.finfo(predictions.dtype).eps
@@ -97,28 +125,29 @@ def _ensure_logits(predictions, response_method_name, logit_type="sigmoid"):
         if predictions.ndim == 1:
             # _get_response_values already extracts the 1d array for the
             # positive class for binary classification.
-            predictions = LogitLink().link(predictions).reshape(-1, 1)
+            return LogitLink().link(predictions).reshape(-1, 1)
         elif predictions.shape[1] == 2:
             # In case we are fed with a 2D array that is the raw output of
             # predict_proba on a binary classifier.
-            predictions = LogitLink().link(predictions[:, 1]).reshape(-1, 1)
+            return LogitLink().link(predictions[:, 1]).reshape(-1, 1)
         elif predictions.shape[1] > 2:
-            if logit_type == "sigmoid":
+            if logit_preprocessing == "sigmoid":
                 # Assume OvR convention and recover Bernoulli logits
                 # for each class.
-                original_predictions = predictions.copy()
+                sigmoid_logits = np.zeros_like(predictions)
                 sigmoid_link = LogitLink()
                 for i in range(predictions.shape[1]):
-                    predictions[:, i] = sigmoid_link.link(original_predictions[:, i])
+                    sigmoid_logits[:, i] = sigmoid_link.link(predictions[:, i])
+                return sigmoid_logits
             else:
-                predictions = MultinomialLogit().link(predictions)
+                return MultinomialLogit().link(predictions)
 
     elif response_method_name == "decision_function":
         # For decision_function, we assume the predictions are already in logits
         # space.
         if predictions.ndim == 1:
             # We just reshape the predictions to (n_samples, 1) for consistency.
-            predictions = predictions.reshape(-1, 1)
+            return predictions.reshape(-1, 1)
         # XXX: check that the shape for the multiclass case is (n_samples,
         # n_classes) and raise an explicit error if not. In particular, we
         # cannot support estimators such as SVC with OvO conventions and
@@ -126,6 +155,7 @@ def _ensure_logits(predictions, response_method_name, logit_type="sigmoid"):
         # As of now, this cannot happen because both sigmoid and isotonic
         # calibrators only support binary classification and reduce multiclass
         # problems to binary ones via OvR.
+        return predictions
     else:
         raise ValueError(
             f"Unknown response method name: {response_method_name}. "
@@ -342,6 +372,7 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
         "cv": ["cv_object", Hidden(StrOptions({"prefit"}))],
         "n_jobs": [Integral, None],
         "ensemble": ["boolean", StrOptions({"auto"})],
+        "logit_preprocessing": [StrOptions({"sigmoid", "softmax", "auto"}), None],
     }
 
     def __init__(
@@ -352,12 +383,14 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
         cv=None,
         n_jobs=None,
         ensemble="auto",
+        logit_preprocessing="auto",
     ):
         self.estimator = estimator
         self.method = method
         self.cv = cv
         self.n_jobs = n_jobs
         self.ensemble = ensemble
+        self.logit_preprocessing = logit_preprocessing
 
     def _get_estimator(self):
         """Resolve which estimator to return (default is LinearSVC)"""
@@ -407,6 +440,17 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
         if _ensemble == "auto":
             _ensemble = not isinstance(estimator, FrozenEstimator)
 
+        if self.logit_preprocessing == "auto":
+            if self.method in ("sigmoid", "isotonic"):
+                # Since those method handle the multiclass case by reducing it
+                # to OvR calibration problems, we map the probability inputs to
+                # sigmoid / Bernoulli logits in the range (-inf, inf).
+                self.logit_preprocessing_ = "sigmoid"
+            else:
+                self.logit_preprocessing_ = "softmax"
+        else:
+            self.logit_preprocessing_ = self.logit_preprocessing
+
         self.calibrated_classifiers_ = []
         if self.cv == "prefit":
             # TODO(1.8): Remove this code branch and cv='prefit'
@@ -429,6 +473,7 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
             predictions = _ensure_logits(
                 predictions,
                 response_method_name=response_method_used,
+                logit_preprocessing=self.logit_preprocessing_,
             )
 
             if sample_weight is not None:
@@ -445,6 +490,7 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
                 self.classes_,
                 self.method,
                 sample_weight,
+                logit_preprocessing=self.logit_preprocessing_,
             )
             self.calibrated_classifiers_.append(calibrated_classifier)
         else:
@@ -514,6 +560,7 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
                         train=train,
                         test=test,
                         method=self.method,
+                        logit_preprocessing=self.logit_preprocessing_,
                         classes=self.classes_,
                         sample_weight=sample_weight,
                         fit_params=routed_params.estimator.fit,
@@ -538,6 +585,7 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
                 predictions = _ensure_logits(
                     predictions,
                     response_method_name=method_name,
+                    logit_preprocessing=self.logit_preprocessing_,
                 )
 
                 if sample_weight is not None:
@@ -557,6 +605,7 @@ class CalibratedClassifierCV(ClassifierMixin, MetaEstimatorMixin, BaseEstimator)
                     self.classes_,
                     self.method,
                     sample_weight,
+                    logit_preprocessing=self.logit_preprocessing_,
                 )
                 self.calibrated_classifiers_.append(calibrated_classifier)
 
@@ -656,6 +705,7 @@ def _fit_classifier_calibrator_pair(
     classes,
     sample_weight=None,
     fit_params=None,
+    logit_preprocessing=None,
 ):
     """Fit a classifier/calibration pair on a given train/test split.
 
@@ -712,6 +762,7 @@ def _fit_classifier_calibrator_pair(
     predictions = _ensure_logits(
         predictions,
         response_method_name=response_method_used,
+        logit_preprocessing=logit_preprocessing,
     )
 
     if sample_weight is not None:
@@ -722,12 +773,20 @@ def _fit_classifier_calibrator_pair(
     else:
         sw_test = None
     calibrated_classifier = _fit_calibrator(
-        estimator, predictions, y_test, classes, method, sample_weight=sw_test
+        estimator,
+        predictions,
+        y_test,
+        classes,
+        method,
+        sample_weight=sw_test,
+        logit_preprocessing=logit_preprocessing,
     )
     return calibrated_classifier
 
 
-def _fit_calibrator(clf, predictions, y, classes, method, sample_weight=None):
+def _fit_calibrator(
+    clf, predictions, y, classes, method, sample_weight=None, logit_preprocessing=None
+):
     """Fit calibrator(s) and return a `_CalibratedClassifier`
     instance.
 
@@ -771,7 +830,13 @@ def _fit_calibrator(clf, predictions, y, classes, method, sample_weight=None):
         calibrator.fit(this_pred, Y[:, class_idx], sample_weight)
         calibrators.append(calibrator)
 
-    pipeline = _CalibratedClassifier(clf, calibrators, method=method, classes=classes)
+    pipeline = _CalibratedClassifier(
+        clf,
+        calibrators,
+        method=method,
+        classes=classes,
+        logit_preprocessing=logit_preprocessing,
+    )
     return pipeline
 
 
@@ -798,11 +863,20 @@ class _CalibratedClassifier:
         non-parametric approach based on isotonic regression.
     """
 
-    def __init__(self, estimator, calibrators, *, classes, method="sigmoid"):
+    def __init__(
+        self,
+        estimator,
+        calibrators,
+        *,
+        classes,
+        method="sigmoid",
+        logit_preprocessing=None,
+    ):
         self.estimator = estimator
         self.calibrators = calibrators
         self.classes = classes
         self.method = method
+        self.logit_preprocessing = logit_preprocessing
 
     def predict_proba(self, X):
         """Calculate calibrated probabilities.
@@ -829,6 +903,7 @@ class _CalibratedClassifier:
         predictions = _ensure_logits(
             predictions,
             response_method_name=response_method_used,
+            logit_preprocessing=self.logit_preprocessing,
         )
 
         n_classes = len(self.classes)
