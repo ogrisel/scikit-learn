@@ -62,9 +62,11 @@ from .utils.validation import (
 def _ensure_logits(predictions, response_method_name, logit_preprocessing=None):
     """Ensure that the predictions are in logits space.
 
-    When response method is "predict_proba", the logits are computed as
-    log(p) with shape (n_samples, n_classes) for multiclass and log(p / (1-
-    p)) for binary classification.
+    When response method is "predict_proba", the logits are computed as log(p /
+    (1 - p)) for binary classification and when logit_preprocessing is
+    "sigmoid" (p are the OvR columns for each class in this case).
+
+    TODO: document what we actuall do here.
 
     Whe
 
@@ -91,7 +93,7 @@ def _ensure_logits(predictions, response_method_name, logit_preprocessing=None):
         )
 
     # TODO: refactor this by treating the multiclass and binary cases
-    # separately to make the code clearer.
+    # separately to make the code easier to grasp.
 
     if logit_preprocessing is None:
         if predictions.ndim == 1:
