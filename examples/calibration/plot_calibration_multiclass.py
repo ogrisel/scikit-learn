@@ -453,33 +453,36 @@ plt.show()
 scores = []
 
 for classifier_idx, (name, base_clf) in enumerate(base_classifiers.items()):
-    for method_idx, calibration_method in enumerate(calibration_methods):
-        for logit_preprocessing in ["sigmoid", "softmax", None]:
-            base_clf.fit(X_train, y_train)
-            y_pred_uncal = base_clf.predict_proba(X_test)
+    base_clf.fit(X_train, y_train)
+    y_pred_uncal = base_clf.predict_proba(X_test)
 
-            cal_clf = CalibratedClassifierCV(
-                base_clf,
-                method=calibration_method,
-                logit_preprocessing=logit_preprocessing,
-            )
-            cal_clf.fit(X_train, y_train)
-            y_pred_cal = cal_clf.predict_proba(X_test)
-            for metric in [log_loss, brier_score_loss]:
-                # Compute the metric for both uncalibrated and calibrated predictions
-                metric_uncal = metric(y_test, y_pred_uncal)
-                metric_cal = metric(y_test, y_pred_cal)
-                scores.append(
-                    {
-                        "classifier": name,
-                        "calibration_method": calibration_method,
-                        "logit_preprocessing": logit_preprocessing,
-                        "metric_without_cal": metric_uncal,
-                        "metric_with_cal": metric_cal,
-                        "metric_diff": metric_cal - metric_uncal,
-                        "metric_name": metric.__name__,
-                    }
+    for method_idx, calibration_method in enumerate(calibration_methods):
+        for ensemble in [False, True]:
+            for logit_preprocessing in ["sigmoid", "softmax", None]:
+                cal_clf = CalibratedClassifierCV(
+                    base_clf,
+                    method=calibration_method,
+                    logit_preprocessing=logit_preprocessing,
+                    ensemble=ensemble,
                 )
+                cal_clf.fit(X_train, y_train)
+                y_pred_cal = cal_clf.predict_proba(X_test)
+                for metric in [log_loss, brier_score_loss]:
+                    # Compute the metric for both uncalibrated and calibrated predictions
+                    metric_uncal = metric(y_test, y_pred_uncal)
+                    metric_cal = metric(y_test, y_pred_cal)
+                    scores.append(
+                        {
+                            "classifier": name,
+                            "calibration_method": calibration_method,
+                            "logit_preprocessing": logit_preprocessing,
+                            "ensemble": ensemble,
+                            "metric_without_cal": metric_uncal,
+                            "metric_with_cal": metric_cal,
+                            "metric_diff": metric_cal - metric_uncal,
+                            "metric_name": metric.__name__,
+                        }
+                    )
 
 # %%
 scores_df = pd.DataFrame(scores).round(4)
@@ -513,18 +516,20 @@ best_logit_results = scores_df.loc[grouped.idxmin()].rename(
 # %%
 best_logit_results.query(
     "metric_name == 'log_loss' and calibration_method == 'sigmoid'"
-)
+).sort_values("metric_with_cal")
 # %%
 best_logit_results.query(
     "metric_name == 'brier_score_loss' and calibration_method == 'sigmoid'"
-)
+).sort_values("metric_with_cal")
 
 # %%
 # %%
 best_logit_results.query(
     "metric_name == 'log_loss' and calibration_method == 'isotonic'"
-)
+).sort_values("metric_with_cal")
 # %%
 best_logit_results.query(
     "metric_name == 'brier_score_loss' and calibration_method == 'isotonic'"
-)
+).sort_values("metric_with_cal")
+
+# %%
