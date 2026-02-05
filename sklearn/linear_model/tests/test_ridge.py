@@ -922,15 +922,46 @@ def test_regularization_limits_ridge(
 )
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 @pytest.mark.parametrize("X_container", [np.asarray] + CSR_CONTAINERS)
+@pytest.mark.parametrize(
+    "duplicated_samples",
+    [True, False],
+    ids=["with_duplicated_samples", "without_duplicated_samples"],
+)
+@pytest.mark.parametrize(
+    "duplicated_features",
+    [True, False],
+    ids=["with_duplicated_features", "without_duplicated_features"],
+)
 def test_regularization_limits_ridge_gcv(
-    alpha, gcv_mode, fit_intercept, X_shape, dtype, X_container
+    alpha,
+    gcv_mode,
+    fit_intercept,
+    X_shape,
+    dtype,
+    X_container,
+    duplicated_samples,
+    duplicated_features,
 ):
     sparse_X = X_container in CSR_CONTAINERS
     alphas = [alpha]
     n_samples, n_features = X_shape
     X, y = make_regression(
-        n_samples=n_samples, n_features=n_features, noise=0, bias=10, random_state=42
+        n_samples=n_samples - 5 if duplicated_samples else n_samples,
+        n_features=n_features - 5 if duplicated_features else n_features,
+        noise=0,
+        bias=10,
+        random_state=42,
     )
+
+    # Duplicate some columns
+    if duplicated_features:
+        X = np.concatenate((X, X[:, :5]), axis=1)
+
+    # Duplicate some rows
+    if duplicated_samples:
+        X = np.concatenate((X, X[:5, :]), axis=0)
+        y = np.concatenate((y, y[:5]), axis=0)
+
     if alpha < 1e-12:
         # Ridge should recover LinearRegression for near-zero alpha.
         lin_reg = LinearRegression(fit_intercept=fit_intercept)
