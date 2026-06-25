@@ -127,6 +127,7 @@ Estimators
 - :class:`preprocessing.MinMaxScaler`
 - :class:`preprocessing.Normalizer`
 - :class:`preprocessing.PolynomialFeatures`
+- :class:`preprocessing.PowerTransformer`
 - :class:`preprocessing.StandardScaler` (see :ref:`device_support_for_float64`)
 - :class:`mixture.GaussianMixture` (with `init_params="random"` or
   `init_params="random_from_data"` and `warm_start=False`)

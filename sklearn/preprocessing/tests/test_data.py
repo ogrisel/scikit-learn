@@ -39,8 +39,11 @@ from sklearn.preprocessing._data import BOUNDS_THRESHOLD, _handle_zeros_in_scale
 from sklearn.svm import SVR
 from sklearn.utils import gen_batches, shuffle
 from sklearn.utils._array_api import (
+    _atol_for_type,
     _convert_to_numpy,
     _get_namespace_device_dtype_ids,
+    device as array_device,
+    get_namespace,
     yield_namespace_device_dtype_combinations,
 )
 from sklearn.utils._testing import (
@@ -784,6 +787,8 @@ def test_standard_check_array_of_inverse_transform():
         Normalizer(norm="l2"),
         Normalizer(norm="max"),
         Binarizer(),
+        PowerTransformer(method="yeo-johnson"),
+        PowerTransformer(method="yeo-johnson", standardize=False),
     ],
     ids=_get_check_estimator_ids,
 )
@@ -792,6 +797,69 @@ def test_preprocessing_array_api_compliance(
 ):
     name = estimator.__class__.__name__
     check(name, estimator, array_namespace, device=device, dtype_name=dtype_name)
+
+
+@pytest.mark.parametrize(
+    "array_namespace, device, dtype_name",
+    yield_namespace_device_dtype_combinations(),
+    ids=_get_namespace_device_dtype_ids,
+)
+@pytest.mark.parametrize("standardize", [True, False])
+def test_power_transformer_box_cox_array_api_compliance(
+    array_namespace, device, dtype_name, standardize
+):
+    rng = np.random.RandomState(42)
+    X = rng.uniform(0.1, 10.0, size=(100, 4)).astype(dtype_name, copy=False)
+    y = np.ones(X.shape[0], dtype=dtype_name)
+
+    xp = _array_api_for_tests(array_namespace, device)
+    X_xp = xp.asarray(X, device=device)
+    y_xp = xp.asarray(y, device=device)
+
+    est = PowerTransformer(method="box-cox", standardize=standardize)
+    est.fit(X, y)
+
+    est_xp = clone(est)
+    with config_context(array_api_dispatch=True):
+        est_xp.fit(X_xp, y_xp)
+        input_ns = get_namespace(X_xp)[0].__name__
+
+    for key, attribute in vars(est).items():
+        if not isinstance(attribute, np.ndarray):
+            continue
+        est_xp_param = getattr(est_xp, key)
+        with config_context(array_api_dispatch=True):
+            attribute_ns = get_namespace(est_xp_param)[0].__name__
+        assert attribute_ns == input_ns
+        with config_context(array_api_dispatch=True):
+            assert array_device(est_xp_param) == array_device(X_xp)
+        assert_allclose(
+            attribute,
+            _convert_to_numpy(est_xp_param, xp=xp),
+            err_msg=f"{key} not the same",
+            atol=_atol_for_type(X.dtype),
+        )
+
+    result = est.transform(X)
+    with config_context(array_api_dispatch=True):
+        result_xp = est_xp.transform(X_xp)
+    result_xp_np = _convert_to_numpy(result_xp, xp=xp)
+    assert_allclose(
+        result,
+        result_xp_np,
+        err_msg="transform did not return the same result",
+        atol=_atol_for_type(X.dtype),
+    )
+
+    inverse_result = est.inverse_transform(result)
+    with config_context(array_api_dispatch=True):
+        inverse_result_xp = est_xp.inverse_transform(result_xp)
+    assert_allclose(
+        inverse_result,
+        _convert_to_numpy(inverse_result_xp, xp=xp),
+        err_msg="inverse_transform did not return the same result",
+        atol=_atol_for_type(X.dtype),
+    )
 
 
 @pytest.mark.parametrize(

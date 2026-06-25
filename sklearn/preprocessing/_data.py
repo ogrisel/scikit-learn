@@ -7,8 +7,6 @@ from numbers import Integral, Real
 
 import numpy as np
 from scipy import sparse, stats
-from scipy.special import boxcox, inv_boxcox
-
 from sklearn.base import (
     BaseEstimator,
     ClassNamePrefixFeaturesOutMixin,
@@ -19,7 +17,9 @@ from sklearn.base import (
 from sklearn.preprocessing._encoders import OneHotEncoder
 from sklearn.utils import _array_api, check_array, metadata_routing, resample
 from sklearn.utils._array_api import (
+    _convert_to_numpy,
     _find_matching_floating_dtype,
+    _is_numpy_namespace,
     _max_precision_float_dtype,
     _modify_in_place_if_numpy,
     device,
@@ -3223,6 +3223,67 @@ def quantile_transform(
     return X
 
 
+def _as_float(value):
+    """Return a Python float from an array scalar or numeric value."""
+    if hasattr(value, "item"):
+        return value.item()
+    return float(value)
+
+
+def _box_cox_transform(x, lmbda, xp):
+    """Return Box-Cox transformed input with parameter `lmbda`."""
+    lmbda = _as_float(lmbda)
+    if abs(lmbda) < np.spacing(1.0):
+        return xp.log(x)
+    return xp.expm1(lmbda * xp.log(x)) / lmbda
+
+
+def _box_cox_inverse_transform(x, lmbda, xp):
+    """Return inverse Box-Cox transformed input with parameter `lmbda`."""
+    lmbda = _as_float(lmbda)
+    if abs(lmbda) < np.spacing(1.0):
+        return xp.exp(x)
+    return xp.pow(x * lmbda + 1, 1 / lmbda)
+
+
+def _yeo_johnson_transform(x, lmbda, xp):
+    """Return Yeo-Johnson transformed input with parameter `lmbda`."""
+    lmbda = _as_float(lmbda)
+    eps = xp.finfo(x.dtype).eps
+    pos = x >= 0
+
+    if abs(lmbda) < eps:
+        pos_out = xp.log1p(x)
+    else:
+        pos_out = xp.expm1(lmbda * xp.log1p(x)) / lmbda
+
+    if abs(lmbda - 2) > eps:
+        neg_out = -xp.expm1((2 - lmbda) * xp.log1p(-x)) / (2 - lmbda)
+    else:
+        neg_out = -xp.log1p(-x)
+
+    return xp.where(pos, pos_out, neg_out)
+
+
+def _yeo_johnson_inverse_transform(x, lmbda, xp):
+    """Return inverse Yeo-Johnson transformed input with parameter `lmbda`."""
+    lmbda = _as_float(lmbda)
+    eps = xp.finfo(x.dtype).eps
+    pos = x >= 0
+
+    if abs(lmbda) < eps:
+        pos_out = xp.expm1(x)
+    else:
+        pos_out = xp.pow(x * lmbda + 1, 1 / lmbda) - 1
+
+    if abs(lmbda - 2) > eps:
+        neg_out = 1 - xp.pow(-(2 - lmbda) * x + 1, 1 / (2 - lmbda))
+    else:
+        neg_out = 1 - xp.exp(-x)
+
+    return xp.where(pos, pos_out, neg_out)
+
+
 class PowerTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
     """Apply a power transform featurewise to make data more Gaussian-like.
 
@@ -3377,13 +3438,16 @@ class PowerTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
 
     def _fit(self, X, y=None, force_transform=False):
         X = self._check_input(X, in_fit=True, check_positive=True)
+        xp, _, device_ = get_namespace_and_device(X)
 
         if not self.copy and not force_transform:  # if call from fit()
             X = X.copy()  # force copy so that fit does not change X inplace
 
         n_samples = X.shape[0]
-        mean = np.mean(X, axis=0, dtype=np.float64)
-        var = np.var(X, axis=0, dtype=np.float64)
+        accum_dtype = _max_precision_float_dtype(xp, device_)
+        X_accum = xp.astype(X, accum_dtype)
+        mean = xp.mean(X_accum, axis=0)
+        var = xp.var(X_accum, axis=0)
 
         optim_function = {
             "box-cox": self._box_cox_optimize,
@@ -3391,24 +3455,28 @@ class PowerTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
         }[self.method]
 
         transform_function = {
-            "box-cox": boxcox,
-            "yeo-johnson": self._yeo_johnson_transform,
+            "box-cox": _box_cox_transform,
+            "yeo-johnson": _yeo_johnson_transform,
         }[self.method]
 
-        with np.errstate(invalid="ignore"):  # hide NaN warnings
-            self.lambdas_ = np.empty(X.shape[1], dtype=X.dtype)
-            for i, col in enumerate(X.T):
-                # For yeo-johnson, leave constant features unchanged
-                # lambda=1 corresponds to the identity transformation
-                is_constant_feature = _is_constant_feature(var[i], mean[i], n_samples)
-                if self.method == "yeo-johnson" and is_constant_feature:
-                    self.lambdas_[i] = 1.0
-                    continue
+        self.lambdas_ = xp.empty(X.shape[1], dtype=X.dtype, device=device_)
+        for i in range(X.shape[1]):
+            col = X[:, i]
+            # For yeo-johnson, leave constant features unchanged
+            # lambda=1 corresponds to the identity transformation
+            is_constant_feature = _is_constant_feature(var[i], mean[i], n_samples)
+            if self.method == "yeo-johnson" and is_constant_feature:
+                self.lambdas_[i] = 1.0
+                continue
 
-                self.lambdas_[i] = optim_function(col)
+            self.lambdas_[i] = optim_function(col, xp=xp)
 
-                if self.standardize or force_transform:
-                    X[:, i] = transform_function(X[:, i], self.lambdas_[i])
+            if self.standardize or force_transform:
+                if _is_numpy_namespace(xp):
+                    with np.errstate(invalid="ignore"):  # hide NaN warnings
+                        X[:, i] = transform_function(col, self.lambdas_[i], xp)
+                else:
+                    X[:, i] = transform_function(col, self.lambdas_[i], xp)
 
         if self.standardize:
             self._scaler = StandardScaler(copy=False).set_output(transform="default")
@@ -3434,14 +3502,18 @@ class PowerTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
         X = self._check_input(X, in_fit=False, check_positive=True, check_shape=True)
+        xp, _, _ = get_namespace_and_device(X)
 
         transform_function = {
-            "box-cox": boxcox,
-            "yeo-johnson": self._yeo_johnson_transform,
+            "box-cox": _box_cox_transform,
+            "yeo-johnson": _yeo_johnson_transform,
         }[self.method]
         for i, lmbda in enumerate(self.lambdas_):
-            with np.errstate(invalid="ignore"):  # hide NaN warnings
-                X[:, i] = transform_function(X[:, i], lmbda)
+            if _is_numpy_namespace(xp):
+                with np.errstate(invalid="ignore"):  # hide NaN warnings
+                    X[:, i] = transform_function(X[:, i], lmbda, xp)
+            else:
+                X[:, i] = transform_function(X[:, i], lmbda, xp)
 
         if self.standardize:
             X = self._scaler.transform(X)
@@ -3481,120 +3553,74 @@ class PowerTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
         """
         check_is_fitted(self)
         X = self._check_input(X, in_fit=False, check_shape=True)
+        xp, _, _ = get_namespace_and_device(X)
 
         if self.standardize:
             X = self._scaler.inverse_transform(X)
 
         inv_fun = {
-            "box-cox": inv_boxcox,
-            "yeo-johnson": self._yeo_johnson_inverse_transform,
+            "box-cox": _box_cox_inverse_transform,
+            "yeo-johnson": _yeo_johnson_inverse_transform,
         }[self.method]
         for i, lmbda in enumerate(self.lambdas_):
-            with warnings.catch_warnings(record=True) as captured_warnings:
-                with np.errstate(invalid="warn"):
-                    X[:, i] = inv_fun(X[:, i], lmbda)
-            if any(
-                "invalid value encountered in power" in str(w.message)
-                for w in captured_warnings
-            ):
-                warnings.warn(
-                    f"Some values in column {i} of the inverse-transformed data "
-                    f"are NaN. This may be caused by numerical issues in the "
-                    f"transformation process, e.g. extremely skewed data. "
-                    f"Consider inspecting the input data or preprocessing it "
-                    f"before applying the transformation.",
-                    UserWarning,
-                )
+            col = X[:, i]
+            if _is_numpy_namespace(xp):
+                with warnings.catch_warnings(record=True) as captured_warnings:
+                    with np.errstate(invalid="warn"):
+                        X[:, i] = inv_fun(col, lmbda, xp)
+                if any(
+                    "invalid value encountered in power" in str(w.message)
+                    for w in captured_warnings
+                ):
+                    warnings.warn(
+                        f"Some values in column {i} of the inverse-transformed data "
+                        f"are NaN. This may be caused by numerical issues in the "
+                        f"transformation process, e.g. extremely skewed data. "
+                        f"Consider inspecting the input data or preprocessing it "
+                        f"before applying the transformation.",
+                        UserWarning,
+                    )
+            else:
+                col_before = col
+                X[:, i] = inv_fun(col, lmbda, xp)
+                if xp.any(xp.isnan(X[:, i]) & ~xp.isnan(col_before)):
+                    warnings.warn(
+                        f"Some values in column {i} of the inverse-transformed data "
+                        f"are NaN. This may be caused by numerical issues in the "
+                        f"transformation process, e.g. extremely skewed data. "
+                        f"Consider inspecting the input data or preprocessing it "
+                        f"before applying the transformation.",
+                        UserWarning,
+                    )
         return X
 
-    def _yeo_johnson_inverse_transform(self, x, lmbda):
-        """Return inverse-transformed input x following Yeo-Johnson inverse
-        transform with parameter lambda.
-        """
-        x_inv = np.zeros_like(x)
-        pos = x >= 0
-
-        # when x >= 0
-        if abs(lmbda) < np.spacing(1.0):
-            x_inv[pos] = np.exp(x[pos]) - 1
-        else:  # lmbda != 0
-            x_inv[pos] = np.power(x[pos] * lmbda + 1, 1 / lmbda) - 1
-
-        # when x < 0
-        if abs(lmbda - 2) > np.spacing(1.0):
-            x_inv[~pos] = 1 - np.power(-(2 - lmbda) * x[~pos] + 1, 1 / (2 - lmbda))
-        else:  # lmbda == 2
-            x_inv[~pos] = 1 - np.exp(-x[~pos])
-
-        return x_inv
-
-    def _yeo_johnson_transform(self, x, lmbda):
-        """Return transformed input x following Yeo-Johnson transform with
-        parameter lambda.
-        """
-
-        out = np.zeros_like(x)
-        pos = x >= 0  # binary mask
-
-        # when x >= 0
-        if abs(lmbda) < np.spacing(1.0):
-            out[pos] = np.log1p(x[pos])
-        else:  # lmbda != 0
-            out[pos] = (np.power(x[pos] + 1, lmbda) - 1) / lmbda
-
-        # when x < 0
-        if abs(lmbda - 2) > np.spacing(1.0):
-            out[~pos] = -(np.power(-x[~pos] + 1, 2 - lmbda) - 1) / (2 - lmbda)
-        else:  # lmbda == 2
-            out[~pos] = -np.log1p(-x[~pos])
-
-        return out
-
-    def _box_cox_optimize(self, x):
+    def _box_cox_optimize(self, x, xp):
         """Find and return optimal lambda parameter of the Box-Cox transform by
         MLE, for observed data x.
 
         We here use scipy builtins which uses the brent optimizer.
         """
-        mask = np.isnan(x)
-        if np.all(mask):
+        mask = xp.isnan(x)
+        if xp.all(mask):
             raise ValueError("Column must not be all nan.")
 
         # the computation of lambda is influenced by NaNs so we need to
         # get rid of them
-        _, lmbda = stats.boxcox(x[~mask], lmbda=None)
+        x_valid = _convert_to_numpy(x[~mask], xp=xp)
+        _, lmbda = stats.boxcox(x_valid, lmbda=None)
 
         return lmbda
 
-    def _yeo_johnson_optimize(self, x):
+    def _yeo_johnson_optimize(self, x, xp):
         """Find and return optimal lambda parameter of the Yeo-Johnson
         transform by MLE, for observed data x.
 
         Like for Box-Cox, MLE is done via the brent optimizer.
         """
-        x_tiny = np.finfo(np.float64).tiny
-
-        def _neg_log_likelihood(lmbda):
-            """Return the negative log likelihood of the observed data x as a
-            function of lambda."""
-            x_trans = self._yeo_johnson_transform(x, lmbda)
-            n_samples = x.shape[0]
-            x_trans_var = x_trans.var()
-
-            # Reject transformed data that would raise a RuntimeWarning in np.log
-            if x_trans_var < x_tiny:
-                return np.inf
-
-            log_var = np.log(x_trans_var)
-            loglike = -n_samples / 2 * log_var
-            loglike += (lmbda - 1) * (np.sign(x) * np.log1p(np.abs(x))).sum()
-
-            return -loglike
-
         # the computation of lambda is influenced by NaNs so we need to
         # get rid of them
-        x = x[~np.isnan(x)]
-        _, lmbda = stats.yeojohnson(x, lmbda=None)
+        x_valid = _convert_to_numpy(x[~xp.isnan(x)], xp=xp)
+        _, lmbda = stats.yeojohnson(x_valid, lmbda=None)
         return lmbda
 
     def _check_input(self, X, in_fit, check_positive=False, check_shape=False):
@@ -3615,11 +3641,12 @@ class PowerTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
         check_shape : bool, default=False
             If True, check that n_features matches the length of self.lambdas_
         """
+        xp, _, X_device = get_namespace_and_device(X)
         X = validate_data(
             self,
             X,
             ensure_2d=True,
-            dtype=FLOAT_DTYPES,
+            dtype=supported_float_dtypes(xp, X_device),
             force_writeable=True,
             copy=self.copy,
             ensure_all_finite="allow-nan",
@@ -3628,11 +3655,13 @@ class PowerTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
 
         with warnings.catch_warnings():
             warnings.filterwarnings("ignore", r"All-NaN (slice|axis) encountered")
-            if check_positive and self.method == "box-cox" and np.nanmin(X) <= 0:
-                raise ValueError(
-                    "The Box-Cox transformation can only be "
-                    "applied to strictly positive data"
-                )
+            if check_positive and self.method == "box-cox":
+                data_min = _array_api._nanmin(X, axis=None, xp=xp)
+                if _as_float(data_min) <= 0:
+                    raise ValueError(
+                        "The Box-Cox transformation can only be "
+                        "applied to strictly positive data"
+                    )
 
         if check_shape and not X.shape[1] == len(self.lambdas_):
             raise ValueError(
@@ -3647,6 +3676,8 @@ class PowerTransformer(OneToOneFeatureMixin, TransformerMixin, BaseEstimator):
     def __sklearn_tags__(self):
         tags = super().__sklearn_tags__()
         tags.input_tags.allow_nan = True
+        tags.array_api_support = True
+        tags.transformer_tags.preserves_dtype = ["float64", "float32"]
         return tags
 
 
