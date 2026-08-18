@@ -235,38 +235,38 @@ def build_mixed_pipeline(X: pd.DataFrame, *, model: str = "hgb"):
 
 
 LOGREG_SPECS = [
-    ParamSpec("C", "loguniform", low=1e-3, high=1e2),
+    ParamSpec("C", "loguniform", low=1e-4, high=1e3),
     ParamSpec("l1_ratio", "uniform", low=0.0, high=1.0),
 ]
 
 HGB_CLF_SPECS = [
-    ParamSpec("learning_rate", "loguniform", low=0.01, high=0.5),
-    ParamSpec("max_depth", "int", low=2, high=8),
-    ParamSpec("min_samples_leaf", "int", low=5, high=40),
-    ParamSpec("l2_regularization", "loguniform", low=1e-6, high=10.0),
+    ParamSpec("learning_rate", "loguniform", low=1e-3, high=1.0),
+    ParamSpec("max_depth", "int", low=1, high=16),
+    ParamSpec("min_samples_leaf", "int", low=1, high=80),
+    ParamSpec("l2_regularization", "loguniform", low=1e-8, high=100.0),
 ]
 
 RIDGE_SPECS = [
-    ParamSpec("alpha", "loguniform", low=1e-3, high=1e3),
+    ParamSpec("alpha", "loguniform", low=1e-4, high=1e4),
 ]
 
 HGB_REG_SPECS = [
-    ParamSpec("learning_rate", "loguniform", low=0.01, high=0.5),
-    ParamSpec("max_depth", "int", low=2, high=8),
-    ParamSpec("min_samples_leaf", "int", low=5, high=40),
-    ParamSpec("l2_regularization", "loguniform", low=1e-6, high=10.0),
+    ParamSpec("learning_rate", "loguniform", low=1e-3, high=1.0),
+    ParamSpec("max_depth", "int", low=1, high=16),
+    ParamSpec("min_samples_leaf", "int", low=1, high=80),
+    ParamSpec("l2_regularization", "loguniform", low=1e-8, high=100.0),
 ]
 
 PIPE_HGB_SPECS = [
-    ParamSpec("model__learning_rate", "loguniform", low=0.01, high=0.4),
-    ParamSpec("model__max_depth", "int", low=2, high=8),
-    ParamSpec("model__min_samples_leaf", "int", low=5, high=50),
-    ParamSpec("model__l2_regularization", "loguniform", low=1e-6, high=5.0),
-    ParamSpec("model__max_leaf_nodes", "int", low=15, high=63),
+    ParamSpec("model__learning_rate", "loguniform", low=1e-3, high=1.0),
+    ParamSpec("model__max_depth", "int", low=1, high=16),
+    ParamSpec("model__min_samples_leaf", "int", low=1, high=100),
+    ParamSpec("model__l2_regularization", "loguniform", low=1e-8, high=50.0),
+    ParamSpec("model__max_leaf_nodes", "int", low=8, high=127),
 ]
 
 PIPE_LOGREG_SPECS = [
-    ParamSpec("model__C", "loguniform", low=1e-3, high=50.0),
+    ParamSpec("model__C", "loguniform", low=1e-4, high=1e3),
     ParamSpec("model__l1_ratio", "uniform", low=0.0, high=1.0),
 ]
 

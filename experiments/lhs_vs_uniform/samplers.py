@@ -33,6 +33,69 @@ class ParamSpec:
         else:
             raise ValueError(f"Unknown kind: {self.kind}")
 
+    def format(self) -> str:
+        if self.kind == "loguniform":
+            return f"{self.name} ~ loguniform({self.low:g}, {self.high:g})"
+        if self.kind == "uniform":
+            return f"{self.name} ~ uniform({self.low:g}, {self.high:g})"
+        if self.kind == "int":
+            return f"{self.name} ~ randint({int(self.low)}, {int(self.high)})"
+        return f"{self.name} ∈ {list(self.choices)}"
+
+    def near_low_boundary(self, value: Any, *, frac: float = 0.05) -> bool:
+        if self.kind == "choice":
+            return False
+        if self.kind == "loguniform":
+            lo, hi = np.log(self.low), np.log(self.high)
+            return (np.log(float(value)) - lo) / (hi - lo) <= frac
+        if self.kind == "uniform":
+            return (float(value) - self.low) / (self.high - self.low) <= frac
+        # int
+        return int(value) <= int(self.low)
+
+    def near_high_boundary(self, value: Any, *, frac: float = 0.05) -> bool:
+        if self.kind == "choice":
+            return False
+        if self.kind == "loguniform":
+            lo, hi = np.log(self.low), np.log(self.high)
+            return (hi - np.log(float(value))) / (hi - lo) <= frac
+        if self.kind == "uniform":
+            return (self.high - float(value)) / (self.high - self.low) <= frac
+        return int(value) >= int(self.high)
+
+    def widened(self, *, side: str) -> "ParamSpec":
+        """Extend a continuous/int bound on low, high, or both when meaningful."""
+        if self.kind == "choice":
+            return self
+        if self.kind == "loguniform":
+            lo, hi = self.low, self.high
+            if side in ("low", "both"):
+                lo = lo / 10.0
+            if side in ("high", "both"):
+                hi = hi * 10.0
+            return ParamSpec(self.name, self.kind, low=lo, high=hi)
+        if self.kind == "uniform":
+            lo, hi = self.low, self.high
+            span = hi - lo
+            if side in ("low", "both"):
+                lo = lo - span
+            if side in ("high", "both"):
+                hi = hi + span
+            # Keep [0,1]-like ratios in [0,1]
+            if self.low == 0.0 and self.high == 1.0:
+                return self
+            return ParamSpec(self.name, self.kind, low=lo, high=hi)
+        # int
+        lo, hi = int(self.low), int(self.high)
+        span = max(1, hi - lo)
+        if side in ("low", "both"):
+            lo = max(1 if "depth" in self.name or "leaf" in self.name or "nodes" in self.name else 0, lo - span)
+        if side in ("high", "both"):
+            hi = hi + span
+        if lo >= hi:
+            hi = lo + 1
+        return ParamSpec(self.name, self.kind, low=float(lo), high=float(hi))
+
 
 def _unit_to_value(u: float, spec: ParamSpec, rng: np.random.Generator) -> Any:
     """Map a unit-interval sample u in [0, 1) to a concrete parameter value."""
