@@ -73,16 +73,24 @@ predictive-quality tradeoff (strictly proper scoring rules)?
 
 ## Verdict
 
-**lhs_pareto_dominates_on_average**
+**lhs_pareto_dominates_on_average** (pooled Phase 1+2)
 
 On average, LHS reached the 95%-of-best target faster with a mean speedup of 1.93 (95% CI [1.60, 2.29]), and mid-budget anytime utility favored LHS. This supports average Pareto dominance under the studied budgets and models.
+
+### Nuance
+
+- **Phase 1 alone** drives most of the signal (mean speedup ≈ 2.00, CI above 1; utility gains especially on regression MSE).
+- **Phase 2 mixed pipelines** alone: mean speedup ≈ 1.62 (CI [1.06, 2.29]) but mean anytime utility slightly favored uniform; verdict there was `no_clear_average_dominance`.
+- Among proper scores, **`neg_mean_squared_error`** and **`neg_brier_score`** show clearer LHS dominance; **`neg_log_loss`** alone is mixed (speedup CI above 1 for the mean, but mid-budget utility ≈ 0).
 
 ## Caveats
 
 - Budgets are modest (≈20–40 evaluations); LHS benefits can depend on dimension and budget.
-- CV noise affects time-to-target; companion n_eval-speedup is also reported.
+- CV noise affects time-to-target; companion n_eval-speedup is also reported (~2.0 mean).
+- Many instances lack a paired time-to-target when only one sampler reaches the pooled 95% target (especially higher-dim HGB spaces).
 - Search spaces mix continuous, log, integer, and categorical dimensions.
 - OpenML problems may vary by download/cache; synthetic mixed-type problems are included.
+- Wall-clock ratios can differ from n_eval ratios when candidate fit costs vary.
 
 ## Artifact paths
 
