@@ -1,0 +1,21 @@
+# Phase 0 progress summary (2026-08-18)
+
+## Status
+Implementation verified. Sampler sanity checks passed (LHS margins balanced; LHS more space-filling than i.i.d. on a 2D continuous subspace). Both smoke problems returned finite proper scores.
+
+## Sampler sanity
+- Continuous mean ≈ 0.5 for LHS and Uniform
+- Mean NN distance higher for LHS (0.098 vs 0.088)
+- Perfect discrete stratification on int/choice dims
+
+## Smoke HPO (5 seeds × 2 problems)
+| Aggregate | Value |
+|-----------|-------|
+| Mean time-speedup (U/LHS) | 1.25, 95% CI [0.50, 2.35] |
+| Fraction speedup>1 | 0.29 |
+| Verdict | mixed / CI includes 1 (expected at tiny N) |
+
+Phase 0 is a correctness gate only; Phase 1–2 provide the inferential sample.
+
+This pull request includes code written with the assistance of AI.
+The code has **not yet been reviewed** by a human.
