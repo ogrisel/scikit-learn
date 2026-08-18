@@ -1,5 +1,5 @@
-# Experiment artifacts (large / regenerable)
-experiments/lhs_vs_uniform/results/
+# Regenerable experiment outputs
+results/
 __pycache__/
 *.pyc
 .pytest_cache/

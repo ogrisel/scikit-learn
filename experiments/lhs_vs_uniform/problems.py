@@ -48,7 +48,7 @@ def _digits_multiclass():
     # Keep small: 8x8 digits, all 10 classes but subsample for speed.
     X, y = load_digits(return_X_y=True)
     rng = np.random.default_rng(0)
-    idx = rng.choice(len(y), size=min(800, len(y)), replace=False)
+    idx = rng.choice(len(y), size=min(500, len(y)), replace=False)
     return X[idx], y[idx]
 
 
@@ -267,6 +267,7 @@ PIPE_HGB_SPECS = [
 
 PIPE_LOGREG_SPECS = [
     ParamSpec("model__C", "loguniform", low=1e-3, high=50.0),
+    ParamSpec("model__l1_ratio", "uniform", low=0.0, high=1.0),
 ]
 
 
@@ -324,7 +325,7 @@ def phase1_problems() -> list[Problem]:
             load_xy=_digits_multiclass,
             make_estimator=make_logreg,
             specs=LOGREG_SPECS,
-            n_iter=35,
+            n_iter=25,
             cv=3,
         ),
         Problem(
@@ -334,7 +335,7 @@ def phase1_problems() -> list[Problem]:
             load_xy=_digits_multiclass,
             make_estimator=make_hgb_clf,
             specs=HGB_CLF_SPECS,
-            n_iter=35,
+            n_iter=25,
             cv=3,
         ),
         Problem(
