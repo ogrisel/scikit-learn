@@ -1,12 +1,9 @@
 #!/usr/bin/env python3
-"""Redo HPO comparison: best score vs number of evaluations.
+"""Best score vs n_iter ∈ {3, 5, 10, 30} for Uniform vs LHS.
 
-For each problem and sampling strategy, run full searches at budgets
-n_iter ∈ {3, 10, 30, 100}. For each budget, pack as many seed repeats as
-fit in a 5s wall-clock window (always ≥3 repeats when a single run is slow).
-
-Plots mean best CV score ± spread (std) vs n_evals, with search space and
-n_hparams annotated.
+For each budget, pack as many seed repeats as fit in 5s wall time
+(always ≥3). Plots include search-space annotations. Winning hyperparameter
+combos are recorded for every repeat.
 """
 
 from __future__ import annotations
@@ -43,12 +40,15 @@ FIGDIR = REPORTS / "figures_neval"
 ARTDIR = Path("/opt/cursor/artifacts")
 FIGDIR.mkdir(parents=True, exist_ok=True)
 ARTDIR.mkdir(parents=True, exist_ok=True)
+WINNERS_DIR = RESULTS / "winners"
+WINNERS_DIR.mkdir(parents=True, exist_ok=True)
 
-N_ITERS = (3, 10, 30, 100)
+N_ITERS = (3, 5, 10, 30)
 WALL_BUDGET_S = 5.0
 MIN_REPEATS = 3
-MAX_REPEATS = 5000  # safety only; 5s wall budget is the real limit
+MAX_REPEATS = 5000
 CV = 3
+MD_WINNER_LIST_CAP = 25  # full list in JSON; markdown lists up to this many
 
 LOGREG_SPECS = [
     ParamSpec("C", "loguniform", low=1e-4, high=1e4),
@@ -163,13 +163,26 @@ def format_search_space(specs: list[ParamSpec]) -> str:
     )
 
 
+def format_params(params: dict[str, Any]) -> str:
+    parts = []
+    for k in sorted(params):
+        v = params[k]
+        if isinstance(v, float):
+            parts.append(f"{k}={v:.5g}")
+        else:
+            parts.append(f"{k}={v}")
+    return ", ".join(parts)
+
+
 def make_estimator(cfg, X):
     if cfg["kind"] == "pipeline":
         return build_mixed_pipeline(X, model=cfg["model"])
     return cfg["make_estimator"]()
 
 
-def one_search(cfg, X, y, specs, method: str, n_iter: int, seed: int) -> float:
+def one_search(
+    cfg, X, y, specs, method: str, n_iter: int, seed: int
+) -> tuple[float, dict[str, Any]]:
     method_seed = seed if method == "uniform" else seed + 10_000
     candidates = sample_search_space(specs, n_iter, method, method_seed)
     run = evaluate_candidates(
@@ -183,41 +196,95 @@ def one_search(cfg, X, y, specs, method: str, n_iter: int, seed: int) -> float:
         problem_id=cfg["problem_id"],
         seed=seed,
     )
-    best = float(run.best_scores[-1]) if run.trials else float("-inf")
-    return best if np.isfinite(best) else float("-inf")
+    if not run.trials:
+        return float("-inf"), {}
+    # Winning trial = first achieving best score (tie-break earliest)
+    best = float(run.best_scores[-1])
+    win = next(t for t in run.trials if t.best_score_so_far == best or t.score == best)
+    # Prefer the trial with actual best score
+    best_idx = int(np.argmax(run.scores))
+    win = run.trials[best_idx]
+    score = float(win.score) if np.isfinite(win.score) else float("-inf")
+    return score, dict(win.params)
+
+
+def summarize_winner_params(
+    specs: list[ParamSpec], winners: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Median / IQR of winning param values across repeats."""
+    out: dict[str, Any] = {}
+    for spec in specs:
+        vals = [w["params"][spec.name] for w in winners if spec.name in w["params"]]
+        if not vals:
+            continue
+        if spec.kind in ("uniform", "loguniform"):
+            arr = np.asarray(vals, dtype=float)
+            out[spec.name] = {
+                "median": float(np.median(arr)),
+                "q10": float(np.percentile(arr, 10)),
+                "q90": float(np.percentile(arr, 90)),
+                "kind": spec.kind,
+            }
+        elif spec.kind == "int":
+            arr = np.asarray(vals, dtype=float)
+            out[spec.name] = {
+                "median": float(np.median(arr)),
+                "q10": float(np.percentile(arr, 10)),
+                "q90": float(np.percentile(arr, 90)),
+                "kind": "int",
+            }
+        else:
+            # choice — mode
+            uniq, counts = np.unique(vals, return_counts=True)
+            out[spec.name] = {
+                "mode": uniq[int(np.argmax(counts))].item()
+                if hasattr(uniq[int(np.argmax(counts))], "item")
+                else uniq[int(np.argmax(counts))],
+                "counts": {str(u): int(c) for u, c in zip(uniq, counts)},
+                "kind": "choice",
+            }
+    return out
 
 
 def repeats_for_budget(
     cfg, X, y, specs, method: str, n_iter: int
 ) -> dict[str, Any]:
-    """Run as many seeds as fit in WALL_BUDGET_S, always ≥ MIN_REPEATS."""
-    scores: list[float] = []
+    winners: list[dict[str, Any]] = []
     seed = 0
     t0 = time.perf_counter()
     while True:
-        sc = one_search(cfg, X, y, specs, method, n_iter, seed)
-        scores.append(sc)
+        score, params = one_search(cfg, X, y, specs, method, n_iter, seed)
+        winners.append({"seed": seed, "score": float(score), "params": params})
         seed += 1
         elapsed = time.perf_counter() - t0
-        if len(scores) < MIN_REPEATS:
+        if len(winners) < MIN_REPEATS:
             continue
         if elapsed >= WALL_BUDGET_S:
             break
-        if len(scores) >= MAX_REPEATS:
+        if len(winners) >= MAX_REPEATS:
             break
-    arr = np.asarray(scores, dtype=float)
-    finite = arr[np.isfinite(arr)]
+    scores = np.asarray([w["score"] for w in winners], dtype=float)
+    finite = scores[np.isfinite(scores)]
+    # Overall winning combo among repeats (best seed)
+    if finite.size:
+        best_i = int(np.argmax(scores))
+        overall = winners[best_i]
+    else:
+        overall = winners[0] if winners else {"seed": -1, "score": float("nan"), "params": {}}
     return {
         "n_iter": n_iter,
         "method": method,
-        "n_repeats": int(len(scores)),
+        "n_repeats": int(len(winners)),
         "wall_s": float(time.perf_counter() - t0),
-        "scores": [float(s) for s in scores],
+        "scores": [float(w["score"]) for w in winners],
         "mean": float(np.mean(finite)) if finite.size else float("nan"),
         "std": float(np.std(finite, ddof=1)) if finite.size > 1 else 0.0,
         "median": float(np.median(finite)) if finite.size else float("nan"),
         "q10": float(np.percentile(finite, 10)) if finite.size else float("nan"),
         "q90": float(np.percentile(finite, 90)) if finite.size else float("nan"),
+        "winners": winners,
+        "best_repeat": overall,
+        "winner_param_summary": summarize_winner_params(specs, winners),
     }
 
 
@@ -245,7 +312,6 @@ def plot_problem(cfg, specs, by_method: dict[str, list[dict]], out_stem: str):
             capsize=4,
             label=f"{method.capitalize()} (n_rep={ns})",
         )
-        # Also shade q10–q90 if available
         q10 = np.array([r["q10"] for r in rows], dtype=float)
         q90 = np.array([r["q90"] for r in rows], dtype=float)
         ax.fill_between(xs, q10, q90, color=color, alpha=0.15, linewidth=0)
@@ -264,8 +330,7 @@ def plot_problem(cfg, specs, by_method: dict[str, list[dict]], out_stem: str):
     ax.grid(True, alpha=0.3, which="both")
     ax.legend(frameon=False, loc="lower right")
 
-    # Annotate repeat counts under each point lightly
-    for method, color, dy in (("uniform", "#1f4e79", 0.02), ("lhs", "#c45c26", -0.02)):
+    for method, color in (("uniform", "#1f4e79"), ("lhs", "#c45c26")):
         rows = sorted(by_method[method], key=lambda r: r["n_iter"])
         for r in rows:
             ax.annotate(
@@ -278,11 +343,10 @@ def plot_problem(cfg, specs, by_method: dict[str, list[dict]], out_stem: str):
                 color=color,
             )
 
-    space_txt = format_search_space(specs)
     fig.text(
         0.08,
         0.02,
-        space_txt,
+        format_search_space(specs),
         ha="left",
         va="bottom",
         family="monospace",
@@ -294,35 +358,61 @@ def plot_problem(cfg, specs, by_method: dict[str, list[dict]], out_stem: str):
     plt.close(fig)
 
 
+def winners_markdown(row: dict[str, Any], specs: list[ParamSpec]) -> list[str]:
+    lines = [
+        f"#### `{row['method']}` @ n_iter={row['n_iter']} "
+        f"(n={row['n_repeats']}, wall={row['wall_s']:.2f}s)",
+        "",
+        f"- Mean±std score: **{row['mean']:.5g} ± {row['std']:.3g}**",
+        f"- Best repeat: seed={row['best_repeat']['seed']}, "
+        f"score={row['best_repeat']['score']:.5g}, "
+        f"`{format_params(row['best_repeat']['params'])}`",
+        "",
+        "Winning-param summary across repeats:",
+        "",
+    ]
+    for name, stats in row["winner_param_summary"].items():
+        if stats["kind"] == "choice":
+            lines.append(f"- `{name}`: mode={stats['mode']} counts={stats['counts']}")
+        else:
+            lines.append(
+                f"- `{name}`: median={stats['median']:.5g} "
+                f"[q10={stats['q10']:.5g}, q90={stats['q90']:.5g}]"
+            )
+    lines.append("")
+    lines.append("| seed | score | winning params |")
+    lines.append("|-----:|------:|----------------|")
+    shown = row["winners"]
+    truncated = False
+    if len(shown) > MD_WINNER_LIST_CAP:
+        # show best 10 + worst note
+        order = sorted(range(len(shown)), key=lambda i: shown[i]["score"], reverse=True)
+        keep = order[:MD_WINNER_LIST_CAP]
+        shown = [row["winners"][i] for i in sorted(keep)]
+        truncated = True
+    for w in shown:
+        lines.append(
+            f"| {w['seed']} | {w['score']:.5g} | `{format_params(w['params'])}` |"
+        )
+    if truncated:
+        lines.append("")
+        lines.append(
+            f"_Showing {MD_WINNER_LIST_CAP}/{row['n_repeats']} repeats "
+            f"(highest scores). Full list in JSON._"
+        )
+    lines.append("")
+    return lines
+
+
 def main():
     print(f"n_eval budget sweeps — {utc_now()}", flush=True)
     summary_path = RESULTS / "neval_budget_summary.json"
+    # Fresh run for new budget grid
     all_summary: list[dict[str, Any]] = []
-    if summary_path.exists():
-        try:
-            all_summary = json.loads(summary_path.read_text())
-        except Exception:
-            all_summary = []
-    done = {r["problem_id"] for r in all_summary if (FIGDIR / r["figure"]).exists()}
-
-    md_lines = [
-        "# Best score vs number of evaluations",
-        "",
-        f"_Generated {utc_now()}_",
-        "",
-        f"Budgets: `n_iter ∈ {list(N_ITERS)}`. For each budget/method, as many "
-        f"seed repeats as fit in **{WALL_BUDGET_S:.0f}s** wall time "
-        f"(always **≥{MIN_REPEATS}** repeats). Points show mean ± std; bands are "
-        f"10th–90th percentiles across seeds.",
-        "",
-    ]
 
     for cfg in experiment_problems():
         pid = cfg["problem_id"]
         specs = list(cfg["specs"])
-        if pid in done:
-            print(f"\n=== {pid}: skip ===", flush=True)
-            continue
         print(f"\n=== {pid} ({len(specs)} hparams) ===", flush=True)
         X, y = cfg["load_xy"]()
         by_method: dict[str, list[dict]] = {"uniform": [], "lhs": []}
@@ -331,58 +421,111 @@ def main():
                 print(f"  n_iter={n_iter} {method}...", flush=True)
                 row = repeats_for_budget(cfg, X, y, specs, method, n_iter)
                 by_method[method].append(row)
+                # Persist per-cell winners immediately
+                wpath = WINNERS_DIR / f"{pid}__{method}__n{n_iter}.json"
+                wpath.write_text(json.dumps(row, indent=2), encoding="utf-8")
                 print(
                     f"    repeats={row['n_repeats']} wall={row['wall_s']:.2f}s "
-                    f"mean={row['mean']:.5g} ± {row['std']:.3g}",
+                    f"mean={row['mean']:.5g} ± {row['std']:.3g} | "
+                    f"best={format_params(row['best_repeat']['params'])}",
                     flush=True,
                 )
 
         stem = f"neval_{pid}"
         plot_problem(cfg, specs, by_method, stem)
+
+        # Compact summary without full winner lists (those are in WINNERS_DIR)
+        def compact(rows):
+            out = []
+            for r in rows:
+                out.append(
+                    {
+                        "n_iter": r["n_iter"],
+                        "method": r["method"],
+                        "n_repeats": r["n_repeats"],
+                        "wall_s": r["wall_s"],
+                        "mean": r["mean"],
+                        "std": r["std"],
+                        "median": r["median"],
+                        "q10": r["q10"],
+                        "q90": r["q90"],
+                        "best_repeat": r["best_repeat"],
+                        "winner_param_summary": r["winner_param_summary"],
+                        "winners_file": f"winners/{pid}__{r['method']}__n{r['n_iter']}.json",
+                    }
+                )
+            return out
+
         rec = {
             "problem_id": pid,
             "n_hparams": len(specs),
             "search_space": [s.format() for s in specs],
             "figure": f"{stem}.png",
-            "uniform": by_method["uniform"],
-            "lhs": by_method["lhs"],
+            "uniform": compact(by_method["uniform"]),
+            "lhs": compact(by_method["lhs"]),
+            # keep full winners inline for reporting (may be large)
+            "uniform_full": by_method["uniform"],
+            "lhs_full": by_method["lhs"],
         }
         all_summary.append(rec)
-        summary_path.write_text(json.dumps(all_summary, indent=2), encoding="utf-8")
+        # Write summary without *_full to keep main JSON smaller
+        slim = [{k: v for k, v in r.items() if not k.endswith("_full")} for r in all_summary]
+        summary_path.write_text(json.dumps(slim, indent=2), encoding="utf-8")
         print(f"  Wrote {stem}.png", flush=True)
 
-    # Rebuild markdown from full summary
-    if summary_path.exists():
-        all_summary = json.loads(summary_path.read_text())
+    # Markdown report with search spaces + winners
+    md: list[str] = [
+        "# Best score vs number of evaluations",
+        "",
+        f"_Generated {utc_now()}_",
+        "",
+        f"Budgets: `n_iter ∈ {list(N_ITERS)}`. For each budget/method, as many "
+        f"seed repeats as fit in **{WALL_BUDGET_S:.0f}s** wall time "
+        f"(always **≥{MIN_REPEATS}**). Points: mean ± std; bands: 10th–90th "
+        f"percentiles. Winning hyperparameter combos are listed per repeat.",
+        "",
+    ]
     for rec in all_summary:
-        md_lines.append(f"## `{rec['problem_id']}` — {rec['n_hparams']} tuned hparams")
-        md_lines.append("")
-        md_lines.append(f"![{rec['figure']}](figures_neval/{rec['figure']})")
-        md_lines.append("")
-        md_lines.append("| n_iter | Uniform mean±std (n) | LHS mean±std (n) |")
-        md_lines.append("|------:|----------------------:|-----------------:|")
-        u_by = {r["n_iter"]: r for r in rec["uniform"]}
-        l_by = {r["n_iter"]: r for r in rec["lhs"]}
+        md.append(f"## `{rec['problem_id']}` — {rec['n_hparams']} tuned hparams")
+        md.append("")
+        md.append(f"![{rec['figure']}](figures_neval/{rec['figure']})")
+        md.append("")
+        md.append("### Search space")
+        md.append("")
+        md.append("```")
+        for s in rec["search_space"]:
+            md.append(s)
+        md.append("```")
+        md.append("")
+        md.append("| n_iter | Uniform mean±std (n) | LHS mean±std (n) |")
+        md.append("|------:|----------------------:|-----------------:|")
+        u_by = {r["n_iter"]: r for r in rec["uniform_full"]}
+        l_by = {r["n_iter"]: r for r in rec["lhs_full"]}
         for n in N_ITERS:
             u, l = u_by[n], l_by[n]
-            md_lines.append(
+            md.append(
                 f"| {n} | {u['mean']:.5g}±{u['std']:.3g} (n={u['n_repeats']}) | "
                 f"{l['mean']:.5g}±{l['std']:.3g} (n={l['n_repeats']}) |"
             )
-        md_lines.append("")
-        md_lines.append("```")
-        for s in rec["search_space"]:
-            md_lines.append(s)
-        md_lines.append("```")
-        md_lines.append("")
-    md_lines.extend(
+        md.append("")
+        md.append("### Winning hyperparameter combos")
+        md.append("")
+        for n in N_ITERS:
+            md.append(f"### n_iter = {n}")
+            md.append("")
+            md.extend(winners_markdown(u_by[n], []))
+            md.extend(winners_markdown(l_by[n], []))
+
+    md.extend(
         [
+            "Full per-repeat winner JSON: `experiments/lhs_vs_uniform/results/winners/`.",
+            "",
             "This pull request includes code written with the assistance of AI.",
             "The code has **not yet been reviewed** by a human.",
             "",
         ]
     )
-    (REPORTS / "NEVAL_BUDGETS.md").write_text("\n".join(md_lines), encoding="utf-8")
+    (REPORTS / "NEVAL_BUDGETS.md").write_text("\n".join(md), encoding="utf-8")
     print("Done.", flush=True)
 
 
