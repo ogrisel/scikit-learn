@@ -235,7 +235,7 @@ def build_mixed_pipeline(X: pd.DataFrame, *, model: str = "hgb"):
 
 
 LOGREG_SPECS = [
-    ParamSpec("C", "loguniform", low=1e-4, high=1e3),
+    ParamSpec("C", "loguniform", low=1e-4, high=1e4),
     ParamSpec("l1_ratio", "uniform", low=0.0, high=1.0),
 ]
 
@@ -266,7 +266,7 @@ PIPE_HGB_SPECS = [
 ]
 
 PIPE_LOGREG_SPECS = [
-    ParamSpec("model__C", "loguniform", low=1e-4, high=1e3),
+    ParamSpec("model__C", "loguniform", low=1e-4, high=1e4),
     ParamSpec("model__l1_ratio", "uniform", low=0.0, high=1.0),
 ]
 
