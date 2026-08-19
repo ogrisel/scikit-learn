@@ -289,16 +289,25 @@ def repeats_for_budget(
 
 
 def plot_problem(cfg, specs, by_method: dict[str, list[dict]], out_stem: str):
+    """Plot mean±std vs n_iter with x ticks fixed to N_ITERS (equally spaced)."""
     n_hp = len(specs)
     fig = plt.figure(figsize=(10.8, 5.8))
     ax = fig.add_axes([0.10, 0.38, 0.86, 0.52])
+
+    # Equal spacing so every budget in N_ITERS is clearly visible (not log-cramped).
+    x_pos = {n: i for i, n in enumerate(N_ITERS)}
 
     for method, color, marker in (
         ("uniform", "#1f4e79", "o"),
         ("lhs", "#c45c26", "s"),
     ):
-        rows = sorted(by_method[method], key=lambda r: r["n_iter"])
-        xs = np.array([r["n_iter"] for r in rows], dtype=float)
+        rows_by_n = {r["n_iter"]: r for r in by_method[method]}
+        # Require the full budget grid
+        missing = [n for n in N_ITERS if n not in rows_by_n]
+        if missing:
+            raise ValueError(f"{cfg['problem_id']}/{method} missing n_iter={missing}")
+        rows = [rows_by_n[n] for n in N_ITERS]
+        xs = np.array([x_pos[n] for n in N_ITERS], dtype=float)
         means = np.array([r["mean"] for r in rows], dtype=float)
         stds = np.array([r["std"] for r in rows], dtype=float)
         ns = [r["n_repeats"] for r in rows]
@@ -316,26 +325,26 @@ def plot_problem(cfg, specs, by_method: dict[str, list[dict]], out_stem: str):
         q90 = np.array([r["q90"] for r in rows], dtype=float)
         ax.fill_between(xs, q10, q90, color=color, alpha=0.15, linewidth=0)
 
-    ax.set_xscale("log")
-    ax.set_xticks(list(N_ITERS))
+    ax.set_xticks(list(range(len(N_ITERS))))
     ax.set_xticklabels([str(n) for n in N_ITERS])
-    ax.minorticks_off()
+    ax.set_xlim(-0.3, len(N_ITERS) - 0.7)
     ax.set_xlabel("Number of evaluations (n_iter)")
     ax.set_ylabel(score_ylabel(cfg["scoring"]))
     ax.set_title(
         f"{cfg['problem_id']}  |  {n_hp} tuned hparams  |  "
-        f"budgets {list(N_ITERS)}; ≥{MIN_REPEATS} seeds / ≤{WALL_BUDGET_S:.0f}s per budget",
+        f"n_iter ∈ {list(N_ITERS)}; ≥{MIN_REPEATS} seeds / ≤{WALL_BUDGET_S:.0f}s per budget",
         fontsize=11,
     )
-    ax.grid(True, alpha=0.3, which="both")
+    ax.grid(True, alpha=0.3, axis="y")
     ax.legend(frameon=False, loc="lower right")
 
     for method, color in (("uniform", "#1f4e79"), ("lhs", "#c45c26")):
-        rows = sorted(by_method[method], key=lambda r: r["n_iter"])
-        for r in rows:
+        rows_by_n = {r["n_iter"]: r for r in by_method[method]}
+        for n in N_ITERS:
+            r = rows_by_n[n]
             ax.annotate(
                 f"n={r['n_repeats']}",
-                (r["n_iter"], r["mean"]),
+                (x_pos[n], r["mean"]),
                 textcoords="offset points",
                 xytext=(0, 8 if method == "uniform" else -14),
                 ha="center",

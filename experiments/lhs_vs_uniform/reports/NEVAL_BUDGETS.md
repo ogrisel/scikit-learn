@@ -2,7 +2,7 @@
 
 _Generated 2026-08-19 10:04:30 UTC_
 
-Budgets: `n_iter ∈ [3, 5, 10, 30]`. For each budget/method, as many seed repeats as fit in **5s** wall time (always **≥3**). Points: mean ± std; bands: 10th–90th percentiles. Winning hyperparameter combos are listed per repeat.
+Budgets: `n_iter ∈ [3, 5, 10, 30]`. For each budget/method, as many seed repeats as fit in **5s** wall time (always **≥3**). Points: mean ± std; bands: 10th–90th percentiles. X-axis ticks are exactly n_iter ∈ {3, 5, 10, 30} (equally spaced). Winning hyperparameter combos are listed per repeat.
 
 ## `diabetes_ridge` — 1 tuned hparams
 
