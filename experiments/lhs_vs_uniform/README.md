@@ -29,3 +29,10 @@ the installed package.
 
 This branch is for sharing experimental results; it is not intended as a
 library change PR unless follow-up work decides otherwise.
+
+## Tests
+
+```bash
+cd experiments/lhs_vs_uniform
+python3 -m pytest test_samplers.py -v
+```
