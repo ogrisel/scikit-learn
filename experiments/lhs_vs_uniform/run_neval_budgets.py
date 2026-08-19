@@ -35,6 +35,10 @@ from problems import (
 )
 from run_utils import REPORTS, RESULTS, utc_now
 from samplers import ParamSpec, sample_search_space
+from sklearn.kernel_approximation import Nystroem
+from sklearn.linear_model import RidgeCV
+from sklearn.pipeline import make_pipeline
+from sklearn.preprocessing import SplineTransformer
 
 FIGDIR = REPORTS / "figures_neval"
 ARTDIR = Path("/opt/cursor/artifacts")
@@ -78,6 +82,42 @@ PIPE_LOGREG_SPECS = [
     ParamSpec("model__C", "loguniform", low=1e-4, high=1e4),
     ParamSpec("model__l1_ratio", "uniform", low=0.0, high=1.0),
 ]
+
+# From ogrisel/notebooks poly_reg_array_api.ipynb (ignore Array API / GPU bits):
+# SplineTransformer → Nystroem(poly/rbf) → RidgeCV, with the notebook search space.
+SPLINE_NYSTROEM_SPECS = [
+    ParamSpec("splinetransformer__n_knots", "int", low=3, high=29),
+    ParamSpec("nystroem__kernel", "choice", choices=("poly", "rbf")),
+    ParamSpec("nystroem__degree", "int", low=2, high=5),
+    ParamSpec("nystroem__gamma", "loguniform", low=1e-6, high=1e6),
+    ParamSpec("nystroem__n_components", "choice", choices=(50, 100, 200, 300)),
+]
+
+
+def _poly_reg_spline_nystroem_data():
+    """Synthetic heteroscedastic data from the notebook, subsampled for speed."""
+
+    def true_mean(X):
+        return np.sin(X[:, 0] * 2) * np.cos(X[:, 1]) ** 4
+
+    def true_std(X):
+        return 0.3 * np.cos(X[:, 1]) ** 6 + 0.1
+
+    rng = np.random.default_rng(seed=0)
+    # Notebook uses 1e5; keep the same process but subsample for HPO wall budgets.
+    n_samples = 2500
+    X = rng.uniform(low=-3, high=3, size=(n_samples, 2)).astype(np.float64)
+    y = rng.normal(loc=true_mean(X), scale=true_std(X)).astype(np.float64)
+    return X, y
+
+
+def make_spline_nystroem_ridge():
+    """Pipeline matching the notebook's numpy/CPU poly-reg setup."""
+    return make_pipeline(
+        SplineTransformer(n_knots=5),
+        Nystroem(kernel="poly", degree=2, n_components=100, random_state=0),
+        RidgeCV(alphas=np.logspace(-6, 6, 13)),
+    )
 
 
 def experiment_problems() -> list[dict[str, Any]]:
@@ -145,6 +185,14 @@ def experiment_problems() -> list[dict[str, Any]]:
             "model": "hgb",
             "specs": PIPE_HGB_SPECS,
             "kind": "pipeline",
+        },
+        {
+            "problem_id": "poly_reg_spline_nystroem",
+            "scoring": "neg_mean_squared_error",
+            "load_xy": _poly_reg_spline_nystroem_data,
+            "make_estimator": make_spline_nystroem_ridge,
+            "specs": SPLINE_NYSTROEM_SPECS,
+            "kind": "estimator",
         },
     ]
 
@@ -413,76 +461,8 @@ def winners_markdown(row: dict[str, Any], specs: list[ParamSpec]) -> list[str]:
     return lines
 
 
-def main():
-    print(f"n_eval budget sweeps — {utc_now()}", flush=True)
-    summary_path = RESULTS / "neval_budget_summary.json"
-    # Fresh run for new budget grid
-    all_summary: list[dict[str, Any]] = []
-
-    for cfg in experiment_problems():
-        pid = cfg["problem_id"]
-        specs = list(cfg["specs"])
-        print(f"\n=== {pid} ({len(specs)} hparams) ===", flush=True)
-        X, y = cfg["load_xy"]()
-        by_method: dict[str, list[dict]] = {"uniform": [], "lhs": []}
-        for n_iter in N_ITERS:
-            for method in ("uniform", "lhs"):
-                print(f"  n_iter={n_iter} {method}...", flush=True)
-                row = repeats_for_budget(cfg, X, y, specs, method, n_iter)
-                by_method[method].append(row)
-                # Persist per-cell winners immediately
-                wpath = WINNERS_DIR / f"{pid}__{method}__n{n_iter}.json"
-                wpath.write_text(json.dumps(row, indent=2), encoding="utf-8")
-                print(
-                    f"    repeats={row['n_repeats']} wall={row['wall_s']:.2f}s "
-                    f"mean={row['mean']:.5g} ± {row['std']:.3g} | "
-                    f"best={format_params(row['best_repeat']['params'])}",
-                    flush=True,
-                )
-
-        stem = f"neval_{pid}"
-        plot_problem(cfg, specs, by_method, stem)
-
-        # Compact summary without full winner lists (those are in WINNERS_DIR)
-        def compact(rows):
-            out = []
-            for r in rows:
-                out.append(
-                    {
-                        "n_iter": r["n_iter"],
-                        "method": r["method"],
-                        "n_repeats": r["n_repeats"],
-                        "wall_s": r["wall_s"],
-                        "mean": r["mean"],
-                        "std": r["std"],
-                        "median": r["median"],
-                        "q10": r["q10"],
-                        "q90": r["q90"],
-                        "best_repeat": r["best_repeat"],
-                        "winner_param_summary": r["winner_param_summary"],
-                        "winners_file": f"winners/{pid}__{r['method']}__n{r['n_iter']}.json",
-                    }
-                )
-            return out
-
-        rec = {
-            "problem_id": pid,
-            "n_hparams": len(specs),
-            "search_space": [s.format() for s in specs],
-            "figure": f"{stem}.png",
-            "uniform": compact(by_method["uniform"]),
-            "lhs": compact(by_method["lhs"]),
-            # keep full winners inline for reporting (may be large)
-            "uniform_full": by_method["uniform"],
-            "lhs_full": by_method["lhs"],
-        }
-        all_summary.append(rec)
-        # Write summary without *_full to keep main JSON smaller
-        slim = [{k: v for k, v in r.items() if not k.endswith("_full")} for r in all_summary]
-        summary_path.write_text(json.dumps(slim, indent=2), encoding="utf-8")
-        print(f"  Wrote {stem}.png", flush=True)
-
-    # Markdown report with search spaces + winners
+def rebuild_markdown(all_summary: list[dict[str, Any]]) -> None:
+    """Write NEVAL_BUDGETS.md from summary + winners JSON files."""
     md: list[str] = [
         "# Best score vs number of evaluations",
         "",
@@ -491,7 +471,13 @@ def main():
         f"Budgets: `n_iter ∈ {list(N_ITERS)}`. For each budget/method, as many "
         f"seed repeats as fit in **{WALL_BUDGET_S:.0f}s** wall time "
         f"(always **≥{MIN_REPEATS}**). Points: mean ± std; bands: 10th–90th "
-        f"percentiles. Winning hyperparameter combos are listed per repeat.",
+        f"percentiles. X-axis ticks are exactly n_iter ∈ {list(N_ITERS)} "
+        f"(equally spaced). Winning hyperparameter combos are listed per repeat.",
+        "",
+        "`poly_reg_spline_nystroem` follows the SplineTransformer → Nystroem → "
+        "RidgeCV setup from "
+        "[poly_reg_array_api.ipynb](https://github.com/ogrisel/notebooks/blob/master/poly_reg_array_api.ipynb) "
+        "(Array API / GPU steps omitted; data subsampled to 2500 rows).",
         "",
     ]
     for rec in all_summary:
@@ -508,8 +494,8 @@ def main():
         md.append("")
         md.append("| n_iter | Uniform mean±std (n) | LHS mean±std (n) |")
         md.append("|------:|----------------------:|-----------------:|")
-        u_by = {r["n_iter"]: r for r in rec["uniform_full"]}
-        l_by = {r["n_iter"]: r for r in rec["lhs_full"]}
+        u_by = {r["n_iter"]: r for r in rec["uniform"]}
+        l_by = {r["n_iter"]: r for r in rec["lhs"]}
         for n in N_ITERS:
             u, l = u_by[n], l_by[n]
             md.append(
@@ -522,9 +508,28 @@ def main():
         for n in N_ITERS:
             md.append(f"### n_iter = {n}")
             md.append("")
-            md.extend(winners_markdown(u_by[n], []))
-            md.extend(winners_markdown(l_by[n], []))
-
+            for method in ("uniform", "lhs"):
+                row = u_by[n] if method == "uniform" else l_by[n]
+                # Prefer full winners file when present
+                wfile = RESULTS / row.get(
+                    "winners_file", f"winners/{rec['problem_id']}__{method}__n{n}.json"
+                )
+                if wfile.exists():
+                    full = json.loads(wfile.read_text())
+                    md.extend(winners_markdown(full, []))
+                else:
+                    # Fallback compact row (no per-repeat list)
+                    md.append(
+                        f"#### `{method}` @ n_iter={n} (n={row['n_repeats']})\n"
+                    )
+                    md.append(
+                        f"- Mean±std: **{row['mean']:.5g} ± {row['std']:.3g}**\n"
+                    )
+                    md.append(
+                        f"- Best repeat: `{format_params(row['best_repeat']['params'])}` "
+                        f"(score={row['best_repeat']['score']:.5g})\n"
+                    )
+                    md.append("")
     md.extend(
         [
             "Full per-repeat winner JSON: `experiments/lhs_vs_uniform/results/winners/`.",
@@ -535,6 +540,89 @@ def main():
         ]
     )
     (REPORTS / "NEVAL_BUDGETS.md").write_text("\n".join(md), encoding="utf-8")
+
+
+def run_one_problem(cfg: dict[str, Any]) -> dict[str, Any]:
+    pid = cfg["problem_id"]
+    specs = list(cfg["specs"])
+    print(f"\n=== {pid} ({len(specs)} hparams) ===", flush=True)
+    X, y = cfg["load_xy"]()
+    by_method: dict[str, list[dict]] = {"uniform": [], "lhs": []}
+    for n_iter in N_ITERS:
+        for method in ("uniform", "lhs"):
+            print(f"  n_iter={n_iter} {method}...", flush=True)
+            row = repeats_for_budget(cfg, X, y, specs, method, n_iter)
+            by_method[method].append(row)
+            wpath = WINNERS_DIR / f"{pid}__{method}__n{n_iter}.json"
+            wpath.write_text(json.dumps(row, indent=2), encoding="utf-8")
+            print(
+                f"    repeats={row['n_repeats']} wall={row['wall_s']:.2f}s "
+                f"mean={row['mean']:.5g} ± {row['std']:.3g} | "
+                f"best={format_params(row['best_repeat']['params'])}",
+                flush=True,
+            )
+
+    stem = f"neval_{pid}"
+    plot_problem(cfg, specs, by_method, stem)
+
+    def compact(rows):
+        out = []
+        for r in rows:
+            out.append(
+                {
+                    "n_iter": r["n_iter"],
+                    "method": r["method"],
+                    "n_repeats": r["n_repeats"],
+                    "wall_s": r["wall_s"],
+                    "mean": r["mean"],
+                    "std": r["std"],
+                    "median": r["median"],
+                    "q10": r["q10"],
+                    "q90": r["q90"],
+                    "best_repeat": r["best_repeat"],
+                    "winner_param_summary": r["winner_param_summary"],
+                    "winners_file": f"winners/{pid}__{r['method']}__n{r['n_iter']}.json",
+                }
+            )
+        return out
+
+    rec = {
+        "problem_id": pid,
+        "n_hparams": len(specs),
+        "search_space": [s.format() for s in specs],
+        "figure": f"{stem}.png",
+        "uniform": compact(by_method["uniform"]),
+        "lhs": compact(by_method["lhs"]),
+    }
+    print(f"  Wrote {stem}.png", flush=True)
+    return rec
+
+
+def main():
+    print(f"n_eval budget sweeps — {utc_now()}", flush=True)
+    summary_path = RESULTS / "neval_budget_summary.json"
+    all_summary: list[dict[str, Any]] = []
+    if summary_path.exists():
+        try:
+            all_summary = json.loads(summary_path.read_text())
+        except Exception:
+            all_summary = []
+    done = {r["problem_id"] for r in all_summary if (FIGDIR / r["figure"]).exists()}
+
+    for cfg in experiment_problems():
+        pid = cfg["problem_id"]
+        if pid in done:
+            print(f"\n=== {pid}: skip (already complete) ===", flush=True)
+            continue
+        rec = run_one_problem(cfg)
+        all_summary = [r for r in all_summary if r["problem_id"] != pid]
+        all_summary.append(rec)
+        # Keep registry order
+        order = {c["problem_id"]: i for i, c in enumerate(experiment_problems())}
+        all_summary.sort(key=lambda r: order.get(r["problem_id"], 999))
+        summary_path.write_text(json.dumps(all_summary, indent=2), encoding="utf-8")
+
+    rebuild_markdown(all_summary)
     print("Done.", flush=True)
 
 
