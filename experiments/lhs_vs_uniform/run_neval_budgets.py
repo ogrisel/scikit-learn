@@ -85,12 +85,13 @@ PIPE_LOGREG_SPECS = [
 
 # From ogrisel/notebooks poly_reg_array_api.ipynb (ignore Array API / GPU bits):
 # SplineTransformer → Nystroem(poly/rbf) → RidgeCV, with the notebook search space.
+# n_knots / n_components use integer log-discretization over the same min/max ranges.
 SPLINE_NYSTROEM_SPECS = [
-    ParamSpec("splinetransformer__n_knots", "int", low=3, high=29),
+    ParamSpec("splinetransformer__n_knots", "logint", low=3, high=29),
     ParamSpec("nystroem__kernel", "choice", choices=("poly", "rbf")),
     ParamSpec("nystroem__degree", "int", low=2, high=5),
     ParamSpec("nystroem__gamma", "loguniform", low=1e-6, high=1e6),
-    ParamSpec("nystroem__n_components", "choice", choices=(50, 100, 200, 300)),
+    ParamSpec("nystroem__n_components", "logint", low=50, high=300),
 ]
 
 
@@ -193,6 +194,8 @@ def experiment_problems() -> list[dict[str, Any]]:
             "make_estimator": make_spline_nystroem_ridge,
             "specs": SPLINE_NYSTROEM_SPECS,
             "kind": "estimator",
+            # ~2x the default 5s packing budget for more seed repeats
+            "wall_budget_s": 10.0,
         },
     ]
 
@@ -273,13 +276,13 @@ def summarize_winner_params(
                 "q90": float(np.percentile(arr, 90)),
                 "kind": spec.kind,
             }
-        elif spec.kind == "int":
+        elif spec.kind in ("int", "logint"):
             arr = np.asarray(vals, dtype=float)
             out[spec.name] = {
                 "median": float(np.median(arr)),
                 "q10": float(np.percentile(arr, 10)),
                 "q90": float(np.percentile(arr, 90)),
-                "kind": "int",
+                "kind": spec.kind,
             }
         else:
             # choice — mode
@@ -295,7 +298,7 @@ def summarize_winner_params(
 
 
 def repeats_for_budget(
-    cfg, X, y, specs, method: str, n_iter: int
+    cfg, X, y, specs, method: str, n_iter: int, *, wall_budget_s: float = WALL_BUDGET_S
 ) -> dict[str, Any]:
     winners: list[dict[str, Any]] = []
     seed = 0
@@ -307,7 +310,7 @@ def repeats_for_budget(
         elapsed = time.perf_counter() - t0
         if len(winners) < MIN_REPEATS:
             continue
-        if elapsed >= WALL_BUDGET_S:
+        if elapsed >= wall_budget_s:
             break
         if len(winners) >= MAX_REPEATS:
             break
@@ -336,7 +339,14 @@ def repeats_for_budget(
     }
 
 
-def plot_problem(cfg, specs, by_method: dict[str, list[dict]], out_stem: str):
+def plot_problem(
+    cfg,
+    specs,
+    by_method: dict[str, list[dict]],
+    out_stem: str,
+    *,
+    wall_budget_s: float = WALL_BUDGET_S,
+):
     """Plot mean±std vs n_iter with x ticks fixed to N_ITERS (equally spaced)."""
     n_hp = len(specs)
     fig = plt.figure(figsize=(10.8, 5.8))
@@ -380,7 +390,7 @@ def plot_problem(cfg, specs, by_method: dict[str, list[dict]], out_stem: str):
     ax.set_ylabel(score_ylabel(cfg["scoring"]))
     ax.set_title(
         f"{cfg['problem_id']}  |  {n_hp} tuned hparams  |  "
-        f"n_iter ∈ {list(N_ITERS)}; ≥{MIN_REPEATS} seeds / ≤{WALL_BUDGET_S:.0f}s per budget",
+        f"n_iter ∈ {list(N_ITERS)}; ≥{MIN_REPEATS} seeds / ≤{wall_budget_s:.0f}s per budget",
         fontsize=11,
     )
     ax.grid(True, alpha=0.3, axis="y")
@@ -542,16 +552,21 @@ def rebuild_markdown(all_summary: list[dict[str, Any]]) -> None:
     (REPORTS / "NEVAL_BUDGETS.md").write_text("\n".join(md), encoding="utf-8")
 
 
-def run_one_problem(cfg: dict[str, Any]) -> dict[str, Any]:
+def run_one_problem(
+    cfg: dict[str, Any], *, wall_budget_s: float | None = None
+) -> dict[str, Any]:
     pid = cfg["problem_id"]
     specs = list(cfg["specs"])
-    print(f"\n=== {pid} ({len(specs)} hparams) ===", flush=True)
+    budget = float(cfg.get("wall_budget_s", WALL_BUDGET_S) if wall_budget_s is None else wall_budget_s)
+    print(f"\n=== {pid} ({len(specs)} hparams, wall_budget={budget:.0f}s) ===", flush=True)
     X, y = cfg["load_xy"]()
     by_method: dict[str, list[dict]] = {"uniform": [], "lhs": []}
     for n_iter in N_ITERS:
         for method in ("uniform", "lhs"):
             print(f"  n_iter={n_iter} {method}...", flush=True)
-            row = repeats_for_budget(cfg, X, y, specs, method, n_iter)
+            row = repeats_for_budget(
+                cfg, X, y, specs, method, n_iter, wall_budget_s=budget
+            )
             by_method[method].append(row)
             wpath = WINNERS_DIR / f"{pid}__{method}__n{n_iter}.json"
             wpath.write_text(json.dumps(row, indent=2), encoding="utf-8")
@@ -563,7 +578,7 @@ def run_one_problem(cfg: dict[str, Any]) -> dict[str, Any]:
             )
 
     stem = f"neval_{pid}"
-    plot_problem(cfg, specs, by_method, stem)
+    plot_problem(cfg, specs, by_method, stem, wall_budget_s=budget)
 
     def compact(rows):
         out = []

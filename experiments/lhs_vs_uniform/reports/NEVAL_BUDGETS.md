@@ -1,10 +1,10 @@
 # Best score vs number of evaluations
 
-_Generated 2026-08-19 14:03:39 UTC_
+_Generated 2026-08-19 14:44:21 UTC_
 
-Budgets: `n_iter ∈ [3, 5, 10, 30]`. For each budget/method, as many seed repeats as fit in **5s** wall time (always **≥3**). Points: mean ± std; bands: 10th–90th percentiles. X-axis ticks are exactly n_iter ∈ [3, 5, 10, 30] (equally spaced). Winning hyperparameter combos are listed per repeat.
+Budgets: `n_iter ∈ [3, 5, 10, 30]`. For each budget/method, as many seed repeats as fit in **5s** wall time (always **≥3**; `poly_reg_spline_nystroem` uses **10s**). Points: mean ± std; bands: 10th–90th percentiles. X-axis ticks are exactly n_iter ∈ [3, 5, 10, 30] (equally spaced). Winning hyperparameter combos are listed per repeat.
 
-`poly_reg_spline_nystroem` follows the SplineTransformer → Nystroem → RidgeCV setup from [poly_reg_array_api.ipynb](https://github.com/ogrisel/notebooks/blob/master/poly_reg_array_api.ipynb) (Array API / GPU steps omitted; data subsampled to 2500 rows).
+`poly_reg_spline_nystroem` follows the SplineTransformer → Nystroem → RidgeCV setup from [poly_reg_array_api.ipynb](https://github.com/ogrisel/notebooks/blob/master/poly_reg_array_api.ipynb) (Array API / GPU steps omitted; data subsampled to 2500 rows). Knots and Nystroem components use `lograndint` grids over the same min/max ranges.
 
 ## `diabetes_ridge` — 1 tuned hparams
 
@@ -1802,222 +1802,307 @@ Winning-param summary across repeats:
 ### Search space
 
 ```
-splinetransformer__n_knots ~ randint(3, 29)
+splinetransformer__n_knots ~ lograndint(3, 29) → [3, 4, 5, 7, 9, 12, 16, 22, 29]
 nystroem__kernel ∈ ['poly', 'rbf']
 nystroem__degree ~ randint(2, 5)
 nystroem__gamma ~ loguniform(1e-06, 1e+06)
-nystroem__n_components ∈ [50, 100, 200, 300]
+nystroem__n_components ~ lograndint(50, 300) → [50, 67, 91, 122, 165, 223, 300]
 ```
 
 | n_iter | Uniform mean±std (n) | LHS mean±std (n) |
 |------:|----------------------:|-----------------:|
-| 3 | -0.069483±0.021 (n=13) | -0.070018±0.0199 (n=15) |
-| 5 | -0.057393±0.00628 (n=9) | -0.056634±0.0131 (n=9) |
-| 10 | -0.053673±0.00366 (n=6) | -0.049231±0.00105 (n=5) |
-| 30 | -0.049217±1.01e-05 (n=3) | -0.049132±0.000387 (n=3) |
+| 3 | -0.062834±0.0201 (n=36) | -0.066438±0.0254 (n=38) |
+| 5 | -0.051882±0.00545 (n=20) | -0.054243±0.0106 (n=24) |
+| 10 | -0.049777±0.00159 (n=12) | -0.050765±0.00449 (n=13) |
+| 30 | -0.048472±0.000858 (n=5) | -0.048562±0.000791 (n=5) |
 
 ### Winning hyperparameter combos
 
 ### n_iter = 3
 
-#### `uniform` @ n_iter=3 (n=13, wall=5.33s)
+#### `uniform` @ n_iter=3 (n=36, wall=10.03s)
 
-- Mean±std score: **-0.069483 ± 0.021**
-- Best repeat: seed=10, score=-0.047993, `nystroem__degree=5, nystroem__gamma=0.12768, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=6`
-
-Winning-param summary across repeats:
-
-- `splinetransformer__n_knots`: median=16 [q10=6.6, q90=27]
-- `nystroem__kernel`: mode=poly counts={'poly': 9, 'rbf': 4}
-- `nystroem__degree`: median=3 [q10=2, q90=4.8]
-- `nystroem__gamma`: median=3.3381 [q10=0.00056833, q90=1.9374e+05]
-- `nystroem__n_components`: mode=300 counts={'50': 2, '100': 1, '200': 3, '300': 7}
-
-| seed | score | winning params |
-|-----:|------:|----------------|
-| 0 | -0.086978 | `nystroem__degree=4, nystroem__gamma=3.3381, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=27` |
-| 1 | -0.12231 | `nystroem__degree=3, nystroem__gamma=3.9366, nystroem__kernel=rbf, nystroem__n_components=50, splinetransformer__n_knots=14` |
-| 2 | -0.058285 | `nystroem__degree=2, nystroem__gamma=0.0019936, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=22` |
-| 3 | -0.057282 | `nystroem__degree=5, nystroem__gamma=9.6815, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=5` |
-| 4 | -0.068891 | `nystroem__degree=3, nystroem__gamma=2933.3, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=27` |
-| 5 | -0.059722 | `nystroem__degree=3, nystroem__gamma=4.9004e+05, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=20` |
-| 6 | -0.053801 | `nystroem__degree=3, nystroem__gamma=0.031186, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=17` |
-| 7 | -0.048982 | `nystroem__degree=3, nystroem__gamma=0.21924, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=11` |
-| 8 | -0.083346 | `nystroem__degree=2, nystroem__gamma=0.00021202, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9` |
-| 9 | -0.054328 | `nystroem__degree=2, nystroem__gamma=9278.1, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=16` |
-| 10 | -0.047993 | `nystroem__degree=5, nystroem__gamma=0.12768, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=6` |
-| 11 | -0.077584 | `nystroem__degree=2, nystroem__gamma=2.3985e+05, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=28` |
-| 12 | -0.083778 | `nystroem__degree=2, nystroem__gamma=0.00014174, nystroem__kernel=rbf, nystroem__n_components=100, splinetransformer__n_knots=9` |
-
-#### `lhs` @ n_iter=3 (n=15, wall=5.31s)
-
-- Mean±std score: **-0.070018 ± 0.0199**
-- Best repeat: seed=12, score=-0.047972, `nystroem__degree=5, nystroem__gamma=0.039114, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=10`
+- Mean±std score: **-0.062834 ± 0.0201**
+- Best repeat: seed=15, score=-0.047864, `nystroem__degree=3, nystroem__gamma=0.30487, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=4`
 
 Winning-param summary across repeats:
 
-- `splinetransformer__n_knots`: median=17 [q10=5, q90=26.8]
-- `nystroem__kernel`: mode=poly counts={'poly': 10, 'rbf': 5}
+- `splinetransformer__n_knots`: median=7 [q10=3.5, q90=16]
+- `nystroem__kernel`: mode=poly counts={'poly': 19, 'rbf': 17}
 - `nystroem__degree`: median=3 [q10=2, q90=5]
-- `nystroem__gamma`: median=0.049626 [q10=0.00083382, q90=1363.6]
-- `nystroem__n_components`: mode=300 counts={'50': 2, '100': 5, '200': 2, '300': 6}
+- `nystroem__gamma`: median=0.29531 [q10=0.0013233, q90=4131.4]
+- `nystroem__n_components`: median=165 [q10=50, q90=300]
 
 | seed | score | winning params |
 |-----:|------:|----------------|
-| 0 | -0.065556 | `nystroem__degree=2, nystroem__gamma=0.0018368, nystroem__kernel=rbf, nystroem__n_components=200, splinetransformer__n_knots=25` |
-| 1 | -0.07131 | `nystroem__degree=3, nystroem__gamma=15869, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=29` |
-| 2 | -0.094244 | `nystroem__degree=3, nystroem__gamma=4.2666, nystroem__kernel=poly, nystroem__n_components=100, splinetransformer__n_knots=28` |
-| 3 | -0.059818 | `nystroem__degree=2, nystroem__gamma=141.66, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=22` |
-| 4 | -0.057385 | `nystroem__degree=3, nystroem__gamma=2178.2, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=17` |
-| 5 | -0.050528 | `nystroem__degree=3, nystroem__gamma=0.0008511, nystroem__kernel=poly, nystroem__n_components=100, splinetransformer__n_knots=10` |
-| 6 | -0.11229 | `nystroem__degree=2, nystroem__gamma=42.955, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=25` |
-| 7 | -0.066781 | `nystroem__degree=4, nystroem__gamma=0.0029772, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=5` |
-| 8 | -0.055383 | `nystroem__degree=5, nystroem__gamma=0.0008223, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=20` |
-| 9 | -0.062048 | `nystroem__degree=2, nystroem__gamma=0.049626, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=5` |
-| 10 | -0.076701 | `nystroem__degree=2, nystroem__gamma=10.865, nystroem__kernel=rbf, nystroem__n_components=100, splinetransformer__n_knots=7` |
-| 11 | -0.1055 | `nystroem__degree=5, nystroem__gamma=0.00010852, nystroem__kernel=poly, nystroem__n_components=100, splinetransformer__n_knots=5` |
-| 12 | -0.047972 | `nystroem__degree=5, nystroem__gamma=0.039114, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=10` |
-| 13 | -0.074399 | `nystroem__degree=2, nystroem__gamma=0.24571, nystroem__kernel=poly, nystroem__n_components=100, splinetransformer__n_knots=19` |
-| 14 | -0.050351 | `nystroem__degree=2, nystroem__gamma=0.033148, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=16` |
+| 2 | -0.053372 | `nystroem__degree=2, nystroem__gamma=0.0019936, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=16` |
+| 3 | -0.051272 | `nystroem__degree=2, nystroem__gamma=653.02, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=7` |
+| 5 | -0.056442 | `nystroem__degree=3, nystroem__gamma=4.9004e+05, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=12` |
+| 6 | -0.04985 | `nystroem__degree=3, nystroem__gamma=0.031186, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9` |
+| 7 | -0.048476 | `nystroem__degree=3, nystroem__gamma=0.21924, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=5` |
+| 9 | -0.049683 | `nystroem__degree=2, nystroem__gamma=9278.1, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9` |
+| 10 | -0.048334 | `nystroem__degree=5, nystroem__gamma=0.12768, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=4` |
+| 11 | -0.055491 | `nystroem__degree=4, nystroem__gamma=0.0020124, nystroem__kernel=rbf, nystroem__n_components=50, splinetransformer__n_knots=7` |
+| 13 | -0.048073 | `nystroem__degree=2, nystroem__gamma=0.1817, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=5` |
+| 14 | -0.048682 | `nystroem__degree=4, nystroem__gamma=0.40367, nystroem__kernel=rbf, nystroem__n_components=165, splinetransformer__n_knots=9` |
+| 15 | -0.047864 | `nystroem__degree=3, nystroem__gamma=0.30487, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=4` |
+| 16 | -0.050949 | `nystroem__degree=2, nystroem__gamma=0.01503, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=12` |
+| 19 | -0.052985 | `nystroem__degree=4, nystroem__gamma=0.0054952, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=16` |
+| 20 | -0.050236 | `nystroem__degree=5, nystroem__gamma=213.21, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=3` |
+| 22 | -0.04948 | `nystroem__degree=2, nystroem__gamma=68.913, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=7` |
+| 23 | -0.049027 | `nystroem__degree=2, nystroem__gamma=0.28576, nystroem__kernel=poly, nystroem__n_components=91, splinetransformer__n_knots=7` |
+| 24 | -0.048426 | `nystroem__degree=4, nystroem__gamma=1.1934, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=5` |
+| 26 | -0.049504 | `nystroem__degree=2, nystroem__gamma=358.34, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=9` |
+| 27 | -0.05061 | `nystroem__degree=2, nystroem__gamma=0.0076401, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=16` |
+| 28 | -0.04793 | `nystroem__degree=5, nystroem__gamma=2.4623, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=5` |
+| 30 | -0.049332 | `nystroem__degree=5, nystroem__gamma=0.049244, nystroem__kernel=rbf, nystroem__n_components=122, splinetransformer__n_knots=5` |
+| 31 | -0.065472 | `nystroem__degree=4, nystroem__gamma=0.00033144, nystroem__kernel=rbf, nystroem__n_components=91, splinetransformer__n_knots=12` |
+| 33 | -0.050218 | `nystroem__degree=5, nystroem__gamma=0.0011246, nystroem__kernel=rbf, nystroem__n_components=165, splinetransformer__n_knots=7` |
+| 34 | -0.061853 | `nystroem__degree=2, nystroem__gamma=64.973, nystroem__kernel=rbf, nystroem__n_components=122, splinetransformer__n_knots=3` |
+| 35 | -0.057809 | `nystroem__degree=5, nystroem__gamma=5329.4, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=3` |
+
+_Showing 25/36 repeats (highest scores). Full list in JSON._
+
+#### `lhs` @ n_iter=3 (n=38, wall=10.14s)
+
+- Mean±std score: **-0.066438 ± 0.0254**
+- Best repeat: seed=32, score=-0.047613, `nystroem__degree=4, nystroem__gamma=0.004515, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9`
+
+Winning-param summary across repeats:
+
+- `splinetransformer__n_knots`: median=7 [q10=3, q90=16]
+- `nystroem__kernel`: mode=poly counts={'poly': 31, 'rbf': 7}
+- `nystroem__degree`: median=3 [q10=2, q90=5]
+- `nystroem__gamma`: median=1.2047 [q10=0.00055847, q90=17741]
+- `nystroem__n_components`: median=143.5 [q10=50, q90=300]
+
+| seed | score | winning params |
+|-----:|------:|----------------|
+| 0 | -0.057291 | `nystroem__degree=5, nystroem__gamma=136.25, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=12` |
+| 3 | -0.052372 | `nystroem__degree=2, nystroem__gamma=141.66, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=16` |
+| 4 | -0.04826 | `nystroem__degree=5, nystroem__gamma=2.7353, nystroem__kernel=poly, nystroem__n_components=91, splinetransformer__n_knots=5` |
+| 7 | -0.054237 | `nystroem__degree=2, nystroem__gamma=1.0048, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=7` |
+| 8 | -0.04967 | `nystroem__degree=5, nystroem__gamma=0.0008223, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=12` |
+| 10 | -0.049996 | `nystroem__degree=2, nystroem__gamma=10.865, nystroem__kernel=rbf, nystroem__n_components=122, splinetransformer__n_knots=4` |
+| 12 | -0.048451 | `nystroem__degree=5, nystroem__gamma=0.039114, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=5` |
+| 13 | -0.056195 | `nystroem__degree=2, nystroem__gamma=0.24571, nystroem__kernel=poly, nystroem__n_components=91, splinetransformer__n_knots=12` |
+| 14 | -0.048495 | `nystroem__degree=2, nystroem__gamma=0.033148, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=9` |
+| 15 | -0.04803 | `nystroem__degree=2, nystroem__gamma=0.030547, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=9` |
+| 16 | -0.049332 | `nystroem__degree=4, nystroem__gamma=1.1667, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=7` |
+| 17 | -0.054726 | `nystroem__degree=2, nystroem__gamma=2248, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=5` |
+| 18 | -0.06278 | `nystroem__degree=2, nystroem__gamma=0.20742, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=5` |
+| 19 | -0.058251 | `nystroem__degree=4, nystroem__gamma=1.5099e+05, nystroem__kernel=poly, nystroem__n_components=91, splinetransformer__n_knots=9` |
+| 20 | -0.049311 | `nystroem__degree=4, nystroem__gamma=41.124, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=4` |
+| 22 | -0.050657 | `nystroem__degree=2, nystroem__gamma=1.2428, nystroem__kernel=poly, nystroem__n_components=67, splinetransformer__n_knots=7` |
+| 23 | -0.053837 | `nystroem__degree=2, nystroem__gamma=43869, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=16` |
+| 24 | -0.051428 | `nystroem__degree=2, nystroem__gamma=0.52105, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=16` |
+| 25 | -0.057741 | `nystroem__degree=5, nystroem__gamma=1029.3, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=12` |
+| 26 | -0.051587 | `nystroem__degree=4, nystroem__gamma=16999, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=3` |
+| 29 | -0.049689 | `nystroem__degree=2, nystroem__gamma=19.61, nystroem__kernel=rbf, nystroem__n_components=165, splinetransformer__n_knots=3` |
+| 30 | -0.049287 | `nystroem__degree=3, nystroem__gamma=3.1771, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=5` |
+| 32 | -0.047613 | `nystroem__degree=4, nystroem__gamma=0.004515, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9` |
+| 33 | -0.049401 | `nystroem__degree=5, nystroem__gamma=0.0007513, nystroem__kernel=rbf, nystroem__n_components=165, splinetransformer__n_knots=9` |
+| 35 | -0.055606 | `nystroem__degree=3, nystroem__gamma=19472, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=12` |
+
+_Showing 25/38 repeats (highest scores). Full list in JSON._
 
 ### n_iter = 5
 
-#### `uniform` @ n_iter=5 (n=9, wall=5.35s)
+#### `uniform` @ n_iter=5 (n=20, wall=10.10s)
 
-- Mean±std score: **-0.057393 ± 0.00628**
-- Best repeat: seed=7, score=-0.048982, `nystroem__degree=3, nystroem__gamma=0.21924, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=11`
-
-Winning-param summary across repeats:
-
-- `splinetransformer__n_knots`: median=17 [q10=6.6, q90=23.8]
-- `nystroem__kernel`: mode=poly counts={'poly': 8, 'rbf': 1}
-- `nystroem__degree`: median=3 [q10=2.8, q90=4.2]
-- `nystroem__gamma`: median=9.6815 [q10=0.0035583, q90=5.0949e+05]
-- `nystroem__n_components`: mode=300 counts={'50': 1, '100': 1, '200': 3, '300': 4}
-
-| seed | score | winning params |
-|-----:|------:|----------------|
-| 0 | -0.049206 | `nystroem__degree=4, nystroem__gamma=0.0039495, nystroem__kernel=rbf, nystroem__n_components=100, splinetransformer__n_knots=7` |
-| 1 | -0.062461 | `nystroem__degree=3, nystroem__gamma=5.8728e+05, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=23` |
-| 2 | -0.058285 | `nystroem__degree=2, nystroem__gamma=0.0019936, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=22` |
-| 3 | -0.057282 | `nystroem__degree=5, nystroem__gamma=9.6815, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=5` |
-| 4 | -0.068891 | `nystroem__degree=3, nystroem__gamma=2933.3, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=27` |
-| 5 | -0.059722 | `nystroem__degree=3, nystroem__gamma=4.9004e+05, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=20` |
-| 6 | -0.053801 | `nystroem__degree=3, nystroem__gamma=0.031186, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=17` |
-| 7 | -0.048982 | `nystroem__degree=3, nystroem__gamma=0.21924, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=11` |
-| 8 | -0.057907 | `nystroem__degree=4, nystroem__gamma=17.835, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=14` |
-
-#### `lhs` @ n_iter=5 (n=9, wall=5.44s)
-
-- Mean±std score: **-0.056634 ± 0.0131**
-- Best repeat: seed=5, score=-0.048892, `nystroem__degree=3, nystroem__gamma=0.033062, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=13`
+- Mean±std score: **-0.051882 ± 0.00545**
+- Best repeat: seed=15, score=-0.047864, `nystroem__degree=3, nystroem__gamma=0.30487, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=4`
 
 Winning-param summary across repeats:
 
-- `splinetransformer__n_knots`: median=11 [q10=6.2, q90=19.4]
-- `nystroem__kernel`: mode=poly counts={'poly': 8, 'rbf': 1}
-- `nystroem__degree`: median=3 [q10=2, q90=4.2]
-- `nystroem__gamma`: median=0.033062 [q10=0.0034713, q90=12673]
-- `nystroem__n_components`: mode=300 counts={'50': 1, '100': 1, '200': 1, '300': 6}
+- `splinetransformer__n_knots`: median=8 [q10=3.9, q90=16]
+- `nystroem__kernel`: mode=poly counts={'poly': 14, 'rbf': 6}
+- `nystroem__degree`: median=3 [q10=2, q90=4.1]
+- `nystroem__gamma`: median=0.28483 [q10=0.0020105, q90=57355]
+- `nystroem__n_components`: median=194 [q10=65.3, q90=300]
 
 | seed | score | winning params |
 |-----:|------:|----------------|
-| 0 | -0.050938 | `nystroem__degree=4, nystroem__gamma=0.001052, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=13` |
-| 1 | -0.054848 | `nystroem__degree=3, nystroem__gamma=0.020681, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=7` |
-| 2 | -0.049045 | `nystroem__degree=5, nystroem__gamma=0.0040761, nystroem__kernel=poly, nystroem__n_components=100, splinetransformer__n_knots=7` |
+| 0 | -0.049952 | `nystroem__degree=4, nystroem__gamma=58.381, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=3` |
+| 1 | -0.057029 | `nystroem__degree=3, nystroem__gamma=5.8728e+05, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=16` |
+| 2 | -0.053372 | `nystroem__degree=2, nystroem__gamma=0.0019936, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=16` |
+| 3 | -0.051272 | `nystroem__degree=2, nystroem__gamma=653.02, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=7` |
+| 4 | -0.071638 | `nystroem__degree=3, nystroem__gamma=2933.3, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=29` |
+| 5 | -0.056442 | `nystroem__degree=3, nystroem__gamma=4.9004e+05, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=12` |
+| 6 | -0.04985 | `nystroem__degree=3, nystroem__gamma=0.031186, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9` |
+| 7 | -0.048476 | `nystroem__degree=3, nystroem__gamma=0.21924, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=5` |
+| 8 | -0.049547 | `nystroem__degree=4, nystroem__gamma=17.835, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=7` |
+| 9 | -0.049683 | `nystroem__degree=2, nystroem__gamma=9278.1, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9` |
+| 10 | -0.048334 | `nystroem__degree=5, nystroem__gamma=0.12768, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=4` |
+| 11 | -0.055491 | `nystroem__degree=4, nystroem__gamma=0.0020124, nystroem__kernel=rbf, nystroem__n_components=50, splinetransformer__n_knots=7` |
+| 12 | -0.053542 | `nystroem__degree=5, nystroem__gamma=0.0012742, nystroem__kernel=poly, nystroem__n_components=67, splinetransformer__n_knots=9` |
+| 13 | -0.048073 | `nystroem__degree=2, nystroem__gamma=0.1817, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=5` |
+| 14 | -0.048443 | `nystroem__degree=4, nystroem__gamma=0.11418, nystroem__kernel=rbf, nystroem__n_components=165, splinetransformer__n_knots=9` |
+| 15 | -0.047864 | `nystroem__degree=3, nystroem__gamma=0.30487, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=4` |
+| 16 | -0.050949 | `nystroem__degree=2, nystroem__gamma=0.01503, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=12` |
+| 17 | -0.048303 | `nystroem__degree=4, nystroem__gamma=0.2648, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=4` |
+| 18 | -0.049293 | `nystroem__degree=4, nystroem__gamma=31.787, nystroem__kernel=rbf, nystroem__n_components=165, splinetransformer__n_knots=3` |
+| 19 | -0.050082 | `nystroem__degree=3, nystroem__gamma=56.486, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=12` |
+
+#### `lhs` @ n_iter=5 (n=24, wall=10.28s)
+
+- Mean±std score: **-0.054243 ± 0.0106**
+- Best repeat: seed=5, score=-0.048033, `nystroem__degree=3, nystroem__gamma=0.033062, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=7`
+
+Winning-param summary across repeats:
+
+- `splinetransformer__n_knots`: median=7 [q10=3.3, q90=12]
+- `nystroem__kernel`: mode=poly counts={'poly': 18, 'rbf': 6}
+- `nystroem__degree`: median=3 [q10=2, q90=5]
+- `nystroem__gamma`: median=0.17228 [q10=0.016746, q90=85.628]
+- `nystroem__n_components`: median=165 [q10=55.1, q90=300]
+
+| seed | score | winning params |
+|-----:|------:|----------------|
+| 0 | -0.049648 | `nystroem__degree=4, nystroem__gamma=0.001052, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=7` |
+| 1 | -0.051344 | `nystroem__degree=5, nystroem__gamma=109.65, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=7` |
+| 2 | -0.063262 | `nystroem__degree=5, nystroem__gamma=2.3881, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=7` |
 | 3 | -0.090654 | `nystroem__degree=2, nystroem__gamma=0.077759, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=3` |
-| 4 | -0.053327 | `nystroem__degree=3, nystroem__gamma=0.012904, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=19` |
-| 5 | -0.048892 | `nystroem__degree=3, nystroem__gamma=0.033062, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=13` |
-| 6 | -0.055963 | `nystroem__degree=2, nystroem__gamma=0.15614, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=21` |
-| 7 | -0.056608 | `nystroem__degree=4, nystroem__gamma=63277, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=8` |
-| 8 | -0.049428 | `nystroem__degree=2, nystroem__gamma=21.277, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=11` |
+| 4 | -0.048518 | `nystroem__degree=3, nystroem__gamma=0.012904, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=12` |
+| 5 | -0.048033 | `nystroem__degree=3, nystroem__gamma=0.033062, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=7` |
+| 6 | -0.052975 | `nystroem__degree=2, nystroem__gamma=0.15614, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=16` |
+| 7 | -0.049896 | `nystroem__degree=3, nystroem__gamma=0.25688, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=12` |
+| 8 | -0.055994 | `nystroem__degree=2, nystroem__gamma=21.277, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=5` |
+| 9 | -0.051314 | `nystroem__degree=3, nystroem__gamma=0.30328, nystroem__kernel=poly, nystroem__n_components=67, splinetransformer__n_knots=7` |
+| 10 | -0.048178 | `nystroem__degree=3, nystroem__gamma=0.039902, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=7` |
+| 11 | -0.05399 | `nystroem__degree=3, nystroem__gamma=0.025709, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=7` |
+| 12 | -0.049153 | `nystroem__degree=4, nystroem__gamma=29.572, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=3` |
+| 13 | -0.050534 | `nystroem__degree=3, nystroem__gamma=0.43078, nystroem__kernel=poly, nystroem__n_components=67, splinetransformer__n_knots=7` |
+| 14 | -0.063967 | `nystroem__degree=2, nystroem__gamma=6.7433e+05, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=4` |
+| 15 | -0.048305 | `nystroem__degree=3, nystroem__gamma=0.037055, nystroem__kernel=rbf, nystroem__n_components=122, splinetransformer__n_knots=9` |
+| 16 | -0.049842 | `nystroem__degree=5, nystroem__gamma=1.0969, nystroem__kernel=poly, nystroem__n_components=91, splinetransformer__n_knots=3` |
+| 17 | -0.049252 | `nystroem__degree=3, nystroem__gamma=0.0052559, nystroem__kernel=poly, nystroem__n_components=67, splinetransformer__n_knots=7` |
+| 18 | -0.050437 | `nystroem__degree=5, nystroem__gamma=30018, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=7` |
+| 19 | -0.048708 | `nystroem__degree=3, nystroem__gamma=0.18842, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=9` |
+| 20 | -0.049557 | `nystroem__degree=5, nystroem__gamma=0.037022, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=5` |
+| 21 | -0.048914 | `nystroem__degree=5, nystroem__gamma=5.2613, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=5` |
+| 22 | -0.049494 | `nystroem__degree=2, nystroem__gamma=0.10994, nystroem__kernel=rbf, nystroem__n_components=165, splinetransformer__n_knots=4` |
+| 23 | -0.079865 | `nystroem__degree=3, nystroem__gamma=0.098508, nystroem__kernel=rbf, nystroem__n_components=50, splinetransformer__n_knots=12` |
 
 ### n_iter = 10
 
-#### `uniform` @ n_iter=10 (n=6, wall=6.24s)
+#### `uniform` @ n_iter=10 (n=12, wall=10.14s)
 
-- Mean±std score: **-0.053673 ± 0.00366**
-- Best repeat: seed=0, score=-0.049206, `nystroem__degree=4, nystroem__gamma=0.0039495, nystroem__kernel=rbf, nystroem__n_components=100, splinetransformer__n_knots=7`
-
-Winning-param summary across repeats:
-
-- `splinetransformer__n_knots`: median=11 [q10=6, q90=21]
-- `nystroem__kernel`: mode=poly counts={'poly': 3, 'rbf': 3}
-- `nystroem__degree`: median=4 [q10=2, q90=5]
-- `nystroem__gamma`: median=0.0054134 [q10=0.0016577, q90=20406]
-- `nystroem__n_components`: mode=100 counts={'50': 1, '100': 2, '200': 1, '300': 2}
-
-| seed | score | winning params |
-|-----:|------:|----------------|
-| 0 | -0.049206 | `nystroem__degree=4, nystroem__gamma=0.0039495, nystroem__kernel=rbf, nystroem__n_components=100, splinetransformer__n_knots=7` |
-| 1 | -0.054092 | `nystroem__degree=4, nystroem__gamma=0.0013218, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=20` |
-| 2 | -0.058285 | `nystroem__degree=2, nystroem__gamma=0.0019936, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=22` |
-| 3 | -0.057282 | `nystroem__degree=5, nystroem__gamma=9.6815, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=5` |
-| 4 | -0.052971 | `nystroem__degree=5, nystroem__gamma=40802, nystroem__kernel=poly, nystroem__n_components=100, splinetransformer__n_knots=7` |
-| 5 | -0.050199 | `nystroem__degree=2, nystroem__gamma=0.0068773, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=15` |
-
-#### `lhs` @ n_iter=10 (n=5, wall=5.65s)
-
-- Mean±std score: **-0.049231 ± 0.00105**
-- Best repeat: seed=3, score=-0.047879, `nystroem__degree=3, nystroem__gamma=0.036978, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=7`
+- Mean±std score: **-0.049777 ± 0.00159**
+- Best repeat: seed=5, score=-0.04758, `nystroem__degree=2, nystroem__gamma=0.0068773, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=9`
 
 Winning-param summary across repeats:
 
-- `splinetransformer__n_knots`: median=8 [q10=5.8, q90=11.4]
-- `nystroem__kernel`: mode=poly counts={'poly': 3, 'rbf': 2}
-- `nystroem__degree`: median=3 [q10=3, q90=4.2]
-- `nystroem__gamma`: median=0.030613 [q10=0.0048996, q90=200.88]
-- `nystroem__n_components`: mode=300 counts={'100': 1, '300': 4}
+- `splinetransformer__n_knots`: median=8 [q10=4, q90=11.7]
+- `nystroem__kernel`: mode=poly counts={'poly': 9, 'rbf': 3}
+- `nystroem__degree`: median=3 [q10=2, q90=4.9]
+- `nystroem__gamma`: median=9.027 [q10=0.0024819, q90=37649]
+- `nystroem__n_components`: median=165 [q10=94.1, q90=300]
 
 | seed | score | winning params |
 |-----:|------:|----------------|
-| 0 | -0.048695 | `nystroem__degree=3, nystroem__gamma=0.001185, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9` |
-| 1 | -0.050215 | `nystroem__degree=5, nystroem__gamma=0.010471, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=13` |
-| 2 | -0.048997 | `nystroem__degree=3, nystroem__gamma=0.030613, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=5` |
-| 3 | -0.047879 | `nystroem__degree=3, nystroem__gamma=0.036978, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=7` |
-| 4 | -0.050367 | `nystroem__degree=3, nystroem__gamma=334.77, nystroem__kernel=poly, nystroem__n_components=100, splinetransformer__n_knots=8` |
+| 0 | -0.049952 | `nystroem__degree=4, nystroem__gamma=58.381, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=3` |
+| 1 | -0.050194 | `nystroem__degree=4, nystroem__gamma=0.0013218, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=12` |
+| 2 | -0.053372 | `nystroem__degree=2, nystroem__gamma=0.0019936, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=16` |
+| 3 | -0.051272 | `nystroem__degree=2, nystroem__gamma=653.02, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=7` |
+| 4 | -0.048166 | `nystroem__degree=5, nystroem__gamma=40802, nystroem__kernel=poly, nystroem__n_components=91, splinetransformer__n_knots=4` |
+| 5 | -0.04758 | `nystroem__degree=2, nystroem__gamma=0.0068773, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=9` |
+| 6 | -0.04985 | `nystroem__degree=3, nystroem__gamma=0.031186, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9` |
+| 7 | -0.048476 | `nystroem__degree=3, nystroem__gamma=0.21924, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=5` |
+| 8 | -0.049547 | `nystroem__degree=4, nystroem__gamma=17.835, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=7` |
+| 9 | -0.049683 | `nystroem__degree=2, nystroem__gamma=9278.1, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9` |
+| 10 | -0.048334 | `nystroem__degree=5, nystroem__gamma=0.12768, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=4` |
+| 11 | -0.050905 | `nystroem__degree=2, nystroem__gamma=56407, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=9` |
+
+#### `lhs` @ n_iter=10 (n=13, wall=10.65s)
+
+- Mean±std score: **-0.050765 ± 0.00449**
+- Best repeat: seed=3, score=-0.047504, `nystroem__degree=5, nystroem__gamma=0.070523, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=7`
+
+Winning-param summary across repeats:
+
+- `splinetransformer__n_knots`: median=7 [q10=3.2, q90=9]
+- `nystroem__kernel`: mode=poly counts={'poly': 9, 'rbf': 4}
+- `nystroem__degree`: median=4 [q10=3, q90=5]
+- `nystroem__gamma`: median=7.2847 [q10=0.05424, q90=270.45]
+- `nystroem__n_components`: median=165 [q10=91, q90=300]
+
+| seed | score | winning params |
+|-----:|------:|----------------|
+| 0 | -0.06483 | `nystroem__degree=4, nystroem__gamma=1.9545, nystroem__kernel=poly, nystroem__n_components=50, splinetransformer__n_knots=9` |
+| 1 | -0.049571 | `nystroem__degree=5, nystroem__gamma=0.010471, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=7` |
+| 2 | -0.051616 | `nystroem__degree=3, nystroem__gamma=72703, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=4` |
+| 3 | -0.047504 | `nystroem__degree=5, nystroem__gamma=0.070523, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=7` |
+| 4 | -0.048769 | `nystroem__degree=3, nystroem__gamma=334.77, nystroem__kernel=poly, nystroem__n_components=91, splinetransformer__n_knots=4` |
+| 5 | -0.04842 | `nystroem__degree=5, nystroem__gamma=0.070495, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=12` |
+| 6 | -0.05028 | `nystroem__degree=5, nystroem__gamma=7.2847, nystroem__kernel=poly, nystroem__n_components=122, splinetransformer__n_knots=3` |
+| 7 | -0.049188 | `nystroem__degree=2, nystroem__gamma=0.15898, nystroem__kernel=rbf, nystroem__n_components=122, splinetransformer__n_knots=9` |
+| 8 | -0.052956 | `nystroem__degree=4, nystroem__gamma=7.4905, nystroem__kernel=rbf, nystroem__n_components=300, splinetransformer__n_knots=7` |
+| 9 | -0.050534 | `nystroem__degree=4, nystroem__gamma=9.5628, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=3` |
+| 10 | -0.04795 | `nystroem__degree=5, nystroem__gamma=0.050176, nystroem__kernel=rbf, nystroem__n_components=165, splinetransformer__n_knots=7` |
+| 11 | -0.049835 | `nystroem__degree=3, nystroem__gamma=13.152, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=5` |
+| 12 | -0.048498 | `nystroem__degree=5, nystroem__gamma=10.03, nystroem__kernel=poly, nystroem__n_components=91, splinetransformer__n_knots=4` |
 
 ### n_iter = 30
 
-#### `uniform` @ n_iter=30 (n=3, wall=9.78s)
+#### `uniform` @ n_iter=30 (n=5, wall=12.36s)
 
-- Mean±std score: **-0.049217 ± 1.01e-05**
-- Best repeat: seed=0, score=-0.049206, `nystroem__degree=4, nystroem__gamma=0.0039495, nystroem__kernel=rbf, nystroem__n_components=100, splinetransformer__n_knots=7`
-
-Winning-param summary across repeats:
-
-- `splinetransformer__n_knots`: median=6 [q10=4.4, q90=6.8]
-- `nystroem__kernel`: mode=poly counts={'poly': 2, 'rbf': 1}
-- `nystroem__degree`: median=3 [q10=3, q90=3.8]
-- `nystroem__gamma`: median=95.458 [q10=19.095, q90=103.69]
-- `nystroem__n_components`: mode=100 counts={'100': 2, '300': 1}
-
-| seed | score | winning params |
-|-----:|------:|----------------|
-| 0 | -0.049206 | `nystroem__degree=4, nystroem__gamma=0.0039495, nystroem__kernel=rbf, nystroem__n_components=100, splinetransformer__n_knots=7` |
-| 1 | -0.049218 | `nystroem__degree=3, nystroem__gamma=95.458, nystroem__kernel=poly, nystroem__n_components=100, splinetransformer__n_knots=6` |
-| 2 | -0.049226 | `nystroem__degree=3, nystroem__gamma=105.75, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=4` |
-
-#### `lhs` @ n_iter=30 (n=3, wall=9.69s)
-
-- Mean±std score: **-0.049132 ± 0.000387**
-- Best repeat: seed=0, score=-0.048832, `nystroem__degree=4, nystroem__gamma=4.8478, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=4`
+- Mean±std score: **-0.048472 ± 0.000858**
+- Best repeat: seed=3, score=-0.047373, `nystroem__degree=5, nystroem__gamma=5.6894, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=3`
 
 Winning-param summary across repeats:
 
-- `splinetransformer__n_knots`: median=5 [q10=4.2, q90=8.2]
-- `nystroem__kernel`: mode=poly counts={'poly': 2, 'rbf': 1}
-- `nystroem__degree`: median=5 [q10=4.2, q90=5]
-- `nystroem__gamma`: median=0.056165 [q10=0.024464, q90=3.8895]
-- `nystroem__n_components`: mode=100 counts={'100': 1, '200': 1, '300': 1}
+- `splinetransformer__n_knots`: median=7 [q10=3.8, q90=7]
+- `nystroem__kernel`: mode=poly counts={'poly': 3, 'rbf': 2}
+- `nystroem__degree`: median=4 [q10=2, q90=4.6]
+- `nystroem__gamma`: median=2.6584 [q10=0.016292, q90=7.7983]
+- `nystroem__n_components`: median=223 [q10=143.8, q90=269.2]
 
 | seed | score | winning params |
 |-----:|------:|----------------|
-| 0 | -0.048832 | `nystroem__degree=4, nystroem__gamma=4.8478, nystroem__kernel=poly, nystroem__n_components=200, splinetransformer__n_knots=4` |
-| 1 | -0.048996 | `nystroem__degree=5, nystroem__gamma=0.016538, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=9` |
-| 2 | -0.049569 | `nystroem__degree=5, nystroem__gamma=0.056165, nystroem__kernel=rbf, nystroem__n_components=100, splinetransformer__n_knots=5` |
+| 0 | -0.048941 | `nystroem__degree=2, nystroem__gamma=9.2043, nystroem__kernel=poly, nystroem__n_components=91, splinetransformer__n_knots=7` |
+| 1 | -0.049446 | `nystroem__degree=4, nystroem__gamma=0.036736, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=7` |
+| 2 | -0.048805 | `nystroem__degree=4, nystroem__gamma=0.0026619, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=7` |
+| 3 | -0.047373 | `nystroem__degree=5, nystroem__gamma=5.6894, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=3` |
+| 4 | -0.047794 | `nystroem__degree=2, nystroem__gamma=2.6584, nystroem__kernel=rbf, nystroem__n_components=223, splinetransformer__n_knots=5` |
+
+#### `lhs` @ n_iter=30 (n=5, wall=12.40s)
+
+- Mean±std score: **-0.048562 ± 0.000791**
+- Best repeat: seed=3, score=-0.04753, `nystroem__degree=4, nystroem__gamma=1.5005, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=7`
+
+Winning-param summary across repeats:
+
+- `splinetransformer__n_knots`: median=7 [q10=5, q90=9]
+- `nystroem__kernel`: mode=poly counts={'poly': 4, 'rbf': 1}
+- `nystroem__degree`: median=4 [q10=2, q90=5]
+- `nystroem__gamma`: median=1.5005 [q10=0.02098, q90=34.404]
+- `nystroem__n_components`: median=223 [q10=139.2, q90=269.2]
+
+| seed | score | winning params |
+|-----:|------:|----------------|
+| 0 | -0.048754 | `nystroem__degree=2, nystroem__gamma=50.544, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=9` |
+| 1 | -0.049722 | `nystroem__degree=5, nystroem__gamma=0.016538, nystroem__kernel=poly, nystroem__n_components=223, splinetransformer__n_knots=5` |
+| 2 | -0.048362 | `nystroem__degree=2, nystroem__gamma=10.195, nystroem__kernel=poly, nystroem__n_components=165, splinetransformer__n_knots=9` |
+| 3 | -0.04753 | `nystroem__degree=4, nystroem__gamma=1.5005, nystroem__kernel=poly, nystroem__n_components=300, splinetransformer__n_knots=7` |
+| 4 | -0.048441 | `nystroem__degree=5, nystroem__gamma=0.027643, nystroem__kernel=rbf, nystroem__n_components=122, splinetransformer__n_knots=5` |
 
 Full per-repeat winner JSON: `experiments/lhs_vs_uniform/results/winners/`.
 
+## Notes on `poly_reg_spline_nystroem`
+
+- Wall budget **10s** (~2× default) for more seed repeats.
+- `n_knots` / `n_components` use integer log-discretized grids (`lograndint`) preserving the same min/max as before.
+- With that change, the earlier mid-budget LHS edge largely disappears; methods converge by `n_iter=30`. Small-`n_iter` gaps sit within overlapping std bands.
+
+## How to regenerate
+
+```bash
+python experiments/lhs_vs_uniform/run_neval_budgets.py
+# or replot only:
+python experiments/lhs_vs_uniform/replot_neval.py
+```
+
 This pull request includes code written with the assistance of AI.
 The code has **not yet been reviewed** by a human.
+
