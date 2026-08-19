@@ -82,33 +82,54 @@ class ParamSpec:
             )
         return f"{self.name} ∈ {list(self.choices)}"
 
+    def _discrete_index(self, value: Any) -> tuple[int, int]:
+        """Return (index, n_steps) for discrete kinds on a 0..n_steps scale.
+
+        For ``logint``, off-grid values snap to the nearest grid point (by
+        absolute distance) so boundary checks do not silently treat unknowns
+        as endpoints.
+        """
+        if self.kind == "logint":
+            grid = self.discrete_values()
+            assert grid is not None
+            n_steps = max(len(grid) - 1, 1)
+            v = int(value)
+            if v in grid:
+                return grid.index(v), n_steps
+            nearest = min(range(len(grid)), key=lambda i: abs(grid[i] - v))
+            return nearest, n_steps
+        if self.kind == "int":
+            lo, hi = int(self.low), int(self.high)
+            n_steps = max(hi - lo, 1)
+            idx = int(np.clip(int(value), lo, hi)) - lo
+            return idx, n_steps
+        raise ValueError(f"_discrete_index not defined for kind={self.kind}")
+
     def near_low_boundary(self, value: Any, *, frac: float = 0.05) -> bool:
         if self.kind == "choice":
             return False
         if self.kind == "loguniform":
             lo, hi = np.log(self.low), np.log(self.high)
-            return (np.log(float(value)) - lo) / (hi - lo) <= frac
-        if self.kind == "logint":
-            grid = self.discrete_values()
-            idx = grid.index(int(value)) if int(value) in grid else 0
-            return idx / max(len(grid) - 1, 1) <= frac
+            return bool((np.log(float(value)) - lo) / (hi - lo) <= frac)
+        if self.kind in ("int", "logint"):
+            idx, n_steps = self._discrete_index(value)
+            return bool(idx / n_steps <= frac)
         if self.kind == "uniform":
-            return (float(value) - self.low) / (self.high - self.low) <= frac
-        return int(value) <= int(self.low)
+            return bool((float(value) - self.low) / (self.high - self.low) <= frac)
+        raise ValueError(f"near_low_boundary not defined for kind={self.kind}")
 
     def near_high_boundary(self, value: Any, *, frac: float = 0.05) -> bool:
         if self.kind == "choice":
             return False
         if self.kind == "loguniform":
             lo, hi = np.log(self.low), np.log(self.high)
-            return (hi - np.log(float(value))) / (hi - lo) <= frac
-        if self.kind == "logint":
-            grid = self.discrete_values()
-            idx = grid.index(int(value)) if int(value) in grid else len(grid) - 1
-            return idx / max(len(grid) - 1, 1) >= 1.0 - frac
+            return bool((hi - np.log(float(value))) / (hi - lo) <= frac)
+        if self.kind in ("int", "logint"):
+            idx, n_steps = self._discrete_index(value)
+            return bool(idx / n_steps >= 1.0 - frac)
         if self.kind == "uniform":
-            return (self.high - float(value)) / (self.high - self.low) <= frac
-        return int(value) >= int(self.high)
+            return bool((self.high - float(value)) / (self.high - self.low) <= frac)
+        raise ValueError(f"near_high_boundary not defined for kind={self.kind}")
 
     def widened(self, *, side: str) -> "ParamSpec":
         """Extend a continuous/int bound on low, high, or both when meaningful."""
