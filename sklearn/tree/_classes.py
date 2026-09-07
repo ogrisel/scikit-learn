@@ -1472,10 +1472,11 @@ class DecisionTreeRegressor(RegressorMixin, BaseDecisionTree):
 
         Calibration of the predicted quantile is sensitive to the
         tree-growth parameters (``max_depth``, ``min_samples_leaf``, etc.),
-        especially for quantiles far from 0.5; see
-        :ref:`sphx_glr_auto_examples_ensemble_plot_gradient_boosting_quantile.py`
-        for a discussion and tune these by cross-validation on the pinball
-        loss for the target quantile level.
+        especially for quantiles far from 0.5. A useful starting point is
+        ``min_samples_leaf >= 1 / min(quantile, 1 - quantile)`` so that a
+        leaf's empirical quantile is not forced to be the sample min or max;
+        then tune by cross-validation on the pinball loss. See
+        :ref:`sphx_glr_auto_examples_ensemble_plot_gradient_boosting_quantile.py`.
 
         .. versionadded:: 1.10
 
@@ -2185,10 +2186,11 @@ class ExtraTreeRegressor(DecisionTreeRegressor):
 
         Calibration of the predicted quantile is sensitive to the
         tree-growth parameters (``max_depth``, ``min_samples_leaf``, etc.),
-        especially for quantiles far from 0.5; see
-        :ref:`sphx_glr_auto_examples_ensemble_plot_gradient_boosting_quantile.py`
-        for a discussion and tune these by cross-validation on the pinball
-        loss for the target quantile level.
+        especially for quantiles far from 0.5. A useful starting point is
+        ``min_samples_leaf >= 1 / min(quantile, 1 - quantile)`` so that a
+        leaf's empirical quantile is not forced to be the sample min or max;
+        then tune by cross-validation on the pinball loss. See
+        :ref:`sphx_glr_auto_examples_ensemble_plot_gradient_boosting_quantile.py`.
 
         .. versionadded:: 1.10
 

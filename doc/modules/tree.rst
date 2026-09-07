@@ -651,6 +651,14 @@ choose :math:`\alpha \in (0, 1)`. The special case ``quantile=0.5`` corresponds
 to the median. As it relies on the same implementation as the MAE criterion,
 it is likewise 3–6× slower to fit than the MSE criterion.
 
+The empirical quantile of a leaf is the sample minimum whenever the leaf
+has fewer than :math:`1/\alpha` observations (and the sample maximum when
+it has fewer than :math:`1/(1-\alpha)`). That is not required for the
+splitter to run, but it is a useful starting point for
+``min_samples_leaf`` at extreme quantiles. A forest that averages such
+per-tree leaf quantiles does not remove this finite-leaf bias; see
+:ref:`sphx_glr_auto_examples_ensemble_plot_gradient_boosting_quantile.py`.
+
 .. _tree_missing_value_support:
 
 Missing Values Support

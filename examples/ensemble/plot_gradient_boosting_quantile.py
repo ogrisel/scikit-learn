@@ -154,15 +154,21 @@ for alpha in [0.05, 0.5, 0.95]:
     rf = RandomForestRegressor(criterion="quantile", quantile=alpha, **rf_common_params)
     rf_models["rf q %1.2f" % alpha] = rf.fit(X_train, y_train)
 
+rf_models["rf mse"] = RandomForestRegressor(
+    criterion="squared_error", **rf_common_params
+).fit(X_train, y_train)
+
 # %%
 rf_y_lower = rf_models["rf q 0.05"].predict(x_plot)
 rf_y_upper = rf_models["rf q 0.95"].predict(x_plot)
 rf_y_med = rf_models["rf q 0.50"].predict(x_plot)
+rf_y_mean = rf_models["rf mse"].predict(x_plot)
 
 fig = plt.figure(figsize=(10, 10))
 plt.plot(x_plot, f(x_plot), "black", linewidth=3, label=r"$f(x) = x\,\sin(x)$")
 plt.plot(X_test, y_test, "b.", markersize=10, label="Test observations")
 plt.plot(x_plot, rf_y_med, "tab:orange", linewidth=3, label="Predicted median")
+plt.plot(x_plot, rf_y_mean, "tab:green", linewidth=3, label="Predicted mean")
 plt.fill_between(
     x_plot.ravel(),
     rf_y_lower,
@@ -179,7 +185,9 @@ plt.show()
 
 # %%
 # The overall shape of the prediction interval is similar to the one obtained
-# with :class:`~sklearn.ensemble.GradientBoostingRegressor`.
+# with :class:`~sklearn.ensemble.GradientBoostingRegressor`. As in that figure,
+# the predicted median lies below the predicted mean because the noise is
+# skewed towards large positive outliers.
 #
 # Calibration depends on the tree-growth parameters
 # ----------------------------------------------------
@@ -196,7 +204,7 @@ plt.show()
 # (over-coverage). Leaves that are too small overfit the training noise and
 # yield an interval that is too narrow (under-coverage) -- an effect that
 # can be severe:
-for max_depth, min_samples_leaf in [(2, 9), (None, 9), (None, 1)]:
+for max_depth, min_samples_leaf in [(2, 9), (None, 9), (None, 20), (None, 1)]:
     rf_lower = RandomForestRegressor(
         criterion="quantile",
         quantile=0.05,
@@ -231,6 +239,31 @@ for max_depth, min_samples_leaf in [(2, 9), (None, 9), (None, 1)]:
 # there is no universally good setting: these hyperparameters are best
 # tuned by cross-validating on the pinball loss for the target quantile
 # level, as done for the gradient boosting model in the next section.
+#
+# One more remark about leaf size at extreme quantiles: for a target level
+# :math:`q`, the empirical quantile of a leaf is identically the sample
+# minimum whenever that leaf has fewer than :math:`1/q` observations
+# (and identically the maximum when it has fewer than :math:`1/(1-q)`).
+# For :math:`q = 0.05` that threshold is 20 samples. The pinball criterion
+# is still well-defined below that size -- it is not a hard requirement --
+# but the leaf then cannot represent a tail event by anything other than
+# its most extreme training point.
+#
+# Averaging those per-tree estimates across a forest reduces variance, yet
+# it does not cancel this finite-leaf bias: the average of many minima of
+# 9 i.i.d. samples estimates the expected minimum of 9 observations, which
+# for Gaussian noise sits closer to the 7th percentile than the 5th. Adding
+# trees therefore cannot replace a large enough ``min_samples_leaf``, and
+# growing still deeper (smaller) leaves makes the bias worse. Pooling the
+# samples of all trees and *then* taking a quantile -- Meinshausen's
+# quantile regression forest -- would avoid that particular bias; that is
+# a different estimator and is not what
+# ``RandomForestRegressor(criterion="quantile")`` currently does.
+#
+# A practical starting point is therefore
+# ``min_samples_leaf >= 1 / min(q, 1 - q)``, then tune around it by
+# cross-validating the pinball loss, because leaves that are too large
+# can also over-cover if they mix heterogeneous regions.
 #
 # Analysis of the error metrics
 # -----------------------------
