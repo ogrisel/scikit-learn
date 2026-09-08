@@ -37,11 +37,15 @@ With unbounded depth:
 training point; averaging trees does not remove that bias). The gallery
 `min_samples_leaf=9` undercovers badly once \(n\) is large enough to see it.
 
-**Honest RF** (MSE splits on one half, empirical leaf quantiles on the other)
-is the cleanest RF-family point: `min_samples_leaf=40` → 90.5% coverage, width
-5.41, Spearman **0.96**. Width vs \(x\) is a stable increasing step function;
-pinball-split RF@50 matches coverage but the upper band is much more jagged
-(log-normal tail + same-sample quantile estimates).
+**Honest RF** (per-tree bootstrap honesty, pinball splits and honest-set leaf
+quantiles) no longer uses a global grow/honest split or MSE structure.
+On \(n_\text{train}=3000\), `min_samples_leaf=40` → 91.8% coverage, width
+5.51 (oracle 5.52), Spearman **0.98**. `msl=20` is close but short (89.2%,
+width 5.07). `msl=1` still undercovers badly (17%) but does not fully
+collapse as the same-sample pinball RF does.
+
+The old global-split MSE HonestRF (`msl=40` → 90.5%, width 5.41, Spearman
+0.96) is replaced by this estimator in the scripts.
 
 **Gradient boosting: not with tree-growth / pinball tuning alone.** Every
 GBR grid point on \(n=4000\) sat in **81.5–86.8%** coverage. Slowing the
@@ -62,7 +66,7 @@ models:
 | RF pinball search | 0.860 | 5.53 | 0.94 | 11.97 |
 | HGBT `max_depth=3`, `msl=40`, `l2=1` | 0.888 | 5.25 | 0.90 | 12.15 |
 | RF `msl=50` | 0.901 | 5.90 | 0.91 | 12.49 |
-| Honest RF `msl=40` | 0.905 | 5.41 | 0.96 | 12.51 |
+| Honest RF `msl=40` (pinball + per-tree honesty) | 0.918 | 5.51 | 0.98 | 12.17 |
 | constant marginal | 0.896 | 13.16 | 0.00 | 20.47 |
 
 Winkler *prefers* the undercovering GB search (11.85, near oracle 11.61)
@@ -88,8 +92,9 @@ that leaf size is unsafe in general (unbounded depth + `msl=1` collapses).
 2. Do **not** imply that pinball CV yields calibrated intervals. It yields
    good Winkler scores and good width-vs-\(x\) correlation, with systematic
    undercoverage for GBR and for RF with gallery defaults.
-3. Honest leaf estimates are worth mentioning (or exemplifying): same
-   coverage as a large-leaf pinball forest, smoother scale function.
+3. Honest leaf estimates are worth mentioning: with pinball splits and a
+   **per-tree** honesty split, `msl=40` sits on/above the nominal line
+   (91.8%) with Spearman 0.98, comparable width to the oracle.
 4. GBR quantile pairs on this example should be described as *approximately*
    calibrated even after a grid; HGBT is closer; RF/honest RF can be put on
    the nominal line.

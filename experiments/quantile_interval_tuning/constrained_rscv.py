@@ -485,6 +485,22 @@ def render_report(tails, pairs):
             .to_markdown(index=False, floatfmt=".3f"),
             "",
         ]
+    hon = models[models["family"] == "HonestRF"]
+    if not hon.empty:
+        h = hon.iloc[0]
+        lines += [
+            "**HonestRF** (per-tree honesty + pinball splits) "
+            f"{'passed' if bool(h['constraint_ok']) else 'did not pass'} "
+            "the CV half-coverage floor on both tails "
+            f"({int(h.get('n_feasible_low', 0))}/16 lower, "
+            f"{int(h.get('n_feasible_high', 0))}/16 upper). "
+            f"Test coverage {h['coverage']:.1%}, mean width {h['mean_width']:.2f}, "
+            f"pinball sum {h['pinball_sum']:.3f}, Spearman {h['width_oracle_spearman']:.2f}. "
+            "The previous global-split MSE HonestRF never found a 95% upper tail; "
+            "pinball + per-tree honesty does, but the selected pair still slips "
+            "below 90% on test (same leak as pinball-split RandomForest).",
+            "",
+        ]
     lines += [
         "Independent hparams let the 5% and 95% models differ (the gallery",
         "example already suggested that). The half-coverage floor blocks the",
