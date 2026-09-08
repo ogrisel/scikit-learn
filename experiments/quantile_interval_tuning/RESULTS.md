@@ -103,5 +103,10 @@ Plots: `results/pareto_coverage_width.png`, `results/width_vs_x.png`,
 `results/intervals_RF_msl50.png`, `results/intervals_HonestRF_msl40.png`,
 `results/intervals_GB_best_grid.png`. Full grid: `results/metrics.csv`.
 
+Nested CV of the constrained RSCV procedure (outer 5-fold): see
+`RESULTS_NESTED_CV.md`. Mean coverage is ≥ 90% for every class; HonestRF
+is sharpest on average (width 5.49) but RF and HGBT hit ≥ 90% on all five
+folds.
+
 This write-up includes work produced with the assistance of AI.
 The code has **not yet been reviewed** by a human.

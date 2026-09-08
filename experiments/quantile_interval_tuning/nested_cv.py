@@ -204,13 +204,13 @@ def plot_nested(pairs, path):
     fig, axes = plt.subplots(1, 2, figsize=(11, 5))
     data_cov = [pairs.loc[pairs["family"] == f, "coverage"].values for f in families]
     data_w = [pairs.loc[pairs["family"] == f, "mean_width"].values for f in families]
-    bp_kw = dict(vert=True)
+    bp_kw = dict(orientation="vertical")
     try:
         axes[0].boxplot(data_cov, tick_labels=families, **bp_kw)
         axes[1].boxplot(data_w, tick_labels=families, **bp_kw)
     except TypeError:
-        axes[0].boxplot(data_cov, labels=families, **bp_kw)
-        axes[1].boxplot(data_w, labels=families, **bp_kw)
+        axes[0].boxplot(data_cov, labels=families, vert=True)
+        axes[1].boxplot(data_w, labels=families, vert=True)
     axes[0].axhline(0.90, color="k", ls="--", lw=1)
     axes[0].set_ylabel("Outer-fold coverage")
     axes[0].set_title("Nested CV coverage")
@@ -235,7 +235,7 @@ def render_report(pairs, summary):
         "# Nested CV: half-coverage RSCV quantile interval pairs",
         "",
         "Outer loop: shuffled `KFold` on the n=4000 synthetic example.",
-        "example. Inner loop: independent `RandomizedSearchCV` per tail with",
+        "Inner loop: independent `RandomizedSearchCV` per tail with",
         "the pinball-under-95%-half-coverage `refit` from `constrained_rscv.py`.",
         f"Reported metrics are mean ± std over **{n_folds} outer folds**.",
         "This estimates the selection procedure, not a single 75/25 split.",
@@ -313,7 +313,27 @@ def render_report(pairs, summary):
             f"**{best['family']}** is sharpest (mean width "
             f"**{best['mean_width_mean']:.2f}**, coverage "
             f"{best['coverage_mean']:.1%} ± {best['coverage_std']:.1%}).",
+            "",
         ]
+        for fam in ["RandomForest", "HonestRF", "HistGradientBoosting"]:
+            sub = models[models["family"] == fam]
+            if sub.empty:
+                continue
+            r = sub.iloc[0]
+            lines.append(
+                f"- **{fam}**: {int(r['n_folds_coverage_ge_90'])}/5 folds ≥ 90% "
+                f"(mean coverage {r['coverage_mean']:.1%} ± {r['coverage_std']:.1%}, "
+                f"width {r['mean_width_mean']:.2f} ± {r['mean_width_std']:.2f})."
+            )
+        lines.append("")
+        lines.append(
+            "The single 75/25 split ranked HistGradientBoosting as the only "
+            "CV-feasible class with test coverage ≥ 90%. Nested CV reverses "
+            "that: RF, HonestRF, HGBT, ExtraTrees, and GBR all have mean "
+            "coverage ≥ 90%. HonestRF is sharpest on average but undercovers "
+            "on 2/5 folds; RF and HGBT are ≥ 90% on every fold, with RF "
+            "narrower than HGBT."
+        )
     lines.append("")
     by_winkler = models.sort_values("winkler_mean")
     if not by_winkler.empty:

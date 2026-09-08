@@ -12,6 +12,10 @@ one-sided constraints hold, fold-level interval miscoverage is at most
 
 Dataset: n=4000 synthetic example from PR #32903 (train 3000 / test 1000).
 
+The ranking below is from **one** 75/25 split. Nested CV of the same
+selection procedure is in `RESULTS_NESTED_CV.md`: mean outer-fold coverage
+is ≥ 90% for every class, and HonestRF is sharpest on average.
+
 ## Per-tail CV selection and test half-coverage
 
 | family               | tail   | constraint_ok   |   n_feasible |   n_candidates |   cv_mean_half_coverage |   cv_min_fold_half_coverage |   cv_mean_pinball |   train_half_coverage |   test_half_coverage |   test_pinball |   elapsed_s | best_params                                                                                                |
