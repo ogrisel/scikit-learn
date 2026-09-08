@@ -35,6 +35,8 @@ from sklearn.base import clone
 from sklearn.metrics import make_scorer, mean_pinball_loss
 from sklearn.model_selection import ParameterGrid, RandomizedSearchCV, train_test_split
 
+from honest_forest import HonestQuantileForest
+
 ROOT = Path(__file__).resolve().parent
 RESULTS = ROOT / "results"
 RESULTS.mkdir(parents=True, exist_ok=True)
@@ -107,48 +109,6 @@ def interval_metrics(y, y_low, y_high, X=None):
 
 def coverage_ok(coverage, tol=0.03):
     return abs(coverage - NOMINAL_COVERAGE) <= tol
-
-
-class HonestQuantileForest:
-    """Grow trees on one split, estimate leaf quantiles on a disjoint split."""
-
-    def __init__(self, base_estimator, quantile, honest_fraction=0.5, random_state=0):
-        self.base_estimator = base_estimator
-        self.quantile = quantile
-        self.honest_fraction = honest_fraction
-        self.random_state = random_state
-        self.estimator_ = None
-        self.leaf_quantiles_ = None
-
-    def fit(self, X, y):
-        X_grow, X_hon, y_grow, y_hon = train_test_split(
-            X, y, test_size=self.honest_fraction, random_state=self.random_state
-        )
-        est = self.base_estimator
-        est.fit(X_grow, y_grow)
-        leaves = est.apply(X_hon)
-        n_trees = leaves.shape[1]
-        leaf_q = []
-        fallback = np.quantile(y_hon, self.quantile)
-        for t in range(n_trees):
-            ids = leaves[:, t]
-            qmap = {}
-            for leaf in np.unique(ids):
-                vals = y_hon[ids == leaf]
-                qmap[int(leaf)] = float(np.quantile(vals, self.quantile))
-            leaf_q.append((qmap, fallback))
-        self.estimator_ = est
-        self.leaf_quantiles_ = leaf_q
-        return self
-
-    def predict(self, X):
-        leaves = self.estimator_.apply(X)
-        n_samples, n_trees = leaves.shape
-        preds = np.empty((n_samples, n_trees), dtype=float)
-        for t in range(n_trees):
-            qmap, fallback = self.leaf_quantiles_[t]
-            preds[:, t] = [qmap.get(int(leaf), fallback) for leaf in leaves[:, t]]
-        return preds.mean(axis=1)
 
 
 def fit_pair(make_low, make_high, X_train, y_train, X_eval, y_eval):
@@ -475,28 +435,20 @@ def main():
             extra,
         )
 
-        # Honest RF at a few min_samples_leaf values
+        # Honest RF: per-tree honesty + pinball splits / leaf values
         for msl in [1, 9, MIN_LEAF_RULE, 40]:
             params = dict(n_estimators=200, min_samples_leaf=msl, max_depth=None, max_features=1.0)
             low = HonestQuantileForest(
-                RandomForestRegressor(
-                    criterion="squared_error",
-                    random_state=setup["seed"],
-                    n_jobs=1,
-                    **params,
-                ),
                 quantile=ALPHA_LOW,
                 random_state=setup["seed"],
+                n_jobs=1,
+                **params,
             )
             high = HonestQuantileForest(
-                RandomForestRegressor(
-                    criterion="squared_error",
-                    random_state=setup["seed"],
-                    n_jobs=1,
-                    **params,
-                ),
                 quantile=ALPHA_HIGH,
                 random_state=setup["seed"],
+                n_jobs=1,
+                **params,
             )
             t0 = time.perf_counter()
             low.fit(X_train, y_train)

@@ -25,5 +25,11 @@ Constrained independent RSCV (pinball under 95% one-sided / "half" coverage):
 
 ```bash
 python experiments/quantile_interval_tuning/constrained_rscv.py
+python experiments/quantile_interval_tuning/constrained_rscv.py --kinds honest_rf
 ```
+
+`HonestRF` (`honest_forest.py`) is a custom forest: each tree draws its own
+bootstrap sample, splits in-bag indices into grow vs honest, grows a pinball
+(`criterion="quantile"`) tree on the grow set, and sets leaf values to the
+honest-set empirical quantile.
 

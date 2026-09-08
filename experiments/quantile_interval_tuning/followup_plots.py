@@ -56,16 +56,8 @@ def main():
 
     honest_base = dict(n_estimators=200, min_samples_leaf=40, max_depth=None, random_state=0, n_jobs=1)
     configs["HonestRF_msl40"] = (
-        HonestQuantileForest(
-            RandomForestRegressor(criterion="squared_error", **honest_base),
-            quantile=ALPHA_LOW,
-            random_state=0,
-        ),
-        HonestQuantileForest(
-            RandomForestRegressor(criterion="squared_error", **honest_base),
-            quantile=ALPHA_HIGH,
-            random_state=0,
-        ),
+        HonestQuantileForest(quantile=ALPHA_LOW, **honest_base),
+        HonestQuantileForest(quantile=ALPHA_HIGH, **honest_base),
     )
 
     gb = dict(loss="quantile", n_estimators=200, learning_rate=0.05, max_depth=2, min_samples_leaf=9, subsample=0.8, random_state=0)

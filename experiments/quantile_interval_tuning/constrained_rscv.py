@@ -18,6 +18,7 @@ Bonferroni / union-bound sense on the CV folds
 
 from __future__ import annotations
 
+import argparse
 import json
 import time
 
@@ -27,7 +28,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from sklearn.base import BaseEstimator, RegressorMixin
 from sklearn.ensemble import (
     ExtraTreesRegressor,
     GradientBoostingRegressor,
@@ -37,6 +37,7 @@ from sklearn.ensemble import (
 from sklearn.metrics import make_scorer, mean_pinball_loss
 from sklearn.model_selection import RandomizedSearchCV, train_test_split
 
+from honest_forest import HonestQuantileForest
 from run_experiments import (
     ALPHA_HIGH,
     ALPHA_LOW,
@@ -101,68 +102,6 @@ def refit_pinball_under_half_coverage(cv_results, coverage_floor=HALF_COVERAGE_F
         f"params={s['chosen_params']}"
     )
     return best_idx
-
-
-class HonestQuantileForest(BaseEstimator, RegressorMixin):
-    """MSE forest grown on one half; leaf quantiles estimated on the other."""
-
-    def __init__(
-        self,
-        n_estimators=200,
-        max_depth=None,
-        min_samples_leaf=20,
-        min_samples_split=2,
-        max_features=1.0,
-        honest_fraction=0.5,
-        quantile=0.5,
-        random_state=0,
-    ):
-        self.n_estimators = n_estimators
-        self.max_depth = max_depth
-        self.min_samples_leaf = min_samples_leaf
-        self.min_samples_split = min_samples_split
-        self.max_features = max_features
-        self.honest_fraction = honest_fraction
-        self.quantile = quantile
-        self.random_state = random_state
-
-    def fit(self, X, y):
-        X_grow, X_hon, y_grow, y_hon = train_test_split(
-            X, y, test_size=self.honest_fraction, random_state=self.random_state
-        )
-        est = RandomForestRegressor(
-            criterion="squared_error",
-            n_estimators=self.n_estimators,
-            max_depth=self.max_depth,
-            min_samples_leaf=self.min_samples_leaf,
-            min_samples_split=self.min_samples_split,
-            max_features=self.max_features,
-            random_state=self.random_state,
-            n_jobs=1,
-        )
-        est.fit(X_grow, y_grow)
-        leaves = est.apply(X_hon)
-        n_trees = leaves.shape[1]
-        leaf_q = []
-        fallback = float(np.quantile(y_hon, self.quantile))
-        for t in range(n_trees):
-            ids = leaves[:, t]
-            qmap = {}
-            for leaf in np.unique(ids):
-                qmap[int(leaf)] = float(np.quantile(y_hon[ids == leaf], self.quantile))
-            leaf_q.append((qmap, fallback))
-        self.estimator_ = est
-        self.leaf_quantiles_ = leaf_q
-        return self
-
-    def predict(self, X):
-        leaves = self.estimator_.apply(X)
-        n_samples, n_trees = leaves.shape
-        preds = np.empty((n_samples, n_trees), dtype=float)
-        for t in range(n_trees):
-            qmap, fallback = self.leaf_quantiles_[t]
-            preds[:, t] = [qmap.get(int(leaf), fallback) for leaf in leaves[:, t]]
-        return preds.mean(axis=1)
 
 
 def make_estimator(kind, quantile, random_state=0):
@@ -299,7 +238,20 @@ def plot_cv_scatter(all_cv, path):
     plt.close(fig)
 
 
-def main():
+DEFAULT_KINDS = ["rf", "et", "gbr", "hgb", "honest_rf"]
+
+
+def _merge_previous(new_df, path, drop_families):
+    if not path.exists() or new_df.empty:
+        return new_df
+    prev = pd.read_csv(path)
+    keep = prev[~prev["family"].isin(drop_families)]
+    return pd.concat([keep, new_df], ignore_index=True)
+
+
+def main(kinds=None):
+    kinds = list(kinds or DEFAULT_KINDS)
+    rerun_labels = {KIND_LABEL[k] for k in kinds}
     X, y = make_dataset(4000, random_state=42)
     X_train, X_test, y_train, y_test = train_test_split(
         X, y, test_size=0.25, random_state=0
@@ -310,26 +262,27 @@ def main():
     tail_rows = []
     cv_frames = []
 
-    oracle_low = oracle_y_quantile(X_test, ALPHA_LOW)
-    oracle_high = oracle_y_quantile(X_test, ALPHA_HIGH)
-    pair_rows.append(
-        {
-            "family": "oracle",
-            "constraint_ok": True,
-            **interval_metrics(y_test, oracle_low, oracle_high, X_test),
-        }
-    )
-    y_low_c = np.full_like(y_test, np.quantile(y_train, ALPHA_LOW), dtype=float)
-    y_high_c = np.full_like(y_test, np.quantile(y_train, ALPHA_HIGH), dtype=float)
-    pair_rows.append(
-        {
-            "family": "constant_marginal",
-            "constraint_ok": True,
-            **interval_metrics(y_test, y_low_c, y_high_c, X_test),
-        }
-    )
+    if set(kinds) == set(DEFAULT_KINDS):
+        oracle_low = oracle_y_quantile(X_test, ALPHA_LOW)
+        oracle_high = oracle_y_quantile(X_test, ALPHA_HIGH)
+        pair_rows.append(
+            {
+                "family": "oracle",
+                "constraint_ok": True,
+                **interval_metrics(y_test, oracle_low, oracle_high, X_test),
+            }
+        )
+        y_low_c = np.full_like(y_test, np.quantile(y_train, ALPHA_LOW), dtype=float)
+        y_high_c = np.full_like(y_test, np.quantile(y_train, ALPHA_HIGH), dtype=float)
+        pair_rows.append(
+            {
+                "family": "constant_marginal",
+                "constraint_ok": True,
+                **interval_metrics(y_test, y_low_c, y_high_c, X_test),
+            }
+        )
 
-    for kind in ["rf", "et", "gbr", "hgb", "honest_rf"]:
+    for kind in kinds:
         label = KIND_LABEL[kind]
         print(f"\n=== {label} independent half-coverage RSCV ===", flush=True)
         searches = {}
@@ -413,9 +366,24 @@ def main():
         )
 
     all_cv = pd.concat(cv_frames, ignore_index=True)
+    if set(kinds) != set(DEFAULT_KINDS):
+        all_cv = _merge_previous(
+            all_cv, RESULTS / "halfcov_rscv_cv_results.csv", rerun_labels
+        )
+        tails = _merge_previous(
+            pd.DataFrame(tail_rows),
+            RESULTS / "halfcov_rscv_tail_metrics.csv",
+            rerun_labels,
+        )
+        pairs = _merge_previous(
+            pd.DataFrame(pair_rows),
+            RESULTS / "halfcov_rscv_pair_metrics.csv",
+            rerun_labels,
+        )
+    else:
+        tails = pd.DataFrame(tail_rows)
+        pairs = pd.DataFrame(pair_rows)
     all_cv.to_csv(RESULTS / "halfcov_rscv_cv_results.csv", index=False)
-    tails = pd.DataFrame(tail_rows)
-    pairs = pd.DataFrame(pair_rows)
     tails.to_csv(RESULTS / "halfcov_rscv_tail_metrics.csv", index=False)
     pairs.to_csv(RESULTS / "halfcov_rscv_pair_metrics.csv", index=False)
     plot_cv_scatter(all_cv, RESULTS / "halfcov_rscv_cv_scatter.png")
@@ -522,6 +490,11 @@ def render_report(tails, pairs):
         "example already suggested that). The half-coverage floor blocks the",
         "pinball-only choice of an inward-biased tail.",
         "",
+        "`HonestRF` grows each tree on a per-tree bootstrap/honesty split with",
+        '`DecisionTreeRegressor(criterion="quantile")` (pinball impurity and',
+        "grow-set leaf quantiles), then overwrites leaves with the honest-set",
+        "empirical quantile.",
+        "",
         "This write-up includes work produced with the assistance of AI.",
         "The code has **not yet been reviewed** by a human.",
         "",
@@ -530,4 +503,13 @@ def render_report(tails, pairs):
 
 
 if __name__ == "__main__":
-    main()
+    parser = argparse.ArgumentParser()
+    parser.add_argument(
+        "--kinds",
+        nargs="+",
+        choices=DEFAULT_KINDS,
+        default=DEFAULT_KINDS,
+        help="Estimator families to search. Partial runs merge into existing CSVs.",
+    )
+    args = parser.parse_args()
+    main(kinds=args.kinds)
