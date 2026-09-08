@@ -1,0 +1,447 @@
+{
+  "single_tree": {
+    "mae_gbr_vs_tree": 2.1450102773760538,
+    "corr": 0.5188597523613472,
+    "mean_gbr": -4.734747264853059,
+    "mean_tree": -3.0710883076093736,
+    "mean_oracle_low": -0.8063767859791959,
+    "train_frac_below_gbr": 0.04933333333333333,
+    "train_frac_below_tree": 0.049,
+    "test_frac_below_gbr": 0.05,
+    "test_frac_below_tree": 0.057
+  },
+  "staged": [
+    {
+      "m": 1,
+      "train_coverage": 0.9023333333333333,
+      "train_p_below_low": 0.050666666666666665,
+      "train_p_above_high": 0.047,
+      "train_mean_width": 13.023351483494253,
+      "train_pinball_low": 0.3412545334100738,
+      "train_pinball_high": 0.615450912336101,
+      "test_coverage": 0.897,
+      "test_p_below_low": 0.059,
+      "test_p_above_high": 0.044,
+      "test_mean_width": 13.018066440729982,
+      "test_pinball_low": 0.347121098841497,
+      "test_pinball_high": 0.6610295629878546
+    },
+    {
+      "m": 2,
+      "train_coverage": 0.902,
+      "train_p_below_low": 0.051,
+      "train_p_above_high": 0.047,
+      "train_mean_width": 12.891524763121788,
+      "train_pinball_low": 0.33839759141605313,
+      "train_pinball_high": 0.6022316708289347,
+      "test_coverage": 0.9,
+      "test_p_below_low": 0.058,
+      "test_p_above_high": 0.042,
+      "test_mean_width": 12.881188291981015,
+      "test_pinball_low": 0.34444363233371267,
+      "test_pinball_high": 0.6495275790592059
+    },
+    {
+      "m": 3,
+      "train_coverage": 0.9043333333333333,
+      "train_p_below_low": 0.050333333333333334,
+      "train_p_above_high": 0.04533333333333334,
+      "train_mean_width": 12.762995620996366,
+      "train_pinball_low": 0.33551573027681125,
+      "train_pinball_high": 0.5898953302370439,
+      "test_coverage": 0.904,
+      "test_p_below_low": 0.056,
+      "test_p_above_high": 0.04,
+      "test_mean_width": 12.745859027228885,
+      "test_pinball_low": 0.34166162812341044,
+      "test_pinball_high": 0.6392255695862272
+    },
+    {
+      "m": 5,
+      "train_coverage": 0.9123333333333333,
+      "train_p_below_low": 0.04733333333333333,
+      "train_p_above_high": 0.04033333333333333,
+      "train_mean_width": 12.52376241474183,
+      "train_pinball_low": 0.3298553277049129,
+      "train_pinball_high": 0.5685794866370903,
+      "test_coverage": 0.908,
+      "test_p_below_low": 0.054,
+      "test_p_above_high": 0.038,
+      "test_mean_width": 12.499403661901136,
+      "test_pinball_low": 0.3357334551729497,
+      "test_pinball_high": 0.6214940859161509
+    },
+    {
+      "m": 10,
+      "train_coverage": 0.9193333333333333,
+      "train_p_below_low": 0.04533333333333334,
+      "train_p_above_high": 0.035333333333333335,
+      "train_mean_width": 12.000426173339887,
+      "train_pinball_low": 0.3184347473799317,
+      "train_pinball_high": 0.5280278524039397,
+      "test_coverage": 0.911,
+      "test_p_below_low": 0.053,
+      "test_p_above_high": 0.036,
+      "test_mean_width": 11.958575550364614,
+      "test_pinball_low": 0.3236527071403155,
+      "test_pinball_high": 0.5873974964159343
+    },
+    {
+      "m": 20,
+      "train_coverage": 0.928,
+      "train_p_below_low": 0.04066666666666666,
+      "train_p_above_high": 0.03133333333333333,
+      "train_mean_width": 11.125384946402347,
+      "train_pinball_low": 0.2993559868297497,
+      "train_pinball_high": 0.4806741878564488,
+      "test_coverage": 0.92,
+      "test_p_below_low": 0.049,
+      "test_p_above_high": 0.031,
+      "test_mean_width": 11.048524737443413,
+      "test_pinball_low": 0.30457423188446764,
+      "test_pinball_high": 0.5474114714159749
+    },
+    {
+      "m": 50,
+      "train_coverage": 0.9223333333333333,
+      "train_p_below_low": 0.03666666666666667,
+      "train_p_above_high": 0.041,
+      "train_mean_width": 9.225070375493221,
+      "train_pinball_low": 0.25567742705852775,
+      "train_pinball_high": 0.426193219285843,
+      "test_coverage": 0.901,
+      "test_p_below_low": 0.053,
+      "test_p_above_high": 0.046,
+      "test_mean_width": 9.115984348793493,
+      "test_pinball_low": 0.26182140298506806,
+      "test_pinball_high": 0.5124111967520105
+    },
+    {
+      "m": 100,
+      "train_coverage": 0.9193333333333333,
+      "train_p_below_low": 0.03333333333333333,
+      "train_p_above_high": 0.04733333333333333,
+      "train_mean_width": 7.642017821798707,
+      "train_pinball_low": 0.19611568460671175,
+      "train_pinball_high": 0.4158802220969223,
+      "test_coverage": 0.881,
+      "test_p_below_low": 0.059,
+      "test_p_above_high": 0.06,
+      "test_mean_width": 7.518237158094051,
+      "test_pinball_low": 0.2021255355442198,
+      "test_pinball_high": 0.5075791684705585
+    },
+    {
+      "m": 150,
+      "train_coverage": 0.9106666666666666,
+      "train_p_below_low": 0.04033333333333333,
+      "train_p_above_high": 0.049,
+      "train_mean_width": 6.800758308378325,
+      "train_pinball_low": 0.155883584604878,
+      "train_pinball_high": 0.4051694332977338,
+      "test_coverage": 0.872,
+      "test_p_below_low": 0.067,
+      "test_p_above_high": 0.061,
+      "test_mean_width": 6.696322110099271,
+      "test_pinball_low": 0.16249677421956352,
+      "test_pinball_high": 0.5031781099025692
+    },
+    {
+      "m": 200,
+      "train_coverage": 0.9053333333333333,
+      "train_p_below_low": 0.045,
+      "train_p_above_high": 0.049666666666666665,
+      "train_mean_width": 6.13548578712268,
+      "train_pinball_low": 0.1233240474645513,
+      "train_pinball_high": 0.4018607690313922,
+      "test_coverage": 0.862,
+      "test_p_below_low": 0.076,
+      "test_p_above_high": 0.062,
+      "test_mean_width": 6.052372242163779,
+      "test_pinball_low": 0.13196565671410798,
+      "test_pinball_high": 0.5036226255359871
+    },
+    {
+      "m": 250,
+      "train_coverage": 0.9073333333333333,
+      "train_p_below_low": 0.043,
+      "train_p_above_high": 0.049666666666666665,
+      "train_mean_width": 5.678835717089232,
+      "train_pinball_low": 0.10260801132104147,
+      "train_pinball_high": 0.3978149954963649,
+      "test_coverage": 0.856,
+      "test_p_below_low": 0.08,
+      "test_p_above_high": 0.064,
+      "test_mean_width": 5.639173705657327,
+      "test_pinball_low": 0.11291971544414811,
+      "test_pinball_high": 0.5042487493166389
+    },
+    {
+      "m": 300,
+      "train_coverage": 0.9056666666666666,
+      "train_p_below_low": 0.04466666666666667,
+      "train_p_above_high": 0.049666666666666665,
+      "train_mean_width": 5.4372439853920715,
+      "train_pinball_low": 0.0910530410863103,
+      "train_pinball_high": 0.3973498103525619,
+      "test_coverage": 0.855,
+      "test_p_below_low": 0.08,
+      "test_p_above_high": 0.065,
+      "test_mean_width": 5.422838751390596,
+      "test_pinball_low": 0.10290424902047397,
+      "test_pinball_high": 0.5047068684414331
+    }
+  ],
+  "scaling": [
+    {
+      "n": 500,
+      "n_train": 375,
+      "gbr": {
+        "coverage": 0.784,
+        "p_below_low": 0.144,
+        "p_above_high": 0.072,
+        "mean_width": 8.079961525940593,
+        "pinball_low": 0.2001485255491003,
+        "pinball_high": 0.41488844907669764
+      },
+      "gbr_train": {
+        "coverage": 0.9173333333333333,
+        "p_below_low": 0.04,
+        "p_above_high": 0.042666666666666665,
+        "mean_width": 8.269398383573321,
+        "pinball_low": 0.17586606305256647,
+        "pinball_high": 0.4306587240524122
+      },
+      "rf_msl9": {
+        "coverage": 0.784,
+        "p_below_low": 0.128,
+        "p_above_high": 0.088,
+        "mean_width": 6.910220577993361,
+        "pinball_low": 0.13151065738164067,
+        "pinball_high": 0.4676430748004296
+      },
+      "rf_msl50": {
+        "coverage": 0.872,
+        "p_below_low": 0.064,
+        "p_above_high": 0.064,
+        "mean_width": 9.835231785359667,
+        "pinball_low": 0.23505895340156804,
+        "pinball_high": 0.4495940133737517
+      }
+    },
+    {
+      "n": 1000,
+      "n_train": 750,
+      "gbr": {
+        "coverage": 0.868,
+        "p_below_low": 0.096,
+        "p_above_high": 0.036,
+        "mean_width": 6.926689826922262,
+        "pinball_low": 0.14420443940681335,
+        "pinball_high": 0.3579562624961286
+      },
+      "gbr_train": {
+        "coverage": 0.9013333333333333,
+        "p_below_low": 0.050666666666666665,
+        "p_above_high": 0.048,
+        "mean_width": 6.450870465800741,
+        "pinball_low": 0.12712751998649155,
+        "pinball_high": 0.3822565131285675
+      },
+      "rf_msl9": {
+        "coverage": 0.832,
+        "p_below_low": 0.108,
+        "p_above_high": 0.06,
+        "mean_width": 6.54652588140733,
+        "pinball_low": 0.08704552640513992,
+        "pinball_high": 0.40563657019840016
+      },
+      "rf_msl50": {
+        "coverage": 0.952,
+        "p_below_low": 0.02,
+        "p_above_high": 0.028,
+        "mean_width": 8.026932506550695,
+        "pinball_low": 0.1384105763226851,
+        "pinball_high": 0.3886289694697322
+      }
+    },
+    {
+      "n": 2000,
+      "n_train": 1500,
+      "gbr": {
+        "coverage": 0.862,
+        "p_below_low": 0.08,
+        "p_above_high": 0.058,
+        "mean_width": 6.391229523802369,
+        "pinball_low": 0.14669475242966523,
+        "pinball_high": 0.5216560821795504
+      },
+      "gbr_train": {
+        "coverage": 0.906,
+        "p_below_low": 0.04533333333333334,
+        "p_above_high": 0.048666666666666664,
+        "mean_width": 6.1803763152853035,
+        "pinball_low": 0.1310928250713441,
+        "pinball_high": 0.40200557807023923
+      },
+      "rf_msl9": {
+        "coverage": 0.774,
+        "p_below_low": 0.148,
+        "p_above_high": 0.078,
+        "mean_width": 5.666807496044456,
+        "pinball_low": 0.09979206999148497,
+        "pinball_high": 0.5613609904977355
+      },
+      "rf_msl50": {
+        "coverage": 0.932,
+        "p_below_low": 0.024,
+        "p_above_high": 0.044,
+        "mean_width": 6.253556773884229,
+        "pinball_low": 0.11489575971233877,
+        "pinball_high": 0.5037400528024005
+      }
+    },
+    {
+      "n": 4000,
+      "n_train": 3000,
+      "gbr": {
+        "coverage": 0.862,
+        "p_below_low": 0.076,
+        "p_above_high": 0.062,
+        "mean_width": 6.052372242163779,
+        "pinball_low": 0.13196565671410798,
+        "pinball_high": 0.5036226255359871
+      },
+      "gbr_train": {
+        "coverage": 0.9053333333333333,
+        "p_below_low": 0.045,
+        "p_above_high": 0.049666666666666665,
+        "mean_width": 6.13548578712268,
+        "pinball_low": 0.1233240474645513,
+        "pinball_high": 0.4018607690313922
+      },
+      "rf_msl9": {
+        "coverage": 0.783,
+        "p_below_low": 0.133,
+        "p_above_high": 0.084,
+        "mean_width": 5.3237287908776745,
+        "pinball_low": 0.09206527749967987,
+        "pinball_high": 0.5729954820814108
+      },
+      "rf_msl50": {
+        "coverage": 0.901,
+        "p_below_low": 0.04,
+        "p_above_high": 0.059,
+        "mean_width": 5.902964929319994,
+        "pinball_low": 0.09453935646977368,
+        "pinball_high": 0.5301286427369267
+      }
+    },
+    {
+      "n": 8000,
+      "n_train": 6000,
+      "gbr": {
+        "coverage": 0.8905,
+        "p_below_low": 0.0605,
+        "p_above_high": 0.049,
+        "mean_width": 6.27442449926263,
+        "pinball_low": 0.11668986962585007,
+        "pinball_high": 0.41380730644855546
+      },
+      "gbr_train": {
+        "coverage": 0.906,
+        "p_below_low": 0.043833333333333335,
+        "p_above_high": 0.050166666666666665,
+        "mean_width": 6.227707513487185,
+        "pinball_low": 0.1188469195165561,
+        "pinball_high": 0.38331212500534895
+      },
+      "rf_msl9": {
+        "coverage": 0.781,
+        "p_below_low": 0.1405,
+        "p_above_high": 0.0785,
+        "mean_width": 5.408216028294879,
+        "pinball_low": 0.08718986090140049,
+        "pinball_high": 0.46818687097474126
+      },
+      "rf_msl50": {
+        "coverage": 0.8935,
+        "p_below_low": 0.056,
+        "p_above_high": 0.0505,
+        "mean_width": 5.8639911715946695,
+        "pinball_low": 0.08163697709564556,
+        "pinball_high": 0.4223556050130122
+      }
+    },
+    {
+      "n": 16000,
+      "n_train": 12000,
+      "gbr": {
+        "coverage": 0.8945,
+        "p_below_low": 0.04925,
+        "p_above_high": 0.05625,
+        "mean_width": 6.254146523454009,
+        "pinball_low": 0.12291930738105969,
+        "pinball_high": 0.45206347856644624
+      },
+      "gbr_train": {
+        "coverage": 0.90775,
+        "p_below_low": 0.042,
+        "p_above_high": 0.05025,
+        "mean_width": 6.272512358366548,
+        "pinball_low": 0.1199946882341484,
+        "pinball_high": 0.43457993145458296
+      },
+      "rf_msl9": {
+        "coverage": 0.78425,
+        "p_below_low": 0.12775,
+        "p_above_high": 0.088,
+        "mean_width": 5.573374061069069,
+        "pinball_low": 0.09107165083791995,
+        "pinball_high": 0.5269575215861797
+      },
+      "rf_msl50": {
+        "coverage": 0.87675,
+        "p_below_low": 0.0655,
+        "p_above_high": 0.05775,
+        "mean_width": 5.84339620264822,
+        "pinball_low": 0.0846235805407722,
+        "pinball_high": 0.4677844673354708
+      }
+    }
+  ],
+  "rf_pinball_cv": {
+    "low_params": {
+      "n_estimators": 200,
+      "min_samples_leaf": 20,
+      "max_depth": null
+    },
+    "high_params": {
+      "n_estimators": 200,
+      "min_samples_leaf": 50,
+      "max_depth": 6
+    },
+    "test": {
+      "coverage": 0.858,
+      "p_below_low": 0.083,
+      "p_above_high": 0.059,
+      "mean_width": 5.6142467211599225,
+      "pinball_low": 0.08777818700560909,
+      "pinball_high": 0.5240826996720537
+    },
+    "cv_pinball_low": 0.08588464353526415,
+    "cv_pinball_high": 0.4407141343493972
+  },
+  "rf_msl50_both": {
+    "test": {
+      "coverage": 0.901,
+      "p_below_low": 0.04,
+      "p_above_high": 0.059,
+      "mean_width": 5.902964929319994,
+      "pinball_low": 0.09453935646977368,
+      "pinball_high": 0.5301286427369267
+    },
+    "test_pinball_sum": 0.6246679992067004,
+    "pinball_cv_pinball_sum": 0.6118608866776628
+  }
+}
