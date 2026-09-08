@@ -479,11 +479,20 @@ def render_report(tails, pairs):
     else:
         hold = feasible[feasible["coverage"] >= 0.88]
         pool = hold if not hold.empty else feasible
+        hold90 = feasible[feasible["coverage"] >= 0.90]
+        if not hold90.empty:
+            best90 = hold90.sort_values("mean_width").iloc[0]
+            lines += [
+                "Among classes that are CV-feasible on both tails **and** have test",
+                f"coverage ≥ 90%, **{best90['family']}** is sharpest (mean width",
+                f"**{best90['mean_width']:.2f}**, test coverage {best90['coverage']:.1%}).",
+                "",
+            ]
         best = pool.sort_values("mean_width").iloc[0]
         lines += [
-            f"Among classes with both tails CV-feasible, **{best['family']}** is",
-            f"sharpest on test (mean width **{best['mean_width']:.2f}**, oracle ~5.52)",
-            f"at test coverage **{best['coverage']:.1%}**.",
+            f"Among all CV-feasible classes (no test-coverage filter), **{best['family']}**",
+            f"is sharpest (mean width **{best['mean_width']:.2f}**, test coverage",
+            f"{best['coverage']:.1%}).",
             "",
             "Ranking by test mean width (CV-feasible only):",
             "",
