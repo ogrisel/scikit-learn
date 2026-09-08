@@ -427,7 +427,6 @@ def main():
 
 
 def render_report(tails, pairs):
-    models = pairs[pairs["family"].isin(KIND_LABEL.values())].copy()
     lines = [
         "# Independent pinball RSCV under a one-sided (half) coverage constraint",
         "",
@@ -450,6 +449,9 @@ def render_report(tails, pairs):
         "## Combined 90% interval on the test set",
         "",
     ]
+    if "interval_score_sum_pinball" in pairs.columns:
+        pairs = pairs.rename(columns={"interval_score_sum_pinball": "pinball_sum"})
+    models = pairs[pairs["family"].isin(KIND_LABEL.values())].copy()
     pair_cols = [
         c
         for c in [
@@ -461,6 +463,9 @@ def render_report(tails, pairs):
             "cv_half_high",
             "coverage",
             "mean_width",
+            "pinball_low",
+            "pinball_high",
+            "pinball_sum",
             "width_oracle_spearman",
             "winkler",
             "low_params",
@@ -501,6 +506,9 @@ def render_report(tails, pairs):
                     "family",
                     "coverage",
                     "mean_width",
+                    "pinball_low",
+                    "pinball_high",
+                    "pinball_sum",
                     "width_oracle_spearman",
                     "winkler",
                 ]

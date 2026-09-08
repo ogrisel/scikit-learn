@@ -29,15 +29,15 @@ Dataset: n=4000 synthetic example from PR #32903 (train 3000 / test 1000).
 
 ## Combined 90% interval on the test set
 
-| family               | constraint_ok   |   n_feasible_low |   n_feasible_high |   cv_half_low |   cv_half_high |   coverage |   mean_width |   width_oracle_spearman |   winkler | low_params                                                                                                 | high_params                                                                                               |
-|:---------------------|:----------------|-----------------:|------------------:|--------------:|---------------:|-----------:|-------------:|------------------------:|----------:|:-----------------------------------------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------|
-| oracle               | True            |          nan     |           nan     |       nan     |        nan     |      0.900 |        5.515 |                   1.000 |    11.607 | nan                                                                                                        | nan                                                                                                       |
-| constant_marginal    | True            |          nan     |           nan     |       nan     |        nan     |      0.896 |       13.156 |                   0.000 |    20.468 | nan                                                                                                        | nan                                                                                                       |
-| RandomForest         | True            |           16.000 |             8.000 |         0.951 |          0.951 |      0.880 |        5.329 |                   0.956 |    11.883 | {"n_estimators": 200, "min_samples_split": 10, "min_samples_leaf": 30, "max_depth": null}                  | {"n_estimators": 200, "min_samples_split": 2, "min_samples_leaf": 120, "max_depth": 6}                    |
-| ExtraTrees           | True            |           16.000 |            16.000 |         0.989 |          0.960 |      0.946 |        6.281 |                   0.972 |    12.215 | {"n_estimators": 200, "min_samples_split": 2, "min_samples_leaf": 9, "max_depth": 12}                      | {"n_estimators": 200, "min_samples_split": 2, "min_samples_leaf": 20, "max_depth": 12}                    |
-| GradientBoosting     | True            |            9.000 |             9.000 |         0.952 |          0.952 |      0.896 |        7.410 |                   0.794 |    13.955 | {"subsample": 1.0, "n_estimators": 30, "min_samples_leaf": 20, "max_depth": 3, "learning_rate": 0.1}       | {"subsample": 1.0, "n_estimators": 30, "min_samples_leaf": 20, "max_depth": 3, "learning_rate": 0.1}      |
-| HistGradientBoosting | True            |            9.000 |             2.000 |         0.955 |          0.957 |      0.907 |        6.122 |                   0.892 |    12.414 | {"min_samples_leaf": 20, "max_iter": 100, "max_depth": 6, "learning_rate": 0.05, "l2_regularization": 0.0} | {"min_samples_leaf": 40, "max_iter": 50, "max_depth": 3, "learning_rate": 0.05, "l2_regularization": 0.0} |
-| HonestRF             | False           |           13.000 |             0.000 |         0.958 |          0.935 |      0.872 |        4.743 |                   0.927 |    12.275 | {"n_estimators": 200, "min_samples_leaf": 9, "max_depth": 6, "honest_fraction": 0.5}                       | {"n_estimators": 200, "min_samples_leaf": 20, "max_depth": null, "honest_fraction": 0.5}                  |
+| family               | constraint_ok   |   n_feasible_low |   n_feasible_high |   cv_half_low |   cv_half_high |   coverage |   mean_width |   pinball_low |   pinball_high |   pinball_sum |   width_oracle_spearman |   winkler | low_params                                                                                                 | high_params                                                                                               |
+|:---------------------|:----------------|-----------------:|------------------:|--------------:|---------------:|-----------:|-------------:|--------------:|---------------:|--------------:|------------------------:|----------:|:-----------------------------------------------------------------------------------------------------------|:----------------------------------------------------------------------------------------------------------|
+| oracle               | True            |          nan     |           nan     |       nan     |        nan     |      0.900 |        5.515 |         0.083 |          0.497 |         0.580 |                   1.000 |    11.607 | nan                                                                                                        | nan                                                                                                       |
+| constant_marginal    | True            |          nan     |           nan     |       nan     |        nan     |      0.896 |       13.156 |         0.349 |          0.674 |         1.023 |                   0.000 |    20.468 | nan                                                                                                        | nan                                                                                                       |
+| RandomForest         | True            |           16.000 |             8.000 |         0.951 |          0.951 |      0.880 |        5.329 |         0.090 |          0.504 |         0.594 |                   0.956 |    11.883 | {"n_estimators": 200, "min_samples_split": 10, "min_samples_leaf": 30, "max_depth": null}                  | {"n_estimators": 200, "min_samples_split": 2, "min_samples_leaf": 120, "max_depth": 6}                    |
+| ExtraTrees           | True            |           16.000 |            16.000 |         0.989 |          0.960 |      0.946 |        6.281 |         0.103 |          0.508 |         0.611 |                   0.972 |    12.215 | {"n_estimators": 200, "min_samples_split": 2, "min_samples_leaf": 9, "max_depth": 12}                      | {"n_estimators": 200, "min_samples_split": 2, "min_samples_leaf": 20, "max_depth": 12}                    |
+| GradientBoosting     | True            |            9.000 |             9.000 |         0.952 |          0.952 |      0.896 |        7.410 |         0.187 |          0.511 |         0.698 |                   0.794 |    13.955 | {"subsample": 1.0, "n_estimators": 30, "min_samples_leaf": 20, "max_depth": 3, "learning_rate": 0.1}       | {"subsample": 1.0, "n_estimators": 30, "min_samples_leaf": 20, "max_depth": 3, "learning_rate": 0.1}      |
+| HistGradientBoosting | True            |            9.000 |             2.000 |         0.955 |          0.957 |      0.907 |        6.122 |         0.110 |          0.511 |         0.621 |                   0.892 |    12.414 | {"min_samples_leaf": 20, "max_iter": 100, "max_depth": 6, "learning_rate": 0.05, "l2_regularization": 0.0} | {"min_samples_leaf": 40, "max_iter": 50, "max_depth": 3, "learning_rate": 0.05, "l2_regularization": 0.0} |
+| HonestRF             | False           |           13.000 |             0.000 |         0.958 |          0.935 |      0.872 |        4.743 |         0.095 |          0.519 |         0.614 |                   0.927 |    12.275 | {"n_estimators": 200, "min_samples_leaf": 9, "max_depth": 6, "honest_fraction": 0.5}                       | {"n_estimators": 200, "min_samples_leaf": 20, "max_depth": null, "honest_fraction": 0.5}                  |
 
 ## Sharpest calibrated model class
 
@@ -46,22 +46,24 @@ The CV constraint is one-sided and slightly leaky on test (each tail near
 
 **Best class that is CV-feasible on both tails and ≥90% on test:**
 **HistGradientBoosting** — test coverage 90.7%, mean width 6.12 (oracle 5.52),
-Spearman 0.89. The 5% model is more flexible (`max_iter=100`, `max_depth=6`,
-`min_samples_leaf=20`); the 95% model is more regularized (`max_iter=50`,
-`max_depth=3`, `min_samples_leaf=40`).
+pinball 0.110 / 0.511 (sum 0.621 vs oracle 0.580), Spearman 0.89. The 5%
+model is more flexible (`max_iter=100`, `max_depth=6`, `min_samples_leaf=20`);
+the 95% model is more regularized (`max_iter=50`, `max_depth=3`,
+`min_samples_leaf=40`).
 
-**RandomForest** is sharper (width 5.33, Spearman 0.96, best Winkler 11.88)
-but test coverage is 88.0%: both tails passed CV at 95.1% and slipped to
-93.8%/94.2% on test (`msl=30` unbounded vs `msl=120`, `max_depth=6`).
+**RandomForest** is sharper (width 5.33, pinball sum 0.594, Spearman 0.96,
+best Winkler 11.88) but test coverage is 88.0%: both tails passed CV at 95.1%
+and slipped to 93.8%/94.2% on test (`msl=30` unbounded vs `msl=120`,
+`max_depth=6`).
 
 **ExtraTrees** overcovers (94.6%) with a conservative lower tail (test
 half-coverage 98.8%) so the band is wider (6.28) despite excellent Spearman
 (0.97).
 
 **GradientBoosting** meets the floor only with **30 trees**; the interval is
-almost nominal (89.6%) but wide (7.41) and less discriminative (0.79). That
-matches the staged-boosting result: pinball-feasible coverage lives at
-early stopping, not at 200 trees.
+almost nominal (89.6%) but wide (7.41), with a much worse 5% pinball (0.187
+vs oracle 0.083) and Spearman 0.79. That matches the staged-boosting result:
+pinball-feasible coverage lives at early stopping, not at 200 trees.
 
 **HonestRF** never found a 95% upper tail in this grid (best CV half-coverage
 93.5%); the fallback pair is the sharpest of all (4.74) and undercovers
@@ -69,12 +71,12 @@ early stopping, not at 200 trees.
 
 Ranking by test mean width (both tails CV-feasible):
 
-| family               |   coverage |   mean_width |   width_oracle_spearman |   winkler |
-|:---------------------|-----------:|-------------:|------------------------:|----------:|
-| RandomForest         |      0.880 |        5.329 |                   0.956 |    11.883 |
-| HistGradientBoosting |      0.907 |        6.122 |                   0.892 |    12.414 |
-| ExtraTrees           |      0.946 |        6.281 |                   0.972 |    12.215 |
-| GradientBoosting     |      0.896 |        7.410 |                   0.794 |    13.955 |
+| family               |   coverage |   mean_width |   pinball_low |   pinball_high |   pinball_sum |   width_oracle_spearman |   winkler |
+|:---------------------|-----------:|-------------:|--------------:|---------------:|--------------:|------------------------:|----------:|
+| RandomForest         |      0.880 |        5.329 |         0.090 |          0.504 |         0.594 |                   0.956 |    11.883 |
+| HistGradientBoosting |      0.907 |        6.122 |         0.110 |          0.511 |         0.621 |                   0.892 |    12.414 |
+| ExtraTrees           |      0.946 |        6.281 |         0.103 |          0.508 |         0.611 |                   0.972 |    12.215 |
+| GradientBoosting     |      0.896 |        7.410 |         0.187 |          0.511 |         0.698 |                   0.794 |    13.955 |
 
 Independent hparams let the 5% and 95% models differ (the gallery
 example already suggested that). The half-coverage floor blocks the
