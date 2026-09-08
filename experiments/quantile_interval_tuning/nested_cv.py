@@ -67,6 +67,7 @@ def _baselines(X_tr, y_tr, X_te, y_te, fold):
             **interval_metrics(y_te, oracle_low, oracle_high, X_te),
         }
     )
+    rows[-1]["pinball_sum"] = rows[-1]["interval_score_sum_pinball"]
     y_low_c = np.full(y_te.shape[0], np.quantile(y_tr, ALPHA_LOW))
     y_high_c = np.full(y_te.shape[0], np.quantile(y_tr, ALPHA_HIGH))
     rows.append(
@@ -86,6 +87,7 @@ def _baselines(X_tr, y_tr, X_te, y_te, fold):
             **interval_metrics(y_te, y_low_c, y_high_c, X_te),
         }
     )
+    rows[-1]["pinball_sum"] = rows[-1]["interval_score_sum_pinball"]
     return rows
 
 
@@ -149,6 +151,7 @@ def evaluate_kind(kind, X_tr, y_tr, X_te, y_te, fold, random_state, n_jobs):
         "elapsed_s": time.perf_counter() - t0,
         **metrics,
     }
+    pair["pinball_sum"] = metrics["interval_score_sum_pinball"]
     print(
         f"  fold {fold} {label} coverage={metrics['coverage']:.3f} "
         f"width={metrics['mean_width']:.2f} "
@@ -172,8 +175,12 @@ def summarize_pairs(pairs):
         for col in METRIC_COLS:
             if col not in g.columns:
                 continue
-            row[f"{col}_mean"] = float(g[col].mean())
-            row[f"{col}_std"] = float(g[col].std(ddof=1)) if len(g) > 1 else 0.0
+            vals = g[col]
+            if isinstance(vals, pd.DataFrame):
+                vals = vals.iloc[:, 0]
+            vals = np.asarray(vals, dtype=float).ravel()
+            row[f"{col}_mean"] = float(np.mean(vals))
+            row[f"{col}_std"] = float(np.std(vals, ddof=1)) if len(vals) > 1 else 0.0
         rows.append(row)
     return pd.DataFrame(rows)
 
@@ -204,6 +211,10 @@ def plot_nested(pairs, path):
     except TypeError:
         axes[0].boxplot(data_cov, labels=families, **bp_kw)
         axes[1].boxplot(data_w, labels=families, **bp_kw)
+    axes[0].axhline(0.90, color="k", ls="--", lw=1)
+    axes[0].set_ylabel("Outer-fold coverage")
+    axes[0].set_title("Nested CV coverage")
+    axes[0].tick_params(axis="x", rotation=30)
     axes[1].set_ylabel("Outer-fold mean width")
     axes[1].set_title("Nested CV sharpness")
     axes[1].tick_params(axis="x", rotation=30)
@@ -223,7 +234,7 @@ def render_report(pairs, summary):
     lines = [
         "# Nested CV: half-coverage RSCV quantile interval pairs",
         "",
-        "Outer loop: stratified-by-shuffle `KFold` on the n=4000 synthetic",
+        "Outer loop: shuffled `KFold` on the n=4000 synthetic example.",
         "example. Inner loop: independent `RandomizedSearchCV` per tail with",
         "the pinball-under-95%-half-coverage `refit` from `constrained_rscv.py`.",
         f"Reported metrics are mean ± std over **{n_folds} outer folds**.",
@@ -330,6 +341,8 @@ def main(kinds=None, n_splits=5, n_jobs=2, random_state=0):
     cv = KFold(n_splits=n_splits, shuffle=True, random_state=random_state)
     pair_rows = []
     tail_rows = []
+    fold_csv = RESULTS / "nested_cv_fold_metrics.csv"
+    tail_csv = RESULTS / "nested_cv_tail_metrics.csv"
     for fold, (tr, te) in enumerate(cv.split(X)):
         print(f"\n=== outer fold {fold} (n_train={len(tr)}, n_test={len(te)}) ===", flush=True)
         X_tr, X_te = X[tr], X[te]
@@ -348,9 +361,12 @@ def main(kinds=None, n_splits=5, n_jobs=2, random_state=0):
             )
             pair_rows.append(pair)
             tail_rows.extend(tails)
+            pd.DataFrame(pair_rows).to_csv(fold_csv, index=False)
+            pd.DataFrame(tail_rows).to_csv(tail_csv, index=False)
 
     pairs = pd.DataFrame(pair_rows)
-    if "interval_score_sum_pinball" in pairs.columns:
+    pairs = pairs.loc[:, ~pairs.columns.duplicated()].copy()
+    if "pinball_sum" not in pairs.columns and "interval_score_sum_pinball" in pairs.columns:
         pairs["pinball_sum"] = pairs["interval_score_sum_pinball"]
     tails = pd.DataFrame(tail_rows)
     summary = summarize_pairs(pairs)
