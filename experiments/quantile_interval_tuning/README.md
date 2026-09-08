@@ -21,3 +21,9 @@ Outputs land in `experiments/quantile_interval_tuning/results/`.
 See `RESULTS.md` for the first grid and `RESULTS_GBR_COVERAGE.md` for the
 GBR-bug vs finite-sample pinball follow-up.
 
+Constrained independent RSCV (pinball under 95% one-sided / "half" coverage):
+
+```bash
+python experiments/quantile_interval_tuning/constrained_rscv.py
+```
+
