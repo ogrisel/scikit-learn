@@ -28,6 +28,17 @@ python experiments/quantile_interval_tuning/constrained_rscv.py
 python experiments/quantile_interval_tuning/constrained_rscv.py --kinds honest_rf
 ```
 
+Nested CV of that same selection procedure (outer 5-fold, inner 3-fold RSCV):
+
+```bash
+python experiments/quantile_interval_tuning/nested_cv.py
+```
+
+`HonestRF` (`honest_forest.py`) is a custom forest: each tree draws its own
+bootstrap sample, splits in-bag indices into grow vs honest, grows a pinball
+(`criterion="quantile"`) tree on the grow set, and sets leaf values to the
+honest-set empirical quantile.
+
 `HonestRF` (`honest_forest.py`) is a custom forest: each tree draws its own
 bootstrap sample, splits in-bag indices into grow vs honest, grows a pinball
 (`criterion="quantile"`) tree on the grow set, and sets leaf values to the

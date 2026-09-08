@@ -186,7 +186,7 @@ def scoring_for_tail(which):
     return {"half_coverage": cov, "neg_pinball": pinball}
 
 
-def run_tail_search(kind, which, X_train, y_train, random_state=0):
+def run_tail_search(kind, which, X_train, y_train, random_state=0, n_jobs=2):
     quantile = ALPHA_LOW if which == "low" else ALPHA_HIGH
     est = make_estimator(kind, quantile, random_state=random_state)
     n_iter = min(
@@ -201,7 +201,7 @@ def run_tail_search(kind, which, X_train, y_train, random_state=0):
         refit=refit_pinball_under_half_coverage,
         cv=3,
         random_state=random_state,
-        n_jobs=2,
+        n_jobs=n_jobs,
     )
     t0 = time.perf_counter()
     search.fit(X_train, y_train)
