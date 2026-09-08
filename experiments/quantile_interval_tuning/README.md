@@ -18,4 +18,6 @@ python experiments/quantile_interval_tuning/run_experiments.py
 
 Outputs land in `experiments/quantile_interval_tuning/results/`.
 
-See `RESULTS.md` for the interpretation.
+See `RESULTS.md` for the first grid and `RESULTS_GBR_COVERAGE.md` for the
+GBR-bug vs finite-sample pinball follow-up.
+
