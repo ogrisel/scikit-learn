@@ -4,9 +4,9 @@ Runs the currently importable scikit-learn (so main and PR #34935 can be
 compared by pointing PYTHONPATH / an editable install at each build) against
 XGBoost, LightGBM and CatBoost with approximately matching hyperparameters.
 
-Five diverse HP settings (trees / leaves / learning rate; early stopping off)
-are swept so each dataset can be shown as a fit-time vs test ROC-AUC Pareto
-front.
+HP settings (trees / leaves / learning rate; early stopping off) along
+the likely fit-time vs accuracy tradeoff. Each dataset is shown as a
+fit-time vs test ROC-AUC Pareto front, plus a zoom on the top-3 fronts.
 
 Thread counts above ``os.cpu_count()`` mimic the default-OMP oversubscription
 regime that sklearn ``main`` handles poorly on small-to-medium problems.
@@ -40,14 +40,28 @@ SHAPES = [
     ("medium_50k_x_50", 50_000, 50),
 ]
 
-# Matched across libraries. CatBoost Lossguide caps max_leaves at 64, so the
-# "wide" setting uses 63 rather than 127.
+# Matched across libraries. CatBoost Lossguide caps max_leaves at 64, so
+# wide settings use 63. Configs are biased toward the usual GBDT Pareto:
+# cheap shallow models, then more leaves / more trees at moderate lr.
+# slow_low_lr was dropped: it was dominated in the previous sweep.
 HP_CONFIGS = [
+    {
+        "hp_name": "tiny_stumps",
+        "n_estimators": 10,
+        "max_leaf_nodes": 4,
+        "learning_rate": 0.5,
+    },
     {
         "hp_name": "fast_shallow",
         "n_estimators": 20,
         "max_leaf_nodes": 8,
         "learning_rate": 0.3,
+    },
+    {
+        "hp_name": "fast_medium",
+        "n_estimators": 30,
+        "max_leaf_nodes": 15,
+        "learning_rate": 0.2,
     },
     {
         "hp_name": "defaultish",
@@ -56,9 +70,27 @@ HP_CONFIGS = [
         "learning_rate": 0.1,
     },
     {
+        "hp_name": "more_trees",
+        "n_estimators": 80,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.08,
+    },
+    {
         "hp_name": "wide_leaves",
         "n_estimators": 50,
         "max_leaf_nodes": 63,
+        "learning_rate": 0.1,
+    },
+    {
+        "hp_name": "wide_boosted",
+        "n_estimators": 80,
+        "max_leaf_nodes": 63,
+        "learning_rate": 0.1,
+    },
+    {
+        "hp_name": "many_shallow",
+        "n_estimators": 120,
+        "max_leaf_nodes": 8,
         "learning_rate": 0.1,
     },
     {
@@ -66,12 +98,6 @@ HP_CONFIGS = [
         "n_estimators": 200,
         "max_leaf_nodes": 15,
         "learning_rate": 0.05,
-    },
-    {
-        "hp_name": "slow_low_lr",
-        "n_estimators": 100,
-        "max_leaf_nodes": 63,
-        "learning_rate": 0.03,
     },
 ]
 

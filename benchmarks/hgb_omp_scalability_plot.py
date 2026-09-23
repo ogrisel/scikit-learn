@@ -12,6 +12,13 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
+COLORS = {
+    "sklearn main": "#2ca02c",
+    "sklearn pr34935": "#d62728",
+    "xgboost": "#9467bd",
+    "lightgbm": "#ff7f0e",
+    "catboost": "#1f77b4",
+}
 LINESTYLES = {
     "sklearn main": "--",
     "sklearn pr34935": "-",
@@ -20,9 +27,14 @@ LINESTYLES = {
     "catboost": "-",
 }
 MARKERS = {
+    "tiny_stumps": "P",
     "fast_shallow": "o",
+    "fast_medium": "X",
     "defaultish": "s",
+    "more_trees": ">",
     "wide_leaves": "D",
+    "wide_boosted": "<",
+    "many_shallow": "*",
     "many_trees": "^",
     "slow_low_lr": "v",
 }
@@ -47,16 +59,68 @@ def pareto_front(g, time_col="fit_seconds_median", auc_col="test_roc_auc_median"
     return pts.loc[keep].sort_values(time_col)
 
 
-def _plot_pareto(df, out_path, title):
+def hypervolume_min_time_max_auc(front, t_ref, a_ref):
+    """2D hypervolume of a min-time / max-AUC staircase vs (t_ref, a_ref)."""
+    if front.empty:
+        return 0.0
+    pts = front.sort_values("fit_seconds_median")
+    times = np.concatenate([pts["fit_seconds_median"].to_numpy(), [t_ref]])
+    aucs = pts["test_roc_auc_median"].to_numpy()
+    hv = 0.0
+    for i, auc in enumerate(aucs):
+        hv += max(float(auc) - a_ref, 0.0) * max(float(times[i + 1]) - float(times[i]), 0.0)
+    return hv
+
+
+def top_k_frontiers(sub, k=3):
+    """Return labels of the k Pareto fronts with largest hypervolume."""
+    t_ref = float(sub["fit_seconds_median"].max()) * 1.01 + 1e-9
+    a_ref = float(sub["test_roc_auc_median"].min()) - 1e-6
+    scores = []
+    for label, g in sub.groupby("label"):
+        hv = hypervolume_min_time_max_auc(pareto_front(g), t_ref, a_ref)
+        scores.append((hv, label))
+    scores.sort(reverse=True)
+    return [label for _, label in scores[:k]]
+
+
+def zoom_limits_for_fronts(sub, labels):
+    """Smallest axis box that contains the selected models' Pareto fronts."""
+    fronts = []
+    for label in labels:
+        g = sub[sub["label"] == label]
+        if g.empty:
+            continue
+        fronts.append(pareto_front(g))
+    if not fronts:
+        return None
+    pts = pd.concat(fronts)
+    t_max = float(pts["fit_seconds_median"].max())
+    a_min = float(pts["test_roc_auc_median"].min())
+    a_max = float(pts["test_roc_auc_median"].max())
+    t_pad = max(t_max * 0.08, 1e-3)
+    a_span = max(a_max - a_min, 1e-3)
+    return {
+        "xlim": (0.0, t_max + t_pad),
+        "ylim": (max(0.0, a_min - 0.15 * a_span), min(1.0, a_max + 0.15 * a_span)),
+    }
+
+
+def _plot_pareto(df, out_path, title, zoom=False, top_k=3):
     shapes = list(df["shape"].unique())
     n = len(shapes)
     cols = 3
     rows = (n + cols - 1) // cols
     fig, axes = plt.subplots(rows, cols, figsize=(4.6 * cols, 3.8 * rows), squeeze=False)
+    zoom_notes = []
     for ax, shape in zip(axes.ravel(), shapes):
         sub = df[df["shape"] == shape]
         n_samples = int(sub["n_samples"].iloc[0])
         n_features = int(sub["n_features"].iloc[0])
+        top_labels = top_k_frontiers(sub, k=top_k) if zoom else None
+        limits = zoom_limits_for_fronts(sub, top_labels) if zoom else None
+        if zoom and top_labels:
+            zoom_notes.append(f"{shape}: {', '.join(top_labels)}")
         for label, g in sub.groupby("label"):
             color = COLORS.get(label, "gray")
             ax.scatter(
@@ -85,17 +149,24 @@ def _plot_pareto(df, out_path, title):
                 front["test_roc_auc_median"],
                 color=color,
                 ls=LINESTYLES.get(label, "-"),
-                lw=1.6,
+                lw=2.0 if (top_labels and label in top_labels) else 1.6,
                 label=label,
                 zorder=4,
             )
-        ax.set_title(f"{shape}\n({n_samples} x {n_features})")
+        if limits:
+            ax.set_xlim(*limits["xlim"])
+            ax.set_ylim(*limits["ylim"])
+        subtitle = f"{shape}\n({n_samples} x {n_features})"
+        if zoom and top_labels:
+            subtitle += f"\nzoom: {', '.join(top_labels)}"
+        ax.set_title(subtitle)
         ax.set_xlabel("fit time (s)")
         ax.set_ylabel("test ROC AUC")
         ax.grid(True, alpha=0.3)
         ax.legend(fontsize=6, loc="lower right")
     for ax in axes.ravel()[n:]:
         ax.set_visible(False)
+    present = set(df.get("hp_name", pd.Series(dtype=str)))
     hp_handles = [
         plt.Line2D(
             [0],
@@ -107,21 +178,25 @@ def _plot_pareto(df, out_path, title):
             markersize=6,
         )
         for name, m in MARKERS.items()
-        if name in set(df.get("hp_name", pd.Series(dtype=str)))
+        if name in present
     ]
     if hp_handles:
         fig.legend(
             handles=hp_handles,
             loc="upper center",
-            ncol=len(hp_handles),
-            fontsize=8,
+            ncol=min(5, len(hp_handles)),
+            fontsize=7,
             title="HP setting (markers); lines = Pareto front per model",
-            bbox_to_anchor=(0.5, 1.04),
+            bbox_to_anchor=(0.5, 1.06),
         )
-    fig.suptitle(title, y=1.08)
+    fig.suptitle(title, y=1.10)
     fig.tight_layout()
     fig.savefig(out_path, dpi=140, bbox_inches="tight")
     plt.close(fig)
+    if zoom_notes:
+        print("Zoom windows (top-3 hypervolume fronts):")
+        for note in zoom_notes:
+            print(" ", note)
 
 
 def main():
@@ -188,6 +263,13 @@ def main():
             sub,
             out / f"pareto_fit_vs_auc_threads_{n_threads}.png",
             f"Fit time vs test ROC AUC (n_threads={n_threads}); lines = Pareto front",
+        )
+        _plot_pareto(
+            sub,
+            out / f"pareto_fit_vs_auc_threads_{n_threads}_zoom.png",
+            f"Zoomed to top-3 Pareto fronts by hypervolume (n_threads={n_threads})",
+            zoom=True,
+            top_k=3,
         )
 
     # Thread-scaling plots for the defaultish HP if present, else first HP.
