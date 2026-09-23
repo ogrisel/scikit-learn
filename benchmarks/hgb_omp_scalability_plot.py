@@ -12,12 +12,12 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 
-COLORS = {
-    "sklearn main": "#2ca02c",
-    "sklearn pr34935": "#d62728",
-    "xgboost": "#9467bd",
-    "lightgbm": "#ff7f0e",
-    "catboost": "#1f77b4",
+LINESTYLES = {
+    "sklearn main": "--",
+    "sklearn pr34935": "-",
+    "xgboost": "-",
+    "lightgbm": "-",
+    "catboost": "-",
 }
 MARKERS = {
     "fast_shallow": "o",
@@ -84,6 +84,7 @@ def _plot_pareto(df, out_path, title):
                 front["fit_seconds_median"],
                 front["test_roc_auc_median"],
                 color=color,
+                ls=LINESTYLES.get(label, "-"),
                 lw=1.6,
                 label=label,
                 zorder=4,
