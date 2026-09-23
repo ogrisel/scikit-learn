@@ -26,6 +26,8 @@ from pathlib import Path
 import numpy as np
 from sklearn.datasets import make_classification
 from sklearn.ensemble import HistGradientBoostingClassifier
+from sklearn.metrics import roc_auc_score
+from sklearn.model_selection import train_test_split
 from threadpoolctl import threadpool_info, threadpool_limits
 
 SHAPES = [
@@ -128,8 +130,10 @@ def _make_cat(n_threads: int):
 
 def _make_data(n_samples: int, n_features: int):
     n_informative = max(2, n_features // 2)
+    # Extra samples are held out so train size stays n_samples while we can
+    # report test ROC AUC with the same generator seed.
     X, y = make_classification(
-        n_samples=n_samples,
+        n_samples=n_samples * 2,
         n_features=n_features,
         n_informative=n_informative,
         n_redundant=0,
@@ -138,7 +142,15 @@ def _make_data(n_samples: int, n_features: int):
         n_clusters_per_class=2,
         random_state=RANDOM_STATE,
     )
-    return X.astype(np.float32, copy=False), y
+    X = X.astype(np.float32, copy=False)
+    return train_test_split(X, y, test_size=0.5, random_state=RANDOM_STATE, stratify=y)
+
+
+def _positive_proba(est, X):
+    proba = est.predict_proba(X)
+    if getattr(proba, "ndim", 1) == 2 and proba.shape[1] == 2:
+        return proba[:, 1]
+    return np.ravel(proba)
 
 
 def _fit_once(lib: str, n_threads: int, X, y):
@@ -148,22 +160,22 @@ def _fit_once(lib: str, n_threads: int, X, y):
             t0 = time.perf_counter()
             est.fit(X, y)
             dt = time.perf_counter() - t0
-        return dt
+        return dt, est
     if lib == "xgboost":
         est = _make_xgb(n_threads)
         t0 = time.perf_counter()
         est.fit(X, y)
-        return time.perf_counter() - t0
+        return time.perf_counter() - t0, est
     if lib == "lightgbm":
         est = _make_lgbm(n_threads)
         t0 = time.perf_counter()
         est.fit(X, y)
-        return time.perf_counter() - t0
+        return time.perf_counter() - t0, est
     if lib == "catboost":
         est = _make_cat(n_threads)
         t0 = time.perf_counter()
         est.fit(X, y)
-        return time.perf_counter() - t0
+        return time.perf_counter() - t0, est
     raise ValueError(lib)
 
 
@@ -172,10 +184,15 @@ def _median(xs):
 
 
 def run_one(lib, sklearn_label, shape_name, n_samples, n_features, n_threads, repeats, warmup):
-    X, y = _make_data(n_samples, n_features)
+    X_train, X_test, y_train, y_test = _make_data(n_samples, n_features)
     for _ in range(warmup):
-        _fit_once(lib, n_threads, X, y)
-    times = [_fit_once(lib, n_threads, X, y) for _ in range(repeats)]
+        _fit_once(lib, n_threads, X_train, y_train)
+    times = []
+    aucs = []
+    for _ in range(repeats):
+        dt, est = _fit_once(lib, n_threads, X_train, y_train)
+        times.append(dt)
+        aucs.append(float(roc_auc_score(y_test, _positive_proba(est, X_test))))
     import sklearn
 
     row = {
@@ -185,21 +202,28 @@ def run_one(lib, sklearn_label, shape_name, n_samples, n_features, n_threads, re
         "shape": shape_name,
         "n_samples": n_samples,
         "n_features": n_features,
+        "n_train": int(X_train.shape[0]),
+        "n_test": int(X_test.shape[0]),
         "n_threads": n_threads,
         "n_estimators": N_ESTIMATORS,
         "max_leaf_nodes": MAX_LEAF_NODES,
+        "metric": "roc_auc",
         "fit_seconds_median": _median(times),
         "fit_seconds_min": min(times),
         "fit_seconds_max": max(times),
+        "test_roc_auc_median": _median(aucs),
+        "test_roc_auc_min": min(aucs),
+        "test_roc_auc_max": max(aucs),
         "repeats": repeats,
         "warmup": warmup,
         "times_json": json.dumps(times),
+        "aucs_json": json.dumps(aucs),
         "cpu_count": os.cpu_count(),
         "omp_wait_policy": os.environ.get("OMP_WAIT_POLICY", ""),
         "omp_num_threads_env": os.environ.get("OMP_NUM_THREADS", ""),
         "omp_proc_bind": os.environ.get("OMP_PROC_BIND", ""),
     }
-    return row, times
+    return row, times, aucs
 
 
 def env_metadata():
@@ -294,7 +318,7 @@ def main():
                         flush=True,
                     )
                     try:
-                        row, times = run_one(
+                        row, times, aucs = run_one(
                             lib,
                             args.sklearn_label,
                             shape_name,
@@ -316,8 +340,10 @@ def main():
                             "error": repr(exc),
                         }
                         times = []
+                        aucs = []
                     print(
-                        f"median={row.get('fit_seconds_median')} times={times}",
+                        f"median={row.get('fit_seconds_median')} "
+                        f"auc={row.get('test_roc_auc_median')} times={times} aucs={aucs}",
                         flush=True,
                     )
                     if fieldnames is None:

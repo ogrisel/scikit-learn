@@ -53,6 +53,24 @@ def main():
     pivot.to_csv(out / "fit_seconds_pivot.csv")
     print(pivot.to_string())
 
+    if "test_roc_auc_median" in df.columns:
+        auc_pivot = df.pivot_table(
+            index=["shape", "n_samples", "n_features", "n_threads"],
+            columns="label",
+            values="test_roc_auc_median",
+        )
+        auc_pivot.to_csv(out / "test_roc_auc_pivot.csv")
+        print("\nTest ROC AUC:")
+        print(auc_pivot.to_string())
+        auc_by_shape = (
+            df.groupby(["shape", "label"], sort=False)["test_roc_auc_median"]
+            .agg(["median", "min", "max"])
+            .reset_index()
+        )
+        auc_by_shape.to_csv(out / "test_roc_auc_by_shape.csv", index=False)
+        print("\nTest ROC AUC by shape (median/min/max over thread counts):")
+        print(auc_by_shape.to_string(index=False))
+
     shapes = list(df["shape"].unique())
     n = len(shapes)
     cols = 3
