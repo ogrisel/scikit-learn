@@ -10,6 +10,7 @@ export PYTHONUNBUFFERED=1
 # Keep BLAS single-threaded so GBDT thread sweeps are not confounded.
 export MKL_NUM_THREADS=1
 export OPENBLAS_NUM_THREADS=1
+export MPLBACKEND=Agg
 # Allow OpenMP to exceed os.cpu_count() so we can probe the "too many
 # default threads on a big machine" regime on this 4-vCPU VM.
 export OMP_NUM_THREADS="${OMP_NUM_THREADS:-32}"
