@@ -4,10 +4,12 @@ Runs the currently importable scikit-learn (so main and PR #34935 can be
 compared by pointing PYTHONPATH / an editable install at each build) against
 XGBoost, LightGBM and CatBoost with approximately matching hyperparameters.
 
-This machine may have fewer cores than a typical "big" server. Thread counts
-above ``os.cpu_count()`` are still included: they mimic the default-OMP
-oversubscription / too-many-threads regime that sklearn ``main`` is known to
-handle poorly on small-to-medium problems.
+Five diverse HP settings (trees / leaves / learning rate; early stopping off)
+are swept so each dataset can be shown as a fit-time vs test ROC-AUC Pareto
+front.
+
+Thread counts above ``os.cpu_count()`` mimic the default-OMP oversubscription
+regime that sklearn ``main`` handles poorly on small-to-medium problems.
 """
 
 from __future__ import annotations
@@ -18,7 +20,6 @@ import json
 import os
 import platform
 import statistics
-import subprocess
 import sys
 import time
 from pathlib import Path
@@ -31,7 +32,6 @@ from sklearn.model_selection import train_test_split
 from threadpoolctl import threadpool_info, threadpool_limits
 
 SHAPES = [
-    # name, n_samples, n_features — focused on small/medium where default OMP hurts
     ("tiny_1k_x_10", 1_000, 10),
     ("small_5k_x_20", 5_000, 20),
     ("small_wide_2k_x_128", 2_000, 128),
@@ -40,20 +40,52 @@ SHAPES = [
     ("medium_50k_x_50", 50_000, 50),
 ]
 
-N_ESTIMATORS = 40
-MAX_LEAF_NODES = 31
-LEARNING_RATE = 0.1
+# Matched across libraries. CatBoost Lossguide caps max_leaves at 64, so the
+# "wide" setting uses 63 rather than 127.
+HP_CONFIGS = [
+    {
+        "hp_name": "fast_shallow",
+        "n_estimators": 20,
+        "max_leaf_nodes": 8,
+        "learning_rate": 0.3,
+    },
+    {
+        "hp_name": "defaultish",
+        "n_estimators": 40,
+        "max_leaf_nodes": 31,
+        "learning_rate": 0.1,
+    },
+    {
+        "hp_name": "wide_leaves",
+        "n_estimators": 50,
+        "max_leaf_nodes": 63,
+        "learning_rate": 0.1,
+    },
+    {
+        "hp_name": "many_trees",
+        "n_estimators": 200,
+        "max_leaf_nodes": 15,
+        "learning_rate": 0.05,
+    },
+    {
+        "hp_name": "slow_low_lr",
+        "n_estimators": 100,
+        "max_leaf_nodes": 63,
+        "learning_rate": 0.03,
+    },
+]
+
 MAX_BINS = 255
-MAX_DEPTH_CAP = 16  # CatBoost needs a depth cap when using lossguide + max_leaves
+MAX_DEPTH_CAP = 16
 RANDOM_STATE = 0
 
 
-def _sklearn_est():
+def _sklearn_est(hp):
     return HistGradientBoostingClassifier(
-        learning_rate=LEARNING_RATE,
-        max_iter=N_ESTIMATORS,
+        learning_rate=hp["learning_rate"],
+        max_iter=hp["n_estimators"],
         max_bins=MAX_BINS,
-        max_leaf_nodes=MAX_LEAF_NODES,
+        max_leaf_nodes=hp["max_leaf_nodes"],
         max_depth=None,
         min_samples_leaf=20,
         l2_regularization=0.0,
@@ -64,16 +96,16 @@ def _sklearn_est():
     )
 
 
-def _make_xgb(n_threads: int):
+def _make_xgb(hp, n_threads: int):
     from xgboost import XGBClassifier
 
     return XGBClassifier(
         tree_method="hist",
         grow_policy="lossguide",
         objective="binary:logistic",
-        learning_rate=LEARNING_RATE,
-        n_estimators=N_ESTIMATORS,
-        max_leaves=MAX_LEAF_NODES,
+        learning_rate=hp["learning_rate"],
+        n_estimators=hp["n_estimators"],
+        max_leaves=hp["max_leaf_nodes"],
         max_depth=0,
         reg_lambda=0.0,
         max_bin=MAX_BINS,
@@ -85,14 +117,14 @@ def _make_xgb(n_threads: int):
     )
 
 
-def _make_lgbm(n_threads: int):
+def _make_lgbm(hp, n_threads: int):
     from lightgbm import LGBMClassifier
 
     return LGBMClassifier(
         objective="binary",
-        learning_rate=LEARNING_RATE,
-        n_estimators=N_ESTIMATORS,
-        num_leaves=MAX_LEAF_NODES,
+        learning_rate=hp["learning_rate"],
+        n_estimators=hp["n_estimators"],
+        num_leaves=hp["max_leaf_nodes"],
         max_depth=-1,
         min_data_in_leaf=20,
         reg_lambda=0.0,
@@ -107,17 +139,17 @@ def _make_lgbm(n_threads: int):
     )
 
 
-def _make_cat(n_threads: int):
+def _make_cat(hp, n_threads: int):
     from catboost import CatBoostClassifier
 
     return CatBoostClassifier(
         loss_function="Logloss",
-        learning_rate=LEARNING_RATE,
-        iterations=N_ESTIMATORS,
+        learning_rate=hp["learning_rate"],
+        iterations=hp["n_estimators"],
         grow_policy="Lossguide",
-        max_leaves=MAX_LEAF_NODES,
+        max_leaves=hp["max_leaf_nodes"],
         depth=MAX_DEPTH_CAP,
-        l2_leaf_reg=3.0,  # CatBoost default; 0 is rejected
+        l2_leaf_reg=3.0,
         max_bin=MAX_BINS,
         thread_count=n_threads,
         verbose=False,
@@ -130,8 +162,6 @@ def _make_cat(n_threads: int):
 
 def _make_data(n_samples: int, n_features: int):
     n_informative = max(2, n_features // 2)
-    # Extra samples are held out so train size stays n_samples while we can
-    # report test ROC AUC with the same generator seed.
     X, y = make_classification(
         n_samples=n_samples * 2,
         n_features=n_features,
@@ -153,26 +183,26 @@ def _positive_proba(est, X):
     return np.ravel(proba)
 
 
-def _fit_once(lib: str, n_threads: int, X, y):
+def _fit_once(lib: str, hp: dict, n_threads: int, X, y):
     if lib == "sklearn":
-        est = _sklearn_est()
+        est = _sklearn_est(hp)
         with threadpool_limits(limits=n_threads, user_api="openmp"):
             t0 = time.perf_counter()
             est.fit(X, y)
             dt = time.perf_counter() - t0
         return dt, est
     if lib == "xgboost":
-        est = _make_xgb(n_threads)
+        est = _make_xgb(hp, n_threads)
         t0 = time.perf_counter()
         est.fit(X, y)
         return time.perf_counter() - t0, est
     if lib == "lightgbm":
-        est = _make_lgbm(n_threads)
+        est = _make_lgbm(hp, n_threads)
         t0 = time.perf_counter()
         est.fit(X, y)
         return time.perf_counter() - t0, est
     if lib == "catboost":
-        est = _make_cat(n_threads)
+        est = _make_cat(hp, n_threads)
         t0 = time.perf_counter()
         est.fit(X, y)
         return time.perf_counter() - t0, est
@@ -183,14 +213,14 @@ def _median(xs):
     return statistics.median(xs)
 
 
-def run_one(lib, sklearn_label, shape_name, n_samples, n_features, n_threads, repeats, warmup):
+def run_one(lib, sklearn_label, hp, shape_name, n_samples, n_features, n_threads, repeats, warmup):
     X_train, X_test, y_train, y_test = _make_data(n_samples, n_features)
     for _ in range(warmup):
-        _fit_once(lib, n_threads, X_train, y_train)
+        _fit_once(lib, hp, n_threads, X_train, y_train)
     times = []
     aucs = []
     for _ in range(repeats):
-        dt, est = _fit_once(lib, n_threads, X_train, y_train)
+        dt, est = _fit_once(lib, hp, n_threads, X_train, y_train)
         times.append(dt)
         aucs.append(float(roc_auc_score(y_test, _positive_proba(est, X_test))))
     import sklearn
@@ -199,14 +229,17 @@ def run_one(lib, sklearn_label, shape_name, n_samples, n_features, n_threads, re
         "sklearn_label": sklearn_label,
         "sklearn_version": sklearn.__version__,
         "lib": lib,
+        "hp_name": hp["hp_name"],
         "shape": shape_name,
         "n_samples": n_samples,
         "n_features": n_features,
         "n_train": int(X_train.shape[0]),
         "n_test": int(X_test.shape[0]),
         "n_threads": n_threads,
-        "n_estimators": N_ESTIMATORS,
-        "max_leaf_nodes": MAX_LEAF_NODES,
+        "n_estimators": hp["n_estimators"],
+        "max_leaf_nodes": hp["max_leaf_nodes"],
+        "learning_rate": hp["learning_rate"],
+        "early_stopping": False,
         "metric": "roc_auc",
         "fit_seconds_median": _median(times),
         "fit_seconds_min": min(times),
@@ -236,6 +269,7 @@ def env_metadata():
         "cpu_count": os.cpu_count(),
         "sklearn_file": sklearn.__file__,
         "sklearn_version": sklearn.__version__,
+        "hp_configs": HP_CONFIGS,
         "threadpool_info": threadpool_info(),
         "env": {
             k: os.environ.get(k, "")
@@ -280,14 +314,15 @@ def parse_args():
     p.add_argument("--out-csv", type=Path, required=True)
     p.add_argument("--out-meta", type=Path, required=True)
     p.add_argument("--libs", default="sklearn,xgboost,lightgbm,catboost")
-    p.add_argument("--threads", default="1,2,4,8,16")
-    p.add_argument("--repeats", type=int, default=2)
-    p.add_argument("--warmup", type=int, default=1)
     p.add_argument(
-        "--shapes",
-        default=",".join(s[0] for s in SHAPES),
-        help="comma-separated shape names",
+        "--threads",
+        default="4,16",
+        help="4 = physical cores here; 16 = surplus-OMP / oversubscription",
     )
+    p.add_argument("--repeats", type=int, default=1)
+    p.add_argument("--warmup", type=int, default=1)
+    p.add_argument("--shapes", default=",".join(s[0] for s in SHAPES))
+    p.add_argument("--hps", default=",".join(h["hp_name"] for h in HP_CONFIGS))
     return p.parse_args()
 
 
@@ -295,8 +330,10 @@ def main():
     args = parse_args()
     libs = [x.strip() for x in args.libs.split(",") if x.strip()]
     n_threads_list = [int(x) for x in args.threads.split(",") if x.strip()]
-    wanted = {x.strip() for x in args.shapes.split(",") if x.strip()}
-    shapes = [s for s in SHAPES if s[0] in wanted]
+    wanted_shapes = {x.strip() for x in args.shapes.split(",") if x.strip()}
+    wanted_hps = {x.strip() for x in args.hps.split(",") if x.strip()}
+    shapes = [s for s in SHAPES if s[0] in wanted_shapes]
+    hps = [h for h in HP_CONFIGS if h["hp_name"] in wanted_hps]
 
     meta = env_metadata()
     args.out_meta.parent.mkdir(parents=True, exist_ok=True)
@@ -310,51 +347,59 @@ def main():
     with args.out_csv.open("a", newline="") as f:
         writer = None
         for shape_name, n_samples, n_features in shapes:
-            for n_threads in n_threads_list:
-                for lib in libs:
-                    print(
-                        f"=== {args.sklearn_label} {lib} {shape_name} "
-                        f"threads={n_threads} ===",
-                        flush=True,
-                    )
-                    try:
-                        row, times, aucs = run_one(
-                            lib,
-                            args.sklearn_label,
-                            shape_name,
-                            n_samples,
-                            n_features,
-                            n_threads,
-                            args.repeats,
-                            args.warmup,
+            for hp in hps:
+                for n_threads in n_threads_list:
+                    for lib in libs:
+                        print(
+                            f"=== {args.sklearn_label} {lib} {hp['hp_name']} "
+                            f"{shape_name} threads={n_threads} ===",
+                            flush=True,
                         )
-                    except Exception as exc:
-                        print(f"FAILED: {exc!r}", flush=True)
-                        row = {
-                            "sklearn_label": args.sklearn_label,
-                            "lib": lib,
-                            "shape": shape_name,
-                            "n_samples": n_samples,
-                            "n_features": n_features,
-                            "n_threads": n_threads,
-                            "error": repr(exc),
-                        }
-                        times = []
-                        aucs = []
-                    print(
-                        f"median={row.get('fit_seconds_median')} "
-                        f"auc={row.get('test_roc_auc_median')} times={times} aucs={aucs}",
-                        flush=True,
-                    )
-                    if fieldnames is None:
-                        fieldnames = list(row.keys())
-                        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-                        if new_file:
-                            writer.writeheader()
-                    if writer is None:
-                        writer = csv.DictWriter(f, fieldnames=fieldnames, extrasaction="ignore")
-                    writer.writerow(row)
-                    f.flush()
+                        try:
+                            row, times, aucs = run_one(
+                                lib,
+                                args.sklearn_label,
+                                hp,
+                                shape_name,
+                                n_samples,
+                                n_features,
+                                n_threads,
+                                args.repeats,
+                                args.warmup,
+                            )
+                        except Exception as exc:
+                            print(f"FAILED: {exc!r}", flush=True)
+                            row = {
+                                "sklearn_label": args.sklearn_label,
+                                "lib": lib,
+                                "hp_name": hp["hp_name"],
+                                "shape": shape_name,
+                                "n_samples": n_samples,
+                                "n_features": n_features,
+                                "n_threads": n_threads,
+                                "error": repr(exc),
+                            }
+                            times = []
+                            aucs = []
+                        print(
+                            f"median={row.get('fit_seconds_median')} "
+                            f"auc={row.get('test_roc_auc_median')} "
+                            f"times={times} aucs={aucs}",
+                            flush=True,
+                        )
+                        if fieldnames is None:
+                            fieldnames = list(row.keys())
+                            writer = csv.DictWriter(
+                                f, fieldnames=fieldnames, extrasaction="ignore"
+                            )
+                            if new_file:
+                                writer.writeheader()
+                        if writer is None:
+                            writer = csv.DictWriter(
+                                f, fieldnames=fieldnames, extrasaction="ignore"
+                            )
+                        writer.writerow(row)
+                        f.flush()
 
 
 if __name__ == "__main__":

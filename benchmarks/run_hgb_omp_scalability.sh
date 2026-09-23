@@ -34,6 +34,7 @@ python "$ROOT/benchmarks/hgb_omp_scalability.py" \
   --out-csv "$CSV" \
   --out-meta "$OUT/meta_main.json" \
   --libs sklearn \
+  --threads "${THREADS:-4,16}" \
   "$@"
 
 # Other libraries are independent of the sklearn build; run them once.
@@ -42,6 +43,7 @@ python "$ROOT/benchmarks/hgb_omp_scalability.py" \
   --out-csv "$CSV" \
   --out-meta "$OUT/meta_others.json" \
   --libs xgboost,lightgbm,catboost \
+  --threads "${THREADS:-4,16}" \
   "$@"
 
 build_sklearn /tmp/sklearn-pr
@@ -50,6 +52,7 @@ python "$ROOT/benchmarks/hgb_omp_scalability.py" \
   --out-csv "$CSV" \
   --out-meta "$OUT/meta_pr34935.json" \
   --libs sklearn \
+  --threads "${THREADS:-4,16}" \
   "$@"
 
 python "$ROOT/benchmarks/hgb_omp_scalability_plot.py" "$CSV" --out-dir "$OUT"
