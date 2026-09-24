@@ -28,16 +28,11 @@ LINESTYLES = {
 }
 MARKERS = {
     "tiny_stumps": "P",
-    "fast_shallow": "o",
     "fast_medium": "X",
-    "defaultish": "s",
     "more_trees": ">",
-    "wide_leaves": "D",
     "wide_boosted": "<",
-    "many_shallow": "*",
-    "many_trees": "^",
-    "slow_low_lr": "v",
 }
+THREAD_HP_PREFERENCE = ("fast_medium", "tiny_stumps", "more_trees", "wide_boosted")
 
 
 def lib_label(row):
@@ -203,6 +198,11 @@ def main():
     p = argparse.ArgumentParser()
     p.add_argument("csv", type=Path)
     p.add_argument("--out-dir", type=Path, required=True)
+    p.add_argument(
+        "--hps",
+        default="",
+        help="Optional comma-separated hp_name filter (default: all rows in CSV).",
+    )
     args = p.parse_args()
     out = args.out_dir
     out.mkdir(parents=True, exist_ok=True)
@@ -217,7 +217,10 @@ def main():
         df = df[df["error"].isna() | (df["error"].astype(str) == "")]
     df["label"] = df.apply(lib_label, axis=1)
     if "hp_name" not in df.columns:
-        df["hp_name"] = "defaultish"
+        df["hp_name"] = THREAD_HP_PREFERENCE[0]
+    if args.hps:
+        wanted = {x.strip() for x in args.hps.split(",") if x.strip()}
+        df = df[df["hp_name"].isin(wanted)]
 
     group_keys = [c for c in ["label", "shape", "hp_name"] if c in df.columns]
     if 1 in set(df["n_threads"]):
@@ -272,8 +275,11 @@ def main():
             top_k=3,
         )
 
-    # Thread-scaling plots for the defaultish HP if present, else first HP.
-    hp_for_threads = "defaultish" if "defaultish" in set(df["hp_name"]) else df["hp_name"].iloc[0]
+    present_hps = set(df["hp_name"])
+    hp_for_threads = next(
+        (h for h in THREAD_HP_PREFERENCE if h in present_hps),
+        df["hp_name"].iloc[0],
+    )
     tdf = df[df["hp_name"] == hp_for_threads]
     if tdf["n_threads"].nunique() > 1:
         shapes = list(tdf["shape"].unique())

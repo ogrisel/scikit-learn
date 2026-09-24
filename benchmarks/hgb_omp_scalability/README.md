@@ -46,7 +46,7 @@ Forward extra argparse flags after `--`:
 
 ```bash
 THREADS=1,2,4,8,16 pixi run bench -- --repeats 2 --warmup 1
-pixi run bench -- --shapes tiny_1k_x_10,small_5k_x_20 --hps tiny_stumps,defaultish
+pixi run bench -- --shapes tiny_1k_x_10,small_5k_x_20 --hps tiny_stumps,fast_medium
 ```
 
 ## Active vs passive OpenMP wait

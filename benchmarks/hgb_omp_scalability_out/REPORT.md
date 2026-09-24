@@ -5,11 +5,12 @@ This run compares `HistGradientBoostingClassifier` on
 (`hgb/active_wait` @ `6ea3ffac5c`) to sklearn `main` @ `af6b2ded95`, and to
 XGBoost 3.4.1, LightGBM 4.7.0 and CatBoost 1.2.10.
 
-Each library is run with **nine matched hyperparameter settings** (early
-stopping off), denser on the cheap-to-accurate side of the GBDT tradeoff.
-For every dataset we plot **fit time vs held-out ROC AUC**, the **Pareto
-front** per model, and a **zoom** to the smallest window that contains the
-three fronts with largest 2D hypervolume.
+Each library is run with **four matched hyperparameter settings** (early
+stopping off), kept from a 9-config sweep as the types that sit on the
+measured fit-time vs ROC-AUC Pareto fronts. For every dataset we plot
+**fit time vs held-out ROC AUC**, the **Pareto front** per model, and a
+**zoom** to the smallest window that contains the three fronts with
+largest 2D hypervolume.
 
 ## Hardware and OpenMP
 
@@ -25,22 +26,22 @@ three fronts with largest 2D hypervolume.
 
 ## Matched hyperparameter grid
 
-| `hp_name` | `n_estimators` | `max_leaf_nodes` | `learning_rate` |
-| --- | ---: | ---: | ---: |
-| `tiny_stumps` | 10 | 4 | 0.5 |
-| `fast_shallow` | 20 | 8 | 0.3 |
-| `fast_medium` | 30 | 15 | 0.2 |
-| `defaultish` | 40 | 31 | 0.1 |
-| `more_trees` | 80 | 31 | 0.08 |
-| `wide_leaves` | 50 | 63 | 0.1 |
-| `wide_boosted` | 80 | 63 | 0.1 |
-| `many_shallow` | 120 | 8 | 0.1 |
-| `many_trees` | 200 | 15 | 0.05 |
+| `hp_name` | `n_estimators` | `max_leaf_nodes` | `learning_rate` | Role on the front |
+| --- | ---: | ---: | ---: | --- |
+| `tiny_stumps` | 10 | 4 | 0.5 | cheapest endpoint (all 60 per-model fronts) |
+| `fast_medium` | 30 | 15 | 0.2 | mid tradeoff (all 60 fronts; most global-envelope hits) |
+| `more_trees` | 80 | 31 | 0.08 | mid-high (45/60 fronts in the 9-HP sweep) |
+| `wide_boosted` | 80 | 63 | 0.1 | high-AUC endpoint (40/60) |
 
 Shared: `max_bin=255`, binary log-loss, `early_stopping=False`,
 `random_state=0`. CatBoost still uses `l2_leaf_reg=3`, `depth=16`,
-`grow_policy=Lossguide` (`max_leaves` is capped at 64 by CatBoost, hence 63
-rather than 127).
+`grow_policy=Lossguide` (`max_leaves` is capped at 64 by CatBoost, hence 63).
+
+Dropped from the 9-HP sweep because they were interior or dominated:
+`fast_shallow` (between `tiny_stumps` and `fast_medium`), `defaultish` and
+`wide_leaves` (interior), `many_shallow` and `many_trees` (10–26/60 fronts;
+rarely the high-AUC end). After the trim, the four kept types remain on
+50–60 of the 60 per-model fronts.
 
 ## Fit time vs ROC AUC (Pareto)
 
@@ -61,10 +62,10 @@ outside that window.
 
 - **sklearn `main` and PR 34935 overlap**: same AUC for every HP, fit times
   within a few percent. The thread-cap heuristic does not change the trees.
-- **`tiny_stumps` / `fast_shallow` / `fast_medium`** fill the left of the
-  front. LightGBM is usually cheapest; sklearn is close on medium/wide data.
-- **`wide_leaves` / `wide_boosted` / `more_trees`** occupy the high-AUC
-  corner (~0.98–0.99 on the larger sets). `many_trees` is often dominated.
+- **`tiny_stumps` / `fast_medium`** fill the cheap end of the front.
+  LightGBM is usually cheapest; sklearn is close on medium/wide data.
+- **`more_trees` / `wide_boosted`** occupy the high-AUC corner
+  (~0.98–0.99 on the larger sets).
 - **CatBoost** is slower at matched HPs. On tiny data it can sit slightly
   above the others in AUC; on 2k×128 it lags both in time and AUC.
 
@@ -85,18 +86,18 @@ Same AUCs as at 4 threads. What moves is **fit time**:
 - **LightGBM** slows on tiny/small data (but less than `main`).
 - **CatBoost** is almost unchanged from 4 to 16 threads.
 
-## Thread scaling at `defaultish` (40 / 31 / 0.1)
+## Thread scaling at `fast_medium` (30 / 15 / 0.2)
 
 ![fit time vs threads](fit_time_vs_threads.png)
 
 | shape | threads | sklearn main | sklearn PR | XGBoost | LightGBM | CatBoost | AUC (sklearn) |
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: |
-| tiny 1k×10 | 4 | 0.058 | 0.039 | 0.042 | **0.021** | 0.094 | 0.958 |
-| tiny 1k×10 | 16 | 0.665 | **0.039** | 0.042 | 0.289 | 0.093 | 0.958 |
-| small 5k×20 | 4 | 0.079 | 0.066 | 0.069 | **0.043** | 0.191 | 0.984 |
-| small 5k×20 | 16 | 0.876 | 0.353 | **0.069** | 0.343 | 0.193 | 0.984 |
-| medium 50k×50 | 4 | 0.232 | **0.231** | 0.344 | 0.283 | 0.710 | 0.969 |
-| medium 50k×50 | 16 | 1.074 | 0.799 | **0.332** | 0.661 | 0.715 | 0.969 |
+| tiny 1k×10 | 4 | 0.032 | 0.023 | 0.017 | **0.010** | 0.037 | 0.964 |
+| tiny 1k×10 | 16 | 0.283 | **0.023** | 0.017 | 0.110 | 0.037 | 0.964 |
+| small 5k×20 | 4 | 0.039 | 0.030 | 0.030 | **0.021** | 0.086 | 0.974 |
+| small 5k×20 | 16 | 0.309 | 0.135 | **0.030** | 0.133 | 0.083 | 0.974 |
+| medium 50k×50 | 4 | **0.138** | 0.142 | 0.194 | 0.195 | 0.368 | 0.961 |
+| medium 50k×50 | 16 | 0.429 | 0.365 | **0.190** | 0.320 | 0.382 | 0.961 |
 
 AUC is identical for sklearn `main` and the PR at every HP. XGBoost/LightGBM
 stay within ~0.007 of sklearn except CatBoost on 2k×128.
