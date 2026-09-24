@@ -98,7 +98,7 @@ def _bench_cmd(sklearn_label: str, libs: str, extra: list[str]) -> list[str]:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     csv = OUT_DIR / "results.csv"
     meta = OUT_DIR / f"meta_{sklearn_label}.json"
-    threads = os.environ.get("THREADS", "4,16")
+    threads = os.environ.get("THREADS", "4,10")
     cmd = [
         sys.executable,
         str(BENCH_PY),

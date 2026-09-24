@@ -36,8 +36,8 @@ pixi run plot
 
 | Variable / flag | Meaning | Default |
 | --- | --- | --- |
-| `THREADS` | comma-separated OpenMP / GBDT thread counts | `4,16` |
-| `OMP_NUM_THREADS` | upper bound seen by sklearn | `32` (set in `pixi.toml`) |
+| `THREADS` | comma-separated OpenMP / GBDT thread counts | `4,10` (M4 P-cores, all physical cores) |
+| `OMP_NUM_THREADS` | upper bound seen by sklearn | `10` (set in `pixi.toml`) |
 | `HGB_BENCH_OUT` | output directory | `../hgb_omp_scalability_out` |
 | `SKLEARN_MAIN_URL` / `SKLEARN_MAIN_REF` | sklearn main tree | GitHub `scikit-learn/scikit-learn` `main` |
 | `SKLEARN_PR_URL` / `SKLEARN_PR_REF` | PR tree | `cakedev0/scikit-learn` `hgb/active_wait` |
@@ -45,7 +45,7 @@ pixi run plot
 Forward extra argparse flags after `--`:
 
 ```bash
-THREADS=1,2,4,8,16 pixi run bench -- --repeats 2 --warmup 1
+THREADS=4,10 pixi run bench -- --repeats 2 --warmup 1
 pixi run bench -- --shapes tiny_1k_x_10,small_5k_x_20 --hps tiny_stumps,fast_medium
 ```
 
@@ -82,7 +82,7 @@ Building sklearn needs a working C/C++ toolchain; pixi pulls
 `llvm-openmp` on macOS). Confirm OpenMP after a build:
 
 ```text
-.../sklearn/__init__.py 1.10.dev0 openmp True n_threads 32
+.../sklearn/__init__.py 1.10.dev0 openmp True n_threads 10
 ```
 
 If `openmp False`, the HGB thread sweep is meaningless.

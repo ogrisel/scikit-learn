@@ -44,9 +44,8 @@ MKL_NUM_THREADS = "1"
 OPENBLAS_NUM_THREADS = "1"
 NUMEXPR_NUM_THREADS = "1"
 MPLBACKEND = "Agg"
-# Default thread budget for sklearn `_openmp_effective_n_threads` when probing
-# surplus-OMP. Override: OMP_NUM_THREADS=N pixi run bench
-OMP_NUM_THREADS = "32"
+# Cap at Apple M4 physical cores (4 P + 6 E). Override: OMP_NUM_THREADS=N
+OMP_NUM_THREADS = "10"
 
 # conda-forge libgomp may export OMP_WAIT_POLICY=PASSIVE via activate.d.
 # Use these environments to pin the wait policy the PR heuristics branch on.
@@ -79,7 +78,7 @@ description = "Editable-install sklearn PR 34935 with OpenMP into this pixi env"
 [tasks.bench]
 cmd = "python prepare.py bench"
 description = "Full comparison: sklearn main, XGBoost/LightGBM/CatBoost, then sklearn PR"
-# Extra args are forwarded, e.g. pixi run bench -- --threads 1,2,4,8,16
+# Extra args are forwarded, e.g. pixi run bench -- --threads 4,10
 
 [tasks.plot]
 cmd = "python prepare.py plot"

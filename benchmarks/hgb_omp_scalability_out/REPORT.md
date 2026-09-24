@@ -16,10 +16,11 @@ largest 2D hypervolume.
 
 | Item | Value |
 | --- | --- |
-| Host | 4 vCPU KVM Intel Xeon, 1 socket, no SMT |
-| sklearn | built with OpenMP (`libgomp`), active wait |
-| `OMP_NUM_THREADS` | 32 |
-| Threads measured | **4** (physical cores) and **16** (surplus / oversubscription) |
+| Host | Apple M4: 4 performance cores, 10 physical cores in total |
+| sklearn | built with OpenMP (`llvm-openmp` on macOS) |
+| `OMP_NUM_THREADS` | **10** (physical cores; the recorded plots below used 32) |
+| Threads default | **4** (P-cores) and **10** (all physical cores) |
+| Threads in plots | **4** and **16** (previous surplus-OMP sweep; rerun for 4 vs 10) |
 | BLAS | 1 thread |
 | Timing | 1 warmup + 1 timed `fit` |
 | Test metric | binary ROC AUC on a 50% hold-out (`n_test = n_train`) |

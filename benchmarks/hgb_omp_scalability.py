@@ -9,8 +9,8 @@ chosen from a 9-config sweep as the ones that sit on measured Pareto
 fronts. Each dataset is shown as a fit-time vs test ROC-AUC Pareto
 front, plus a zoom on the top-3 fronts.
 
-Thread counts above ``os.cpu_count()`` mimic the default-OMP oversubscription
-regime that sklearn ``main`` handles poorly on small-to-medium problems.
+Default thread counts match an Apple M4: 4 performance cores, then all
+10 physical cores (P + E). Override with ``--threads``.
 """
 
 from __future__ import annotations
@@ -79,6 +79,8 @@ HP_CONFIGS = [
 MAX_BINS = 255
 MAX_DEPTH_CAP = 16
 RANDOM_STATE = 0
+# Apple M4: 4 performance cores, 10 physical cores in total.
+DEFAULT_THREADS = "4,10"
 
 
 def _sklearn_est(hp):
@@ -317,8 +319,8 @@ def parse_args():
     p.add_argument("--libs", default="sklearn,xgboost,lightgbm,catboost")
     p.add_argument(
         "--threads",
-        default="4,16",
-        help="4 = physical cores here; 16 = surplus-OMP / oversubscription",
+        default=DEFAULT_THREADS,
+        help="Apple M4: 4 = performance cores, 10 = all physical cores",
     )
     p.add_argument("--repeats", type=int, default=1)
     p.add_argument("--warmup", type=int, default=1)
