@@ -101,10 +101,27 @@ Same AUCs as at 4 threads. What moves is **fit time**:
 AUC is identical for sklearn `main` and the PR at every HP. XGBoost/LightGBM
 stay within ~0.007 of sklearn except CatBoost on 2k×128.
 
-## How to rerun
+# How to rerun
+
+The supported way is the pixi workspace next to this report (compilers,
+OpenMP, XGBoost / LightGBM / CatBoost, and both sklearn trees):
 
 ```bash
-export PATH=/path/to/venv/bin:$PATH CC=gcc CXX=g++
+# https://pixi.sh/
+cd benchmarks/hgb_omp_scalability
+pixi install
+pixi run bench
+```
+
+See `benchmarks/hgb_omp_scalability/README.md` for `THREADS`,
+`OMP_WAIT_POLICY` (`pixi run -e active-wait` / `passive-wait`), and
+forwarding extra argparse flags.
+
+Without pixi, from a env that already has the GBDT libraries and two
+editable sklearn builds:
+
+```bash
+export SKLEARN_MAIN=/path/to/sklearn-main SKLEARN_PR=/path/to/pr34935
 bash benchmarks/run_hgb_omp_scalability.sh
 ```
 
