@@ -26,11 +26,6 @@ LINESTYLES = {
     "lightgbm": "-",
     "catboost": "-",
 }
-# KMP_BLOCKTIME=200 is dotted so it stays distinct when overlaid with 0.
-KMP_LINESTYLES = {
-    "0": "-",
-    "200": ":",
-}
 MARKERS = {
     "tiny_stumps": "P",
     "fast_medium": "X",
@@ -60,33 +55,20 @@ def format_kmp_blocktime(val):
         return str(val).strip()
 
 
-def series_label(row):
-    base = lib_label(row)
-    kmp = None
-    if "kmp_blocktime" in row.index:
-        kmp = format_kmp_blocktime(row["kmp_blocktime"])
-    if kmp is None and "kmp_blocktime_env" in row.index:
-        kmp = format_kmp_blocktime(row["kmp_blocktime_env"])
+def row_kmp_blocktime(row):
+    """Effective KMP_BLOCKTIME recorded for this measurement, if any."""
+    for col in ("kmp_blocktime", "kmp_blocktime_env"):
+        if col in row.index:
+            value = format_kmp_blocktime(row[col])
+            if value is not None:
+                return value
+    return None
+
+
+def legend_title(kmp):
     if kmp is None:
-        return base
-    return f"{base}, KMP_BLOCKTIME={kmp}"
-
-
-def series_color(label):
-    for key, color in COLORS.items():
-        if label == key or label.startswith(key + ","):
-            return color
-    return "gray"
-
-
-def series_linestyle(label):
-    if "KMP_BLOCKTIME=200" in label:
-        if label.startswith("sklearn main"):
-            return "-."
-        return KMP_LINESTYLES["200"]
-    if label.startswith("sklearn main"):
-        return LINESTYLES["sklearn main"]
-    return LINESTYLES.get(label.split(",")[0], "-")
+        return None
+    return f"KMP_BLOCKTIME={kmp}"
 
 
 def pareto_front(g, time_col="fit_seconds_median", auc_col="test_roc_auc_median"):
@@ -149,7 +131,7 @@ def zoom_limits_for_fronts(sub, labels):
     }
 
 
-def _plot_pareto(df, out_path, title, zoom=False, top_k=3):
+def _plot_pareto(df, out_path, title, zoom=False, top_k=3, kmp=None):
     shapes = list(df["shape"].unique())
     n = len(shapes)
     cols = 3
@@ -165,7 +147,7 @@ def _plot_pareto(df, out_path, title, zoom=False, top_k=3):
         if zoom and top_labels:
             zoom_notes.append(f"{shape}: {', '.join(top_labels)}")
         for label, g in sub.groupby("label"):
-            color = series_color(label)
+            color = COLORS.get(label, "gray")
             ax.scatter(
                 g["fit_seconds_median"],
                 g["test_roc_auc_median"],
@@ -191,7 +173,7 @@ def _plot_pareto(df, out_path, title, zoom=False, top_k=3):
                 front["fit_seconds_median"],
                 front["test_roc_auc_median"],
                 color=color,
-                ls=series_linestyle(label),
+                ls=LINESTYLES.get(label, "-"),
                 lw=2.0 if (top_labels and label in top_labels) else 1.6,
                 label=label,
                 zorder=4,
@@ -206,7 +188,7 @@ def _plot_pareto(df, out_path, title, zoom=False, top_k=3):
         ax.set_xlabel("fit time (s)")
         ax.set_ylabel("test ROC AUC")
         ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=5.5, loc="lower right")
+        ax.legend(fontsize=6, loc="lower right", title=legend_title(kmp), title_fontsize=6)
     for ax in axes.ravel()[n:]:
         ax.set_visible(False)
     present = set(df.get("hp_name", pd.Series(dtype=str)))
@@ -242,6 +224,80 @@ def _plot_pareto(df, out_path, title, zoom=False, top_k=3):
             print(" ", note)
 
 
+def _split_by_kmp(df):
+    """Yield (kmp_blocktime, frame) pairs, one per effective KMP_BLOCKTIME."""
+    if "kmp" not in df.columns:
+        return [(None, df)]
+    values = sorted(df["kmp"].dropna().unique(), key=lambda v: (len(v), v))
+    groups = [(v, df[df["kmp"] == v]) for v in values]
+    missing = df[df["kmp"].isna()]
+    if len(missing):
+        groups.append((None, missing))
+    return groups
+
+
+def _plot_thread_scaling(df, out, suffix, kmp):
+    present_hps = set(df["hp_name"])
+    hp_for_threads = next(
+        (h for h in THREAD_HP_PREFERENCE if h in present_hps),
+        df["hp_name"].iloc[0],
+    )
+    tdf = df[df["hp_name"] == hp_for_threads]
+    if tdf["n_threads"].nunique() <= 1:
+        return
+    kmp_title = "" if kmp is None else f", KMP_BLOCKTIME={kmp}"
+    shapes = list(tdf["shape"].unique())
+    n = len(shapes)
+    cols = 3
+    rows = (n + cols - 1) // cols
+
+    def _panels(value_col, ylabel, suptitle, out_name, hline=None):
+        fig, axes = plt.subplots(rows, cols, figsize=(4.2 * cols, 3.4 * rows), squeeze=False)
+        for ax, shape in zip(axes.ravel(), shapes):
+            sub = tdf[tdf["shape"] == shape]
+            for label, g in sub.groupby("label"):
+                g = g.sort_values("n_threads")
+                ax.plot(
+                    g["n_threads"],
+                    g[value_col],
+                    marker="o",
+                    label=label,
+                    color=COLORS.get(label),
+                    ls=LINESTYLES.get(label, "-"),
+                )
+            if hline is not None:
+                ax.axhline(hline, color="k", lw=0.8, ls="--")
+            ax.set_title(
+                f"{shape}\n({int(sub['n_samples'].iloc[0])} x {int(sub['n_features'].iloc[0])})"
+            )
+            ax.set_xlabel("n_threads")
+            ax.set_ylabel(ylabel)
+            ax.set_xticks(sorted(sub["n_threads"].unique()))
+            ax.grid(True, alpha=0.3)
+            ax.legend(fontsize=7, title=legend_title(kmp), title_fontsize=7)
+        for ax in axes.ravel()[n:]:
+            ax.set_visible(False)
+        fig.suptitle(suptitle, y=1.01)
+        fig.tight_layout()
+        fig.savefig(out / out_name, dpi=140, bbox_inches="tight")
+        plt.close(fig)
+
+    _panels(
+        "fit_seconds_median",
+        "fit time (s)",
+        f"Fit time vs threads ({hp_for_threads}{kmp_title})",
+        f"fit_time_vs_threads{suffix}.png",
+    )
+    if "speedup_vs_1" in tdf.columns and tdf["speedup_vs_1"].notna().any():
+        _panels(
+            "speedup_vs_1",
+            "speedup vs 1 thread",
+            f"Speedup vs 1 thread ({hp_for_threads}{kmp_title})",
+            f"speedup_vs_threads{suffix}.png",
+            hline=1.0,
+        )
+
+
 def main():
     p = argparse.ArgumentParser()
     p.add_argument("csv", type=Path)
@@ -267,18 +323,18 @@ def main():
             ]
             print(failed[cols].to_string(index=False))
         df = df[df["error"].isna() | (df["error"].astype(str) == "")]
-    df["label"] = df.apply(series_label, axis=1)
+    df["label"] = df.apply(lib_label, axis=1)
+    kmp = df.apply(row_kmp_blocktime, axis=1)
+    # Older CSVs have no KMP_BLOCKTIME column: keep a single unlabelled group.
+    if kmp.notna().any():
+        df["kmp"] = kmp
     if "hp_name" not in df.columns:
         df["hp_name"] = THREAD_HP_PREFERENCE[0]
     if args.hps:
         wanted = {x.strip() for x in args.hps.split(",") if x.strip()}
         df = df[df["hp_name"].isin(wanted)]
 
-    group_keys = [
-        c
-        for c in ["label", "shape", "hp_name", "kmp_blocktime"]
-        if c in df.columns
-    ]
+    group_keys = [c for c in ["label", "shape", "hp_name", "kmp"] if c in df.columns]
     if 1 in set(df["n_threads"]):
         one = (
             df[df["n_threads"] == 1][group_keys + ["fit_seconds_median"]]
@@ -287,9 +343,7 @@ def main():
         df = df.merge(one, on=group_keys, how="left")
         df["speedup_vs_1"] = df["t1"] / df["fit_seconds_median"]
 
-    index_cols = [
-        c for c in ["shape", "hp_name", "n_threads", "kmp_blocktime"] if c in df.columns
-    ]
+    index_cols = [c for c in ["shape", "hp_name", "n_threads", "kmp"] if c in df.columns]
     pivot = df.pivot_table(
         index=index_cols,
         columns="label",
@@ -308,94 +362,38 @@ def main():
         print("\nTest ROC AUC:")
         print(auc_pivot.to_string())
 
+    front_keys = [c for c in ["shape", "n_threads", "kmp", "label"] if c in df.columns]
     fronts = []
-    for (shape, n_threads, label), g in df.groupby(["shape", "n_threads", "label"]):
-        front = pareto_front(g)
-        front = front.copy()
+    for _, g in df.groupby(front_keys):
+        front = pareto_front(g).copy()
         front["on_pareto"] = True
         fronts.append(front)
     if fronts:
         pd.concat(fronts).to_csv(out / "pareto_points.csv", index=False)
 
-    thread_levels = sorted(df["n_threads"].unique())
-    for n_threads in thread_levels:
-        sub = df[df["n_threads"] == n_threads]
-        _plot_pareto(
-            sub,
-            out / f"pareto_fit_vs_auc_threads_{n_threads}.png",
-            f"Fit time vs test ROC AUC (n_threads={n_threads}); lines = Pareto front",
-        )
-        _plot_pareto(
-            sub,
-            out / f"pareto_fit_vs_auc_threads_{n_threads}_zoom.png",
-            f"Zoomed to top-3 Pareto fronts by hypervolume (n_threads={n_threads})",
-            zoom=True,
-            top_k=3,
-        )
-
-    present_hps = set(df["hp_name"])
-    hp_for_threads = next(
-        (h for h in THREAD_HP_PREFERENCE if h in present_hps),
-        df["hp_name"].iloc[0],
-    )
-    tdf = df[df["hp_name"] == hp_for_threads]
-    if tdf["n_threads"].nunique() > 1:
-        shapes = list(tdf["shape"].unique())
-        n = len(shapes)
-        cols = 3
-        rows = (n + cols - 1) // cols
-        fig, axes = plt.subplots(rows, cols, figsize=(4.2 * cols, 3.4 * rows), squeeze=False)
-        for ax, shape in zip(axes.ravel(), shapes):
-            sub = tdf[tdf["shape"] == shape]
-            for label, g in sub.groupby("label"):
-                g = g.sort_values("n_threads")
-                ax.plot(
-                    g["n_threads"],
-                    g["fit_seconds_median"],
-                    marker="o",
-                    label=label,
-                    color=series_color(label),
-                    ls=series_linestyle(label),
-                )
-            ax.set_title(f"{shape}\n({int(sub['n_samples'].iloc[0])} x {int(sub['n_features'].iloc[0])})")
-            ax.set_xlabel("n_threads")
-            ax.set_ylabel("fit time (s)")
-            ax.set_xticks(sorted(sub["n_threads"].unique()))
-            ax.grid(True, alpha=0.3)
-            ax.legend(fontsize=5.5)
-        for ax in axes.ravel()[n:]:
-            ax.set_visible(False)
-        fig.suptitle(f"Fit time vs threads ({hp_for_threads})", y=1.01)
-        fig.tight_layout()
-        fig.savefig(out / "fit_time_vs_threads.png", dpi=140, bbox_inches="tight")
-        plt.close(fig)
-        if "speedup_vs_1" in tdf.columns and tdf["speedup_vs_1"].notna().any():
-            fig, axes = plt.subplots(rows, cols, figsize=(4.2 * cols, 3.4 * rows), squeeze=False)
-            for ax, shape in zip(axes.ravel(), shapes):
-                sub = tdf[tdf["shape"] == shape]
-                for label, g in sub.groupby("label"):
-                    g = g.sort_values("n_threads")
-                    ax.plot(
-                        g["n_threads"],
-                        g["speedup_vs_1"],
-                        marker="o",
-                        label=label,
-                        color=series_color(label),
-                        ls=series_linestyle(label),
-                    )
-                ax.axhline(1.0, color="k", lw=0.8, ls="--")
-                ax.set_title(f"{shape}")
-                ax.set_xlabel("n_threads")
-                ax.set_ylabel("speedup vs 1 thread")
-                ax.set_xticks(sorted(sub["n_threads"].unique()))
-                ax.grid(True, alpha=0.3)
-                ax.legend(fontsize=5.5)
-            for ax in axes.ravel()[n:]:
-                ax.set_visible(False)
-            fig.suptitle(f"Speedup vs 1 thread ({hp_for_threads})", y=1.01)
-            fig.tight_layout()
-            fig.savefig(out / "speedup_vs_threads.png", dpi=140, bbox_inches="tight")
-            plt.close(fig)
+    # One figure set per KMP_BLOCKTIME: overlaying both values is unreadable.
+    for kmp_value, kdf in _split_by_kmp(df):
+        suffix = "" if kmp_value is None else f"_kmp{kmp_value}"
+        kmp_title = "" if kmp_value is None else f", KMP_BLOCKTIME={kmp_value}"
+        for n_threads in sorted(kdf["n_threads"].unique()):
+            sub = kdf[kdf["n_threads"] == n_threads]
+            _plot_pareto(
+                sub,
+                out / f"pareto_fit_vs_auc{suffix}_threads_{n_threads}.png",
+                f"Fit time vs test ROC AUC (n_threads={n_threads}{kmp_title})"
+                "; lines = Pareto front",
+                kmp=kmp_value,
+            )
+            _plot_pareto(
+                sub,
+                out / f"pareto_fit_vs_auc{suffix}_threads_{n_threads}_zoom.png",
+                "Zoomed to top-3 Pareto fronts by hypervolume "
+                f"(n_threads={n_threads}{kmp_title})",
+                zoom=True,
+                top_k=3,
+                kmp=kmp_value,
+            )
+        _plot_thread_scaling(kdf, out, suffix, kmp_value)
 
     df.to_csv(out / "results_with_speedup.csv", index=False)
     print("Wrote", out)

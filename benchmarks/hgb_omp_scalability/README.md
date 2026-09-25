@@ -62,8 +62,17 @@ processes (libomp reads `KMP_BLOCKTIME` at init):
 | `0` | Apple Silicon / hybrid-CPU llvm-openmp default (no post-region spin) |
 | `200` | historical 200 ms spin wait |
 
-Plot legends show the **effective** `KMP_BLOCKTIME` recorded for that process
-(`KMP_BLOCKTIME=0` vs `KMP_BLOCKTIME=200`). Override the pair with
+Each value gets its **own set of figures** (overlaying both is unreadable),
+named with a `_kmp0` / `_kmp200` suffix:
+
+```text
+pareto_fit_vs_auc_kmp0_threads_4.png     pareto_fit_vs_auc_kmp200_threads_4.png
+pareto_fit_vs_auc_kmp0_threads_4_zoom.png            ... _kmp200_ ...
+fit_time_vs_threads_kmp0.png             fit_time_vs_threads_kmp200.png
+```
+
+The legend title carries the effective value (`KMP_BLOCKTIME=0`), so each
+panel only holds one line per model. Override the pair with
 `KMP_BLOCKTIMES=0` or `KMP_BLOCKTIMES=200`.
 
 ## Active vs passive OpenMP wait

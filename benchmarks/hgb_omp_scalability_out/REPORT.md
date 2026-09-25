@@ -12,7 +12,8 @@ measured fit-time vs ROC-AUC Pareto fronts. For every dataset we plot
 **zoom** to the smallest window that contains the three fronts with
 largest 2D hypervolume. `pixi run bench` repeats the sweep at
 `KMP_BLOCKTIME=0` (Apple Silicon llvm-openmp default) and
-`KMP_BLOCKTIME=200`; legends show the effective value.
+`KMP_BLOCKTIME=200`, and writes a **separate set of figures per value**
+(`*_kmp0_*` / `*_kmp200_*`), with the effective value as the legend title.
 
 ## Hardware and OpenMP
 
@@ -51,8 +52,8 @@ rarely the high-AUC end). After the trim, the four kept types remain on
 
 Markers are HP settings; **lines are the Pareto front** of that model
 (maximize AUC, minimize fit time). sklearn `main` is dashed so it remains
-visible when it overlaps the PR. Legends include the effective
-`KMP_BLOCKTIME` (solid/dashed for `0`, dotted for `200`).
+visible when it overlaps the PR. Each figure covers a single
+`KMP_BLOCKTIME`, shown as the legend title.
 
 The **zoom** plots clip large fit times: for each panel the x/y limits are the
 smallest box that still contains the **top-3 Pareto fronts** (ranked by 2D
