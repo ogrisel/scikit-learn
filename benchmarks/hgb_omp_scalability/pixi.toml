@@ -77,8 +77,9 @@ description = "Editable-install sklearn PR 34935 with OpenMP into this pixi env"
 
 [tasks.bench]
 cmd = "python prepare.py bench"
-description = "Full comparison: sklearn main, XGBoost/LightGBM/CatBoost, then sklearn PR"
+description = "Full comparison: two KMP_BLOCKTIME values, sklearn main, other GBDTs, sklearn PR"
 # Extra args are forwarded, e.g. pixi run bench -- --threads 4,10
+# Default also sweeps KMP_BLOCKTIME=0 and 200 (separate processes).
 
 [tasks.plot]
 cmd = "python prepare.py plot"

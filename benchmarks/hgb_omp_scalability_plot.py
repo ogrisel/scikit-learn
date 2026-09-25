@@ -26,6 +26,11 @@ LINESTYLES = {
     "lightgbm": "-",
     "catboost": "-",
 }
+# KMP_BLOCKTIME=200 is dotted so it stays distinct when overlaid with 0.
+KMP_LINESTYLES = {
+    "0": "-",
+    "200": ":",
+}
 MARKERS = {
     "tiny_stumps": "P",
     "fast_medium": "X",
@@ -39,6 +44,49 @@ def lib_label(row):
     if row["lib"] == "sklearn":
         return f"sklearn {row['sklearn_label']}"
     return row["lib"]
+
+
+def format_kmp_blocktime(val):
+    if val is None or (isinstance(val, float) and np.isnan(val)):
+        return None
+    s = str(val).strip()
+    if s == "" or s.lower() == "nan":
+        return None
+    s = s.lower().replace("milliseconds", "").replace("ms", "").strip()
+    try:
+        n = float(s)
+        return str(int(n)) if n == int(n) else str(n)
+    except ValueError:
+        return str(val).strip()
+
+
+def series_label(row):
+    base = lib_label(row)
+    kmp = None
+    if "kmp_blocktime" in row.index:
+        kmp = format_kmp_blocktime(row["kmp_blocktime"])
+    if kmp is None and "kmp_blocktime_env" in row.index:
+        kmp = format_kmp_blocktime(row["kmp_blocktime_env"])
+    if kmp is None:
+        return base
+    return f"{base}, KMP_BLOCKTIME={kmp}"
+
+
+def series_color(label):
+    for key, color in COLORS.items():
+        if label == key or label.startswith(key + ","):
+            return color
+    return "gray"
+
+
+def series_linestyle(label):
+    if "KMP_BLOCKTIME=200" in label:
+        if label.startswith("sklearn main"):
+            return "-."
+        return KMP_LINESTYLES["200"]
+    if label.startswith("sklearn main"):
+        return LINESTYLES["sklearn main"]
+    return LINESTYLES.get(label.split(",")[0], "-")
 
 
 def pareto_front(g, time_col="fit_seconds_median", auc_col="test_roc_auc_median"):
@@ -117,7 +165,7 @@ def _plot_pareto(df, out_path, title, zoom=False, top_k=3):
         if zoom and top_labels:
             zoom_notes.append(f"{shape}: {', '.join(top_labels)}")
         for label, g in sub.groupby("label"):
-            color = COLORS.get(label, "gray")
+            color = series_color(label)
             ax.scatter(
                 g["fit_seconds_median"],
                 g["test_roc_auc_median"],
@@ -143,7 +191,7 @@ def _plot_pareto(df, out_path, title, zoom=False, top_k=3):
                 front["fit_seconds_median"],
                 front["test_roc_auc_median"],
                 color=color,
-                ls=LINESTYLES.get(label, "-"),
+                ls=series_linestyle(label),
                 lw=2.0 if (top_labels and label in top_labels) else 1.6,
                 label=label,
                 zorder=4,
@@ -158,7 +206,7 @@ def _plot_pareto(df, out_path, title, zoom=False, top_k=3):
         ax.set_xlabel("fit time (s)")
         ax.set_ylabel("test ROC AUC")
         ax.grid(True, alpha=0.3)
-        ax.legend(fontsize=6, loc="lower right")
+        ax.legend(fontsize=5.5, loc="lower right")
     for ax in axes.ravel()[n:]:
         ax.set_visible(False)
     present = set(df.get("hp_name", pd.Series(dtype=str)))
@@ -212,17 +260,25 @@ def main():
         failed = df[df["error"].notna() & (df["error"].astype(str) != "")]
         if len(failed):
             print("Failed rows:")
-            cols = [c for c in ["sklearn_label", "lib", "hp_name", "shape", "n_threads", "error"] if c in failed]
+            cols = [
+                c
+                for c in ["sklearn_label", "lib", "hp_name", "shape", "n_threads", "kmp_blocktime", "error"]
+                if c in failed
+            ]
             print(failed[cols].to_string(index=False))
         df = df[df["error"].isna() | (df["error"].astype(str) == "")]
-    df["label"] = df.apply(lib_label, axis=1)
+    df["label"] = df.apply(series_label, axis=1)
     if "hp_name" not in df.columns:
         df["hp_name"] = THREAD_HP_PREFERENCE[0]
     if args.hps:
         wanted = {x.strip() for x in args.hps.split(",") if x.strip()}
         df = df[df["hp_name"].isin(wanted)]
 
-    group_keys = [c for c in ["label", "shape", "hp_name"] if c in df.columns]
+    group_keys = [
+        c
+        for c in ["label", "shape", "hp_name", "kmp_blocktime"]
+        if c in df.columns
+    ]
     if 1 in set(df["n_threads"]):
         one = (
             df[df["n_threads"] == 1][group_keys + ["fit_seconds_median"]]
@@ -231,7 +287,9 @@ def main():
         df = df.merge(one, on=group_keys, how="left")
         df["speedup_vs_1"] = df["t1"] / df["fit_seconds_median"]
 
-    index_cols = [c for c in ["shape", "hp_name", "n_threads"] if c in df.columns]
+    index_cols = [
+        c for c in ["shape", "hp_name", "n_threads", "kmp_blocktime"] if c in df.columns
+    ]
     pivot = df.pivot_table(
         index=index_cols,
         columns="label",
@@ -296,14 +354,15 @@ def main():
                     g["fit_seconds_median"],
                     marker="o",
                     label=label,
-                    color=COLORS.get(label),
+                    color=series_color(label),
+                    ls=series_linestyle(label),
                 )
             ax.set_title(f"{shape}\n({int(sub['n_samples'].iloc[0])} x {int(sub['n_features'].iloc[0])})")
             ax.set_xlabel("n_threads")
             ax.set_ylabel("fit time (s)")
             ax.set_xticks(sorted(sub["n_threads"].unique()))
             ax.grid(True, alpha=0.3)
-            ax.legend(fontsize=7)
+            ax.legend(fontsize=5.5)
         for ax in axes.ravel()[n:]:
             ax.set_visible(False)
         fig.suptitle(f"Fit time vs threads ({hp_for_threads})", y=1.01)
@@ -321,7 +380,8 @@ def main():
                         g["speedup_vs_1"],
                         marker="o",
                         label=label,
-                        color=COLORS.get(label),
+                        color=series_color(label),
+                        ls=series_linestyle(label),
                     )
                 ax.axhline(1.0, color="k", lw=0.8, ls="--")
                 ax.set_title(f"{shape}")
@@ -329,7 +389,7 @@ def main():
                 ax.set_ylabel("speedup vs 1 thread")
                 ax.set_xticks(sorted(sub["n_threads"].unique()))
                 ax.grid(True, alpha=0.3)
-                ax.legend(fontsize=7)
+                ax.legend(fontsize=5.5)
             for ax in axes.ravel()[n:]:
                 ax.set_visible(False)
             fig.suptitle(f"Speedup vs 1 thread ({hp_for_threads})", y=1.01)

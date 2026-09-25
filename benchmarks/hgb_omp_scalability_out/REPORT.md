@@ -10,7 +10,9 @@ stopping off), kept from a 9-config sweep as the types that sit on the
 measured fit-time vs ROC-AUC Pareto fronts. For every dataset we plot
 **fit time vs held-out ROC AUC**, the **Pareto front** per model, and a
 **zoom** to the smallest window that contains the three fronts with
-largest 2D hypervolume.
+largest 2D hypervolume. `pixi run bench` repeats the sweep at
+`KMP_BLOCKTIME=0` (Apple Silicon llvm-openmp default) and
+`KMP_BLOCKTIME=200`; legends show the effective value.
 
 ## Hardware and OpenMP
 
@@ -21,6 +23,7 @@ largest 2D hypervolume.
 | `OMP_NUM_THREADS` | **10** (physical cores; the recorded plots below used 32) |
 | Threads default | **4** (P-cores) and **10** (all physical cores) |
 | Threads in plots | **4** and **16** (previous surplus-OMP sweep; rerun for 4 vs 10) |
+| `KMP_BLOCKTIME` | **0** and **200** (default `pixi run bench`; plots below predate this) |
 | BLAS | 1 thread |
 | Timing | 1 warmup + 1 timed `fit` |
 | Test metric | binary ROC AUC on a 50% hold-out (`n_test = n_train`) |
@@ -48,7 +51,8 @@ rarely the high-AUC end). After the trim, the four kept types remain on
 
 Markers are HP settings; **lines are the Pareto front** of that model
 (maximize AUC, minimize fit time). sklearn `main` is dashed so it remains
-visible when it overlaps the PR.
+visible when it overlaps the PR. Legends include the effective
+`KMP_BLOCKTIME` (solid/dashed for `0`, dotted for `200`).
 
 The **zoom** plots clip large fit times: for each panel the x/y limits are the
 smallest box that still contains the **top-3 Pareto fronts** (ranked by 2D

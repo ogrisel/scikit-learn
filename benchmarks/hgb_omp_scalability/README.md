@@ -22,8 +22,9 @@ That will:
 1. Clone sklearn `main` and `cakedev0/scikit-learn` branch `hgb/active_wait`
    into `./trees/`
 2. `pip install -e` each tree **with OpenMP** using the pixi compilers
-3. Sweep HPs × data shapes × thread counts for sklearn main, XGBoost,
-   LightGBM, CatBoost, then sklearn PR 34935
+3. Sweep HPs × data shapes × thread counts × ``KMP_BLOCKTIME`` in
+   ``{0, 200}`` for sklearn main, XGBoost, LightGBM, CatBoost, then sklearn
+   PR 34935 (one process per ``KMP_BLOCKTIME`` so llvm-openmp sees it)
 4. Write CSV + Pareto plots to `../hgb_omp_scalability_out/`
 
 Re-plot an existing CSV:
@@ -37,6 +38,7 @@ pixi run plot
 | Variable / flag | Meaning | Default |
 | --- | --- | --- |
 | `THREADS` | comma-separated OpenMP / GBDT thread counts | `4,10` (M4 P-cores, all physical cores) |
+| `KMP_BLOCKTIMES` | llvm-openmp spin waits (ms), one process each | `0,200` (`0` is the Apple Silicon default) |
 | `OMP_NUM_THREADS` | upper bound seen by sklearn | `10` (set in `pixi.toml`) |
 | `HGB_BENCH_OUT` | output directory | `../hgb_omp_scalability_out` |
 | `SKLEARN_MAIN_URL` / `SKLEARN_MAIN_REF` | sklearn main tree | GitHub `scikit-learn/scikit-learn` `main` |
@@ -46,8 +48,23 @@ Forward extra argparse flags after `--`:
 
 ```bash
 THREADS=4,10 pixi run bench -- --repeats 2 --warmup 1
+KMP_BLOCKTIMES=0 pixi run bench
 pixi run bench -- --shapes tiny_1k_x_10,small_5k_x_20 --hps tiny_stumps,fast_medium
 ```
+
+## `KMP_BLOCKTIME`
+
+`pixi run bench` always runs **two** llvm-openmp wait settings, in separate
+processes (libomp reads `KMP_BLOCKTIME` at init):
+
+| Value | Meaning |
+| --- | --- |
+| `0` | Apple Silicon / hybrid-CPU llvm-openmp default (no post-region spin) |
+| `200` | historical 200 ms spin wait |
+
+Plot legends show the **effective** `KMP_BLOCKTIME` recorded for that process
+(`KMP_BLOCKTIME=0` vs `KMP_BLOCKTIME=200`). Override the pair with
+`KMP_BLOCKTIMES=0` or `KMP_BLOCKTIMES=200`.
 
 ## Active vs passive OpenMP wait
 

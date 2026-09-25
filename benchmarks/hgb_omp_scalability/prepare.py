@@ -29,6 +29,9 @@ PR_URL = os.environ.get("SKLEARN_PR_URL", "https://github.com/cakedev0/scikit-le
 PR_REF = os.environ.get("SKLEARN_PR_REF", "hgb/active_wait")
 
 
+DEFAULT_KMP_BLOCKTIMES = "0,200"
+
+
 def run(cmd, **kwargs):
     print("+", " ".join(str(c) for c in cmd), flush=True)
     subprocess.check_call(cmd, **kwargs)
@@ -94,10 +97,15 @@ def cmd_build(args) -> None:
     _verify_openmp()
 
 
-def _bench_cmd(sklearn_label: str, libs: str, extra: list[str]) -> list[str]:
+def _kmp_blocktimes():
+    raw = os.environ.get("KMP_BLOCKTIMES", DEFAULT_KMP_BLOCKTIMES)
+    return [x.strip() for x in raw.split(",") if x.strip()]
+
+
+def _bench_cmd(sklearn_label: str, libs: str, extra: list[str], kmp_blocktime: str) -> list[str]:
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     csv = OUT_DIR / "results.csv"
-    meta = OUT_DIR / f"meta_{sklearn_label}.json"
+    meta = OUT_DIR / f"meta_{sklearn_label}_kmp{kmp_blocktime}.json"
     threads = os.environ.get("THREADS", "4,10")
     cmd = [
         sys.executable,
@@ -117,6 +125,15 @@ def _bench_cmd(sklearn_label: str, libs: str, extra: list[str]) -> list[str]:
     return cmd
 
 
+def _run_bench(sklearn_label: str, libs: str, extra: list[str]) -> None:
+    """One subprocess per KMP_BLOCKTIME so libomp picks it up at init."""
+    for bt in _kmp_blocktimes():
+        env = os.environ.copy()
+        env["KMP_BLOCKTIME"] = bt
+        print(f"+ KMP_BLOCKTIME={bt} (effective for this process)", flush=True)
+        run(_bench_cmd(sklearn_label, libs, extra, bt), env=env)
+
+
 def cmd_bench(args) -> None:
     if not args.others_only:
         cmd_prepare(args)
@@ -127,19 +144,19 @@ def cmd_bench(args) -> None:
         csv.unlink(missing_ok=True)
 
     if args.others_only:
-        run(_bench_cmd("others", "xgboost,lightgbm,catboost", extra))
+        _run_bench("others", "xgboost,lightgbm,catboost", extra)
         return
 
     if args.sklearn_only in (None, "main"):
         cmd_build(argparse.Namespace(target="main"))
-        run(_bench_cmd("main", "sklearn", extra))
+        _run_bench("main", "sklearn", extra)
 
     if args.sklearn_only is None:
-        run(_bench_cmd("main", "xgboost,lightgbm,catboost", extra))
+        _run_bench("main", "xgboost,lightgbm,catboost", extra)
 
     if args.sklearn_only in (None, "pr"):
         cmd_build(argparse.Namespace(target="pr"))
-        run(_bench_cmd("pr34935", "sklearn", extra))
+        _run_bench("pr34935", "sklearn", extra)
 
     if args.sklearn_only is None:
         cmd_plot(args)

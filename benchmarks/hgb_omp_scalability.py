@@ -10,7 +10,9 @@ fronts. Each dataset is shown as a fit-time vs test ROC-AUC Pareto
 front, plus a zoom on the top-3 fronts.
 
 Default thread counts match an Apple M4: 4 performance cores, then all
-10 physical cores (P + E). Override with ``--threads``.
+10 physical cores (P + E). Override with ``--threads``. ``pixi run bench``
+runs two processes with ``KMP_BLOCKTIME=0`` (Apple Silicon llvm-openmp
+default) and ``KMP_BLOCKTIME=200``.
 """
 
 from __future__ import annotations
@@ -216,6 +218,19 @@ def _median(xs):
     return statistics.median(xs)
 
 
+def _kmp_blocktime_effective():
+    """Value LLVM OpenMP will use: the env var if set (must be set before init)."""
+    raw = os.environ.get("KMP_BLOCKTIME", "").strip()
+    if not raw:
+        return ""
+    lowered = raw.lower().replace("milliseconds", "").replace("ms", "").strip()
+    try:
+        n = float(lowered)
+        return str(int(n)) if n == int(n) else str(n)
+    except ValueError:
+        return raw
+
+
 def run_one(lib, sklearn_label, hp, shape_name, n_samples, n_features, n_threads, repeats, warmup):
     X_train, X_test, y_train, y_test = _make_data(n_samples, n_features)
     for _ in range(warmup):
@@ -258,6 +273,8 @@ def run_one(lib, sklearn_label, hp, shape_name, n_samples, n_features, n_threads
         "omp_wait_policy": os.environ.get("OMP_WAIT_POLICY", ""),
         "omp_num_threads_env": os.environ.get("OMP_NUM_THREADS", ""),
         "omp_proc_bind": os.environ.get("OMP_PROC_BIND", ""),
+        "kmp_blocktime_env": os.environ.get("KMP_BLOCKTIME", ""),
+        "kmp_blocktime": _kmp_blocktime_effective(),
     }
     return row, times, aucs
 
@@ -281,6 +298,8 @@ def env_metadata():
                 "OMP_WAIT_POLICY",
                 "OMP_PROC_BIND",
                 "OMP_DISPLAY_ENV",
+                "KMP_BLOCKTIME",
+                "KMP_BLOCKTIMES",
                 "MKL_NUM_THREADS",
                 "OPENBLAS_NUM_THREADS",
             ]
@@ -355,7 +374,8 @@ def main():
                     for lib in libs:
                         print(
                             f"=== {args.sklearn_label} {lib} {hp['hp_name']} "
-                            f"{shape_name} threads={n_threads} ===",
+                            f"{shape_name} threads={n_threads} "
+                            f"KMP_BLOCKTIME={os.environ.get('KMP_BLOCKTIME', '')!r} ===",
                             flush=True,
                         )
                         try:
@@ -380,6 +400,8 @@ def main():
                                 "n_samples": n_samples,
                                 "n_features": n_features,
                                 "n_threads": n_threads,
+                                "kmp_blocktime_env": os.environ.get("KMP_BLOCKTIME", ""),
+                                "kmp_blocktime": _kmp_blocktime_effective(),
                                 "error": repr(exc),
                             }
                             times = []
