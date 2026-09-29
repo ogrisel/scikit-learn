@@ -30,6 +30,9 @@ PR_REF = os.environ.get("SKLEARN_PR_REF", "hgb/active_wait")
 
 
 DEFAULT_KMP_BLOCKTIMES = "0,200"
+# Narrative write-up is maintained by hand. Everything else in the output
+# directory is produced by a run and must not survive into the next one.
+_KEEP_OUTPUTS = {"REPORT.md"}
 
 
 def run(cmd, **kwargs):
@@ -97,6 +100,23 @@ def cmd_build(args) -> None:
     _verify_openmp()
 
 
+def _clean_previous_results() -> None:
+    """Remove generated measurements so a new run cannot mix with the last one."""
+    if not OUT_DIR.is_dir():
+        return
+    removed = []
+    for path in sorted(OUT_DIR.iterdir()):
+        if path.name in _KEEP_OUTPUTS or not path.is_file():
+            continue
+        path.unlink()
+        removed.append(path.name)
+    if removed:
+        print(
+            f"Removed {len(removed)} previous result file(s) from {OUT_DIR}",
+            flush=True,
+        )
+
+
 def _kmp_blocktimes():
     raw = os.environ.get("KMP_BLOCKTIMES", DEFAULT_KMP_BLOCKTIMES)
     return [x.strip() for x in raw.split(",") if x.strip()]
@@ -138,10 +158,11 @@ def cmd_bench(args) -> None:
     if not args.others_only:
         cmd_prepare(args)
     extra = args.extra or []
+    # One invocation, one result set. Partial commands (sklearn-only /
+    # others-only) are their own invocations and also start from an empty
+    # output dir; ``pixi run bench`` is what combines every library.
+    _clean_previous_results()
     OUT_DIR.mkdir(parents=True, exist_ok=True)
-    csv = OUT_DIR / "results.csv"
-    if args.sklearn_only is None and not args.others_only:
-        csv.unlink(missing_ok=True)
 
     if args.others_only:
         _run_bench("others", "xgboost,lightgbm,catboost", extra)
@@ -166,6 +187,10 @@ def cmd_plot(_args) -> None:
     csv = OUT_DIR / "results.csv"
     if not csv.exists():
         raise SystemExit(f"missing {csv}; run: pixi run bench")
+    # Drop figures from an older thread / KMP_BLOCKTIME layout. The plotter
+    # rewrites the names that match the current CSV.
+    for path in sorted(OUT_DIR.glob("*.png")):
+        path.unlink()
     run([sys.executable, str(PLOT_PY), str(csv), "--out-dir", str(OUT_DIR)])
     print("Results in", OUT_DIR)
 

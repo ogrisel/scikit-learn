@@ -22,10 +22,12 @@ That will:
 1. Clone sklearn `main` and `cakedev0/scikit-learn` branch `hgb/active_wait`
    into `./trees/`
 2. `pip install -e` each tree **with OpenMP** using the pixi compilers
-3. Sweep HPs × data shapes × thread counts × ``KMP_BLOCKTIME`` in
+3. Delete previous measurements in `../hgb_omp_scalability_out/`
+   (CSV, plots, meta JSON). `REPORT.md` is kept.
+4. Sweep HPs × data shapes × thread counts × ``KMP_BLOCKTIME`` in
    ``{0, 200}`` for sklearn main, XGBoost, LightGBM, CatBoost, then sklearn
    PR 34935 (one process per ``KMP_BLOCKTIME`` so llvm-openmp sees it)
-4. Write CSV + Pareto plots to `../hgb_omp_scalability_out/`
+5. Write CSV + Pareto plots to `../hgb_omp_scalability_out/`
 
 Re-plot an existing CSV:
 
@@ -122,6 +124,11 @@ pixi run sklearn-main     # sklearn main sweep only
 pixi run others           # XGBoost / LightGBM / CatBoost only
 pixi run sklearn-pr       # sklearn PR 34935 sweep only
 ```
+
+Each of `bench`, `sklearn-main`, `others`, and `sklearn-pr` deletes previous
+measurements in the output directory before it starts, then appends only
+what that invocation measures. `REPORT.md` is left in place. Run
+`pixi run bench` when the CSV should contain every library.
 
 This pull request includes code written with the assistance of AI.
 The code has **not yet been reviewed** by a human.
