@@ -49,6 +49,7 @@ from sklearn.utils._array_api import (
     get_namespace_and_device,
     move_to,
 )
+from sklearn.utils._lsqr import lsqr as _array_api_lsqr
 from sklearn.utils._param_validation import Interval, StrOptions, validate_params
 from sklearn.utils.extmath import row_norms, safe_sparse_dot
 from sklearn.utils.fixes import _sparse_linalg_cg
@@ -184,30 +185,53 @@ def _solve_lsqr(
     sqrt(S). The objective then reads
        ||y - (X - sqrt(S) X_offset) w)||_2^2 + alpha * ||w||_2^2
     """
-    if sample_weight_sqrt is None:
-        sample_weight_sqrt = np.ones(X.shape[0], dtype=X.dtype)
+    xp, _, device = get_namespace_and_device(X, y, X_offset, X_scale)
+    # SciPy's lsqr is not array API compatible. Dense non-NumPy inputs use the
+    # vendored port in sklearn.utils._lsqr. Sparse data, including the implicit
+    # centering operator, stays on SciPy's LinearOperator implementation.
+    use_array_api_lsqr = not _is_numpy_namespace(xp) and not sparse.issparse(X)
 
     if sparse.issparse(X) and fit_intercept:
+        if sample_weight_sqrt is None:
+            sample_weight_sqrt = np.ones(X.shape[0], dtype=X.dtype)
         X_offset_scale = X_offset / X_scale
         X1 = _get_rescaled_operator(X, X_offset_scale, sample_weight_sqrt)
     else:
         # No need to touch anything
         X1 = X
 
-    n_samples, n_features = X.shape
-    coefs = np.empty((y.shape[1], n_features), dtype=X.dtype)
-    n_iter = np.empty(y.shape[1], dtype=np.int32)
+    n_features = X.shape[1]
+    coefs = xp.empty((y.shape[1], n_features), dtype=X.dtype, device=device)
+    n_iter = xp.empty(y.shape[1], dtype=xp.int32, device=device)
 
     # According to the lsqr documentation, alpha = damp^2.
-    sqrt_alpha = np.sqrt(alpha)
+    sqrt_alpha = xp.sqrt(alpha)
 
     for i in range(y.shape[1]):
         y_column = y[:, i]
-        info = sp_linalg.lsqr(
-            X1, y_column, damp=sqrt_alpha[i], atol=tol, btol=tol, iter_lim=max_iter
-        )
-        coefs[i] = info[0]
-        n_iter[i] = info[2]
+        damp = sqrt_alpha[i]
+        if use_array_api_lsqr:
+            info = _array_api_lsqr(
+                X1,
+                y_column,
+                damp=damp,
+                atol=tol,
+                btol=tol,
+                iter_lim=max_iter,
+                xp=xp,
+            )
+            x = info[0]
+            if x.dtype != X.dtype:
+                x = xp.astype(x, X.dtype)
+        else:
+            info = sp_linalg.lsqr(
+                X1, y_column, damp=damp, atol=tol, btol=tol, iter_lim=max_iter
+            )
+            x = info[0]
+        itn = info[2]
+        # array_api_strict rejects a single index on a 2-D array.
+        coefs[i, :] = x
+        n_iter[i] = itn
 
     return coefs, n_iter
 
@@ -484,7 +508,7 @@ def ridge_regression(
 
         - 'lsqr' uses the dedicated regularized least-squares routine
           scipy.sparse.linalg.lsqr. It is the fastest and uses an iterative
-          procedure.
+          procedure. Dense Array API inputs are supported.
 
         - 'sag' uses a Stochastic Average Gradient descent, and 'saga' uses
           its improved, unbiased version named SAGA. Both methods also use an
@@ -643,10 +667,10 @@ def _ridge_regression(
     if is_numpy_namespace and not X_is_sparse:
         X = np.asarray(X)
 
-    if not is_numpy_namespace and solver != "svd":
+    if not is_numpy_namespace and solver not in ("svd", "lsqr"):
         raise ValueError(
             f"Array API dispatch to namespace {xp.__name__} only supports "
-            f"solver 'svd'. Got '{solver}'."
+            f"solvers 'lsqr' and 'svd'. Got '{solver}'."
         )
 
     if positive and solver != "lbfgs":
@@ -850,7 +874,8 @@ def resolve_solver(solver, positive, return_intercept, is_sparse, xp):
             "namespace, or set `positive=False`."
         )
 
-    # At the moment, Array API dispatch only supports the "svd" solver.
+    # Array API dispatch supports "svd" and "lsqr". Keep "svd" for "auto":
+    # it is the stable choice and preserves the historical Array API default.
     solver = "svd"
     if solver != auto_solver_np:
         warnings.warn(
@@ -1108,7 +1133,7 @@ class Ridge(MultiOutputMixin, RegressorMixin, _BaseRidge):
 
         - 'lsqr' uses the dedicated regularized least-squares routine
           :func:`scipy.sparse.linalg.lsqr`. It is the fastest and uses an iterative
-          procedure.
+          procedure. Dense Array API inputs are supported.
 
         - 'sag' uses a Stochastic Average Gradient descent, and 'saga' uses
           its improved, unbiased version named SAGA. Both methods also use an
@@ -1471,7 +1496,7 @@ class RidgeClassifier(_RidgeClassifierMixin, _BaseRidge):
 
         - 'lsqr' uses the dedicated regularized least-squares routine
           :func:`scipy.sparse.linalg.lsqr`. It is the fastest and uses an iterative
-          procedure.
+          procedure. Dense Array API inputs are supported.
 
         - 'sag' uses a Stochastic Average Gradient descent, and 'saga' uses
           its unbiased and more flexible version named SAGA. Both methods

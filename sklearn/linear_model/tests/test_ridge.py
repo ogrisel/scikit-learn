@@ -1502,7 +1502,9 @@ def check_array_api_attributes(
     "estimator",
     [
         Ridge(solver="svd"),
+        Ridge(solver="lsqr"),
         RidgeClassifier(solver="svd"),
+        RidgeClassifier(solver="lsqr"),
         RidgeCV(gcv_mode="svd"),
         RidgeCV(gcv_mode="eigen"),
         RidgeClassifierCV(),
@@ -1554,7 +1556,10 @@ def test_ridge_classifier_multilabel_array_api(
     "array_namespace, device_name, dtype_name",
     yield_namespace_device_dtype_combinations(),
 )
-def test_ridge_per_target_alpha_array_api(array_namespace, device_name, dtype_name):
+@pytest.mark.parametrize("solver", ["svd", "lsqr"])
+def test_ridge_per_target_alpha_array_api(
+    array_namespace, device_name, dtype_name, solver
+):
     """Check that passing an array for alpha works with array API dispatch.
 
     Non-regression test for issue #34003.
@@ -1566,7 +1571,7 @@ def test_ridge_per_target_alpha_array_api(array_namespace, device_name, dtype_na
     alphas = np.asarray([1e-2, 0.1, 1.0], dtype=dtype_name)
 
     with config_context(array_api_dispatch=False):
-        ridge_np = Ridge(alpha=alphas, solver="svd").fit(X_np, y_np)
+        ridge_np = Ridge(alpha=alphas, solver=solver).fit(X_np, y_np)
         pred_np = ridge_np.predict(X_np)
 
     with config_context(array_api_dispatch=True):
@@ -1574,7 +1579,7 @@ def test_ridge_per_target_alpha_array_api(array_namespace, device_name, dtype_na
 
         # alpha can be a numpy array or an array on the same device
         for alpha in (alphas, xp.asarray(alphas, device=device)):
-            ridge_xp = Ridge(alpha=alpha, solver="svd").fit(X_xp, y_xp)
+            ridge_xp = Ridge(alpha=alpha, solver=solver).fit(X_xp, y_xp)
             pred_xp = ridge_xp.predict(X_xp)
             assert pred_xp.shape == pred_np.shape == y.shape
             assert_allclose(
@@ -1582,6 +1587,40 @@ def test_ridge_per_target_alpha_array_api(array_namespace, device_name, dtype_na
                 pred_np,
                 atol=_atol_for_type(dtype_name),
             )
+
+
+@pytest.mark.parametrize(
+    "array_namespace, device_name, dtype_name",
+    yield_namespace_device_dtype_combinations(),
+)
+@pytest.mark.parametrize("fit_intercept", [True, False])
+def test_ridge_lsqr_sample_weight_array_api(
+    array_namespace, device_name, dtype_name, fit_intercept
+):
+    """Check lsqr handles sample weights with array API inputs."""
+    xp, device = _array_api_for_tests(array_namespace, device_name, dtype_name)
+    X, y = make_regression(n_samples=40, n_features=8, n_targets=2, random_state=0)
+    rng = np.random.RandomState(0)
+    sample_weight = rng.uniform(0.5, 1.5, size=X.shape[0]).astype(dtype_name)
+    X_np = X.astype(dtype_name)
+    y_np = y.astype(dtype_name)
+    estimator = Ridge(alpha=0.5, solver="lsqr", fit_intercept=fit_intercept, tol=1e-8)
+
+    with config_context(array_api_dispatch=False):
+        pred_np = estimator.fit(X_np, y_np, sample_weight=sample_weight).predict(X_np)
+
+    with config_context(array_api_dispatch=True):
+        X_xp = xp.asarray(X_np, device=device)
+        y_xp = xp.asarray(y_np, device=device)
+        sw_xp = xp.asarray(sample_weight, device=device)
+        pred_xp = estimator.fit(X_xp, y_xp, sample_weight=sw_xp).predict(X_xp)
+
+    assert_allclose(
+        move_to(pred_xp, xp=np, device="cpu"),
+        pred_np,
+        atol=_atol_for_type(dtype_name),
+        rtol=1e-4,
+    )
 
 
 @pytest.mark.parametrize(
@@ -1594,11 +1633,11 @@ def test_array_api_error_and_warnings_for_solver_parameter(array_namespace):
     y_iris_xp = xp.asarray(y_iris[:5])
 
     available_solvers = Ridge._parameter_constraints["solver"][0].options
-    for solver in available_solvers - {"auto", "svd"}:
+    for solver in available_solvers - {"auto", "svd", "lsqr"}:
         ridge = Ridge(solver=solver, positive=solver == "lbfgs")
         expected_msg = (
             f"Array API dispatch to namespace {xp.__name__} only supports "
-            f"solver 'svd'. Got '{solver}'."
+            f"solvers 'lsqr' and 'svd'. Got '{solver}'."
         )
 
         with pytest.raises(ValueError, match=expected_msg):
