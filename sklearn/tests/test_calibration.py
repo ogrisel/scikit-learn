@@ -272,8 +272,11 @@ def test_calibration_multiclass(clf, method, ensemble, global_random_seed):
         y,
         random_state=global_random_seed,
         stratify=y,
-        train_size=1_000,
+            train_size=1_000,
     )
+    # The parametrized estimator instance is shared by every pytest-run-parallel
+    # thread. Clone it so concurrent fits do not mutate the same object.
+    clf = clone(clf)
     clf.fit(X_train, y_train)
     y_pred_uncal = clf.predict_proba(X_test)
 
