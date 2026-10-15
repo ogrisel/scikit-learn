@@ -1,0 +1,98 @@
+[workspace]
+name = "hgb-omp-scalability"
+version = "0.1.0"
+description = "Reproduce HistGradientBoosting OpenMP scalability vs XGBoost, LightGBM, CatBoost"
+channels = ["conda-forge"]
+# linux-64 lock is committed; macOS is also in pixi.lock. Windows:
+#   pixi workspace platform add win-64 && pixi install
+platforms = ["linux-64", "osx-arm64", "osx-64"]
+
+[dependencies]
+python = "3.12.*"
+pip = "*"
+git = "*"
+numpy = ">=2,<3"
+scipy = "*"
+cython = ">=3.1.2,<3.2.6"
+meson = "*"
+meson-python = ">=0.17.1"
+ninja = "*"
+pkg-config = "*"
+joblib = ">=1.4"
+threadpoolctl = ">=3.5"
+narwhals = ">=2"
+pandas = "*"
+matplotlib-base = "*"
+py-xgboost = "*"
+lightgbm = "*"
+catboost = { version = "*", build = "*cpu*" }
+c-compiler = "*"
+cxx-compiler = "*"
+
+[target.linux-64.dependencies]
+libgomp = "*"
+
+[target.osx-64.dependencies]
+llvm-openmp = "*"
+
+[target.osx-arm64.dependencies]
+llvm-openmp = "*"
+
+[activation.env]
+PYTHONUNBUFFERED = "1"
+MKL_NUM_THREADS = "1"
+OPENBLAS_NUM_THREADS = "1"
+NUMEXPR_NUM_THREADS = "1"
+MPLBACKEND = "Agg"
+# Cap at Apple M4 physical cores (4 P + 6 E). Override: OMP_NUM_THREADS=N
+OMP_NUM_THREADS = "10"
+
+# conda-forge libgomp may export OMP_WAIT_POLICY=PASSIVE via activate.d.
+# Use these environments to pin the wait policy the PR heuristics branch on.
+[feature.active-wait.activation.env]
+OMP_WAIT_POLICY = "ACTIVE"
+
+[feature.passive-wait.activation.env]
+OMP_WAIT_POLICY = "PASSIVE"
+
+[environments]
+default = { features = [], solve-group = "default" }
+active-wait = { features = ["active-wait"], solve-group = "default" }
+passive-wait = { features = ["passive-wait"], solve-group = "default" }
+
+# Fetch sklearn main + PR 34935 into ./trees, build, run, plot.
+[tasks.prepare]
+cmd = "python prepare.py prepare"
+description = "Clone/update sklearn main and PR 34935 worktrees under ./trees"
+
+[tasks.build-main]
+cmd = "python prepare.py build main"
+depends-on = ["prepare"]
+description = "Editable-install sklearn main with OpenMP into this pixi env"
+
+[tasks.build-pr]
+cmd = "python prepare.py build pr"
+depends-on = ["prepare"]
+description = "Editable-install sklearn PR 34935 with OpenMP into this pixi env"
+
+[tasks.bench]
+cmd = "python prepare.py bench"
+description = "Full comparison: two KMP_BLOCKTIME values, sklearn main, other GBDTs, sklearn PR"
+# Extra args are forwarded, e.g. pixi run bench -- --threads 4,10
+# Default also sweeps KMP_BLOCKTIME=0 and 200 (separate processes).
+
+[tasks.plot]
+cmd = "python prepare.py plot"
+description = "Regenerate Pareto / thread-scaling plots from results.csv"
+
+[tasks.sklearn-main]
+cmd = "python prepare.py bench --sklearn-only main"
+depends-on = ["build-main"]
+
+[tasks.sklearn-pr]
+cmd = "python prepare.py bench --sklearn-only pr"
+depends-on = ["build-pr"]
+
+[tasks.others]
+cmd = "python prepare.py bench --others-only"
+description = "XGBoost / LightGBM / CatBoost only (any installed sklearn is fine)"
