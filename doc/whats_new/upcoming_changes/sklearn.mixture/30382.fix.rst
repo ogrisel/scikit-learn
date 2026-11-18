@@ -1,0 +1,6 @@
+- :class:`mixture.GaussianMixture` and :class:`mixture.BayesianGaussianMixture`
+  with ``covariance_type="diag"`` or ``"spherical"`` now estimate variances as
+  the weighted second moment about the component mean. ``E[X**2] - mean**2``
+  could be largely negative for ``float32`` data with a large feature
+  magnitude, which made ``fit`` fail even for a generous ``reg_covar``.
+  By :user:`Olivier Grisel <ogrisel>`.

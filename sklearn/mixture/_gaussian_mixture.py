@@ -246,10 +246,19 @@ def _estimate_gaussian_covariances_diag(resp, X, nk, means, reg_covar, xp=None):
     covariances : array, shape (n_components, n_features)
         The covariance vector of the current components.
     """
-    xp, _ = get_namespace(X, xp=xp)
-    avg_X2 = (resp.T @ (X * X)) / nk[:, xp.newaxis]
-    avg_means2 = means**2
-    return avg_X2 - avg_means2 + reg_covar
+    # Weighted second moment about the mean: the diagonal of the full estimator
+    # above. ``E[X**2] - mean**2`` cancels two large terms and, in float32, can
+    # be largely negative or far above the true variance, beyond what
+    # ``reg_covar`` can repair (gh-30382). Square in place to keep a single
+    # temporary the size of ``X``.
+    xp, _, device = get_namespace_and_device(X, xp=xp)
+    n_components, n_features = means.shape
+    covariances = xp.empty((n_components, n_features), device=device, dtype=X.dtype)
+    for k in range(n_components):
+        diff = X - means[k, :]
+        diff *= diff
+        covariances[k, :] = (resp[:, k] @ diff) / nk[k]
+    return covariances + reg_covar
 
 
 def _estimate_gaussian_covariances_spherical(resp, X, nk, means, reg_covar, xp=None):

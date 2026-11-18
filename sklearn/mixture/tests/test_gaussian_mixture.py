@@ -412,7 +412,9 @@ def test_gaussian_suffstat_sk_spherical(global_dtype):
     X = X - X.mean()
     resp = np.ones((n_samples, 1), dtype=global_dtype)
     nk = np.array([n_samples], dtype=global_dtype)
-    xk = X.mean()
+    # One shared mean, shaped (n_components, n_features), so the spherical
+    # variance matches the second moment of the flattened sample.
+    xk = np.full((1, n_features), X.mean(), dtype=global_dtype)
     covars_pred_spherical = _estimate_gaussian_covariances_spherical(resp, X, nk, xk, 0)
     covars_pred_spherical2 = np.dot(X.flatten().T, X.flatten()) / (
         n_features * n_samples
@@ -424,6 +426,61 @@ def test_gaussian_suffstat_sk_spherical(global_dtype):
     precs_chol_pred = _compute_precision_cholesky(covars_pred_spherical, "spherical")
     assert_almost_equal(covars_pred_spherical, 1.0 / precs_chol_pred**2)
     assert precs_chol_pred.dtype == global_dtype
+
+
+def test_estimate_diag_covariance_float32_large_magnitude():
+    """Diagonal variances stay non-negative for large float32 features.
+
+    ``E[X**2] - mean**2`` cancels in float32 and can be largely negative.
+    Non-regression test for gh-30382.
+    """
+    rng = np.random.RandomState(2)
+    X = (1e4 + rng.randn(30, 2)).astype(np.float32)
+    resp = rng.rand(30, 2).astype(np.float32)
+    resp /= resp.sum(axis=1, keepdims=True)
+
+    nk = resp.sum(axis=0) + 10 * np.finfo(np.float32).eps
+    means = (resp.T @ X) / nk[:, np.newaxis]
+    reg_covar = np.float32(1e-6)
+    cov = _estimate_gaussian_covariances_diag(resp, X, nk, means, reg_covar)
+    assert cov.dtype == np.float32
+    assert np.all(cov > 0)
+
+    spherical = _estimate_gaussian_covariances_spherical(resp, X, nk, means, reg_covar)
+    assert spherical.dtype == np.float32
+    assert np.all(spherical > 0)
+
+    resp64 = resp.astype(np.float64)
+    X64 = X.astype(np.float64)
+    nk64 = resp64.sum(axis=0) + 10 * np.finfo(np.float64).eps
+    means64 = (resp64.T @ X64) / nk64[:, np.newaxis]
+    ref = _estimate_gaussian_covariances_diag(
+        resp64, X64, nk64, means64, np.float64(reg_covar)
+    )
+    assert_allclose(cov, ref, rtol=1e-4, atol=1e-3)
+
+
+@pytest.mark.parametrize("covariance_type", ["diag", "spherical"])
+@pytest.mark.parametrize("dtype", [np.float32, np.float64])
+def test_gaussian_mixture_collapsed_components_large_float32(covariance_type, dtype):
+    """Collapsed components keep a covariance near ``reg_covar``.
+
+    Non-regression test for gh-30382. For ``X = [[9999], [0]]`` in float32 the
+    previous diagonal estimator returned about 112 for the component on 9999,
+    and a negative value when responsibilities were computed in float64.
+    """
+    X = np.array([[9999.0], [0.0]], dtype=dtype)
+    reg_covar = 0.1
+    gmm = GaussianMixture(
+        n_components=2,
+        covariance_type=covariance_type,
+        reg_covar=reg_covar,
+        random_state=0,
+    )
+    gmm.fit(X)
+
+    assert gmm.covariances_.dtype == dtype
+    assert_allclose(gmm.covariances_, reg_covar, atol=1e-3, rtol=0)
 
 
 def test_compute_log_det_cholesky(global_dtype):
