@@ -258,6 +258,8 @@ def _estimate_gaussian_covariances_diag(resp, X, nk, means, reg_covar, xp=None):
         diff = X - means[k, :]
         diff *= diff
         covariances[k, :] = (resp[:, k] @ diff) / nk[k]
+        # Free the buffer before the next iteration allocates its own.
+        del diff
     return covariances + reg_covar
 
 
