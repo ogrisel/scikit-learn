@@ -1,6 +1,6 @@
 - :class:`mixture.GaussianMixture` and :class:`mixture.BayesianGaussianMixture`
   with ``covariance_type="diag"`` or ``"spherical"`` can produce different
-  ``covariances_`` (and therefore different subsequent EM iterates), most
-  noticeably for ``float32`` inputs whose features have a large magnitude.
-  ``float64`` results change only by rounding.
+  ``covariances_`` (and therefore different subsequent EM iterates) for
+  components whose variance is small relative to the second moment of the data,
+  most noticeably for ``float32`` inputs. Other components are unchanged.
   By :user:`Olivier Grisel <ogrisel>`.

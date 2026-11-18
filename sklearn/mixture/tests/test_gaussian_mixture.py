@@ -460,6 +460,36 @@ def test_estimate_diag_covariance_float32_large_magnitude():
     assert_allclose(cov, ref, rtol=1e-4, atol=1e-3)
 
 
+@pytest.mark.parametrize("offset", [0.0, 10.0, 1e3])
+def test_estimate_diag_covariance_matches_float64_reference(offset, global_dtype):
+    """The diag estimate tracks a float64 centered reference at any offset.
+
+    `offset` moves the data from the GEMM fast path (well-conditioned) to the
+    centered fallback (large mean relative to the standard deviation).
+    Non-regression test for gh-30382.
+    """
+    rng = np.random.RandomState(0)
+    X = (offset + rng.randn(1000, 3)).astype(global_dtype)
+    resp = rng.rand(1000, 3).astype(global_dtype)
+    resp /= resp.sum(axis=1, keepdims=True)
+    nk = resp.sum(axis=0) + 10 * np.finfo(global_dtype).eps
+    means = (resp.T @ X) / nk[:, np.newaxis]
+
+    cov = _estimate_gaussian_covariances_diag(resp, X, nk, means, 0.0)
+
+    resp64, X64 = resp.astype(np.float64), X.astype(np.float64)
+    nk64 = resp64.sum(axis=0)
+    means64 = (resp64.T @ X64) / nk64[:, np.newaxis]
+    expected = np.stack(
+        [
+            (resp64[:, k] @ (X64 - means64[k]) ** 2) / nk64[k]
+            for k in range(means64.shape[0])
+        ]
+    )
+    assert cov.dtype == global_dtype
+    assert_allclose(cov, expected, rtol=5e-3 if global_dtype == np.float32 else 1e-6)
+
+
 @pytest.mark.parametrize("covariance_type", ["diag", "spherical"])
 @pytest.mark.parametrize("dtype", [np.float32, np.float64])
 def test_gaussian_mixture_collapsed_components_large_float32(covariance_type, dtype):

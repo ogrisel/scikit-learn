@@ -246,20 +246,29 @@ def _estimate_gaussian_covariances_diag(resp, X, nk, means, reg_covar, xp=None):
     covariances : array, shape (n_components, n_features)
         The covariance vector of the current components.
     """
-    # Weighted second moment about the mean: the diagonal of the full estimator
-    # above. ``E[X**2] - mean**2`` cancels two large terms and, in float32, can
-    # be largely negative or far above the true variance, beyond what
-    # ``reg_covar`` can repair (gh-30382). Square in place to keep a single
-    # temporary the size of ``X``.
-    xp, _, device = get_namespace_and_device(X, xp=xp)
-    n_components, n_features = means.shape
-    covariances = xp.empty((n_components, n_features), device=device, dtype=X.dtype)
-    for k in range(n_components):
-        diff = X - means[k, :]
-        diff *= diff
-        covariances[k, :] = (resp[:, k] @ diff) / nk[k]
-        # Free the buffer before the next iteration allocates its own.
-        del diff
+    xp, _ = get_namespace(X, xp=xp)
+
+    # Fast path: E[X**2] - mean**2 with a single GEMM. It cancels two nearly
+    # equal terms, so its absolute error scales with eps * E[X**2] and its
+    # relative error with eps * E[X**2] / variance (gh-30382).
+    avg_X2 = (resp.T @ (X * X)) / nk[:, xp.newaxis]
+    covariances = avg_X2 - means**2
+
+    # Recompute from the weighted second moment about the mean (the diagonal of
+    # the full estimator) the components where the variance is not safely
+    # above the cancellation error: this is also where the fast path can be
+    # negative or off by orders of magnitude. The threshold is relative to
+    # E[X**2], so it is invariant to the scale of the data.
+    rel_tol = 1e-2 if X.dtype == xp.float32 else 1e-8
+    unstable = xp.any(covariances <= rel_tol * avg_X2, axis=1)
+    if xp.any(unstable):
+        for k in range(means.shape[0]):
+            if unstable[k]:
+                diff = X - means[k, :]
+                diff *= diff
+                covariances[k, :] = (resp[:, k] @ diff) / nk[k]
+                # Free the buffer before the next iteration allocates its own.
+                del diff
     return covariances + reg_covar
 
 
