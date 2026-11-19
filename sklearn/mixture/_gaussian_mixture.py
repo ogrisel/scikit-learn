@@ -262,6 +262,8 @@ def _estimate_gaussian_covariances_diag(resp, X, nk, means, reg_covar, xp=None):
     rel_tol = 1e-2 if X.dtype == xp.float32 else 1e-8
     unstable = xp.any(covariances <= rel_tol * avg_X2, axis=1)
     if xp.any(unstable):
+        # XXX: consider using thread-based parallelism for this loop
+        # assuming it is low overhead enough.
         for k in range(means.shape[0]):
             if unstable[k]:
                 diff = X - means[k, :]
