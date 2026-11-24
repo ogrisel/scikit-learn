@@ -1,0 +1,8 @@
+body { max-width: 1250px; margin: 2em auto; font-family: -apple-system, Helvetica, sans-serif; line-height: 1.45; padding: 0 1em; }
+table { border-collapse: collapse; font-size: 0.85em; margin: 1em 0; }
+th, td { border: 1px solid #ccc; padding: 3px 8px; text-align: right; }
+th { background: #f3f3f3; }
+td:first-child, th:first-child { text-align: left; }
+img { max-width: 100%; }
+code { background: #f4f4f4; padding: 0 3px; }
+blockquote { border-left: 4px solid #e69500; margin-left: 0; padding-left: 1em; color: #555; }

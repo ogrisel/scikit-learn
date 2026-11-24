@@ -27,6 +27,7 @@ from sklearn.utils._array_api import (
     get_namespace,
     move_to,
     size,
+    xpx,
 )
 from sklearn.utils._encode import _encode
 from sklearn.utils._param_validation import HasMethods, Interval, StrOptions
@@ -119,7 +120,9 @@ def _class_means(X, y_encoded, *, n_classes):
 
     if is_array_api_compliant:
         for i in range(n_classes):
-            means[i, :] = xp.mean(X[y_encoded == i], axis=0)
+            means[i, :] = xp.mean(
+                xpx.compress(y_encoded == i, X, axis=0, xp=xp), axis=0
+            )
     else:
         # TODO: Explore the choice of using bincount + add.at as it seems sub optimal
         # from a performance-wise
@@ -597,7 +600,7 @@ class LinearDiscriminantAnalysis(
         # `y_encoded` holds integer class codes (see `fit`), so groups are
         # indexed by position in `self.classes_`.
         for idx in range(n_classes):
-            Xg = X[y_encoded == idx]
+            Xg = xpx.compress(y_encoded == idx, X, axis=0, xp=xp)
             Xc.append(Xg - self.means_[idx, :])
 
         self.xbar_ = self.priors_ @ self.means_
@@ -607,7 +610,7 @@ class LinearDiscriminantAnalysis(
         # 1) within (univariate) scaling by with classes std-dev
         std = xp.std(Xc, axis=0)
         # avoid division by zero in normalization
-        std[std == 0] = 1.0
+        std = xp.where(std == 0, 1.0, std)
         fac = xp.asarray(1.0 / n_samples, dtype=X.dtype, device=array_device(X))
 
         # 2) Within variance scaling
@@ -615,7 +618,7 @@ class LinearDiscriminantAnalysis(
         # SVD of centered (within)scaled data
         _, S, Vt = svd(X, full_matrices=False)
 
-        rank = xp.sum(xp.astype(S > self.tol, xp.int32))
+        rank = int(xp.sum(xp.astype(S > self.tol, xp.int32)))
         # Scaling of within covariance is: V' 1/S
         scalings = (Vt[:rank, :] / std).T / S[:rank]
         fac = 1.0 if n_classes == 1 else 1.0 / (n_classes - 1)
@@ -637,7 +640,7 @@ class LinearDiscriminantAnalysis(
                 : self._max_components
             ]
 
-        rank = xp.sum(xp.astype(S > self.tol * S[0], xp.int32))
+        rank = int(xp.sum(xp.astype(S > self.tol * S[0], xp.int32)))
         self.scalings_ = scalings @ Vt.T[:, :rank]
         coef = (self.means_ - self.xbar_) @ self.scalings_
         self.intercept_ = -0.5 * xp.sum(coef**2, axis=1) + xp.log(self.priors_)
@@ -817,7 +820,7 @@ class LinearDiscriminantAnalysis(
         prediction = self.predict_proba(X)
 
         smallest_normal = xp.finfo(prediction.dtype).smallest_normal
-        prediction[prediction == 0.0] += smallest_normal
+        prediction = xp.where(prediction == 0.0, smallest_normal, prediction)
         return xp.log(prediction)
 
     def decision_function(self, X):

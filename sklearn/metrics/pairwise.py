@@ -26,6 +26,7 @@ from sklearn.utils._array_api import (
     _is_numpy_namespace,
     _max_precision_float_dtype,
     _modify_in_place_if_numpy,
+    _supports_threading,
     get_namespace,
     get_namespace_and_device,
 )
@@ -1945,7 +1946,7 @@ def _parallel_pairwise(X, Y, func, n_jobs, **kwds):
     if Y is None:
         Y = X
 
-    if effective_n_jobs(n_jobs) == 1:
+    if effective_n_jobs(n_jobs) == 1 or not _supports_threading(xp):
         return func(X, Y, **kwds)
 
     # enforce a threading backend to prevent data communication overhead

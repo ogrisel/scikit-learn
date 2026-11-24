@@ -610,7 +610,8 @@ def test_check_fitted_attribute_with_non_array_input(X):
 def test_indexing_dtype(namespace, device_name, dtype_name):
     xp, device = _array_api_for_tests(namespace, device_name, dtype_name)
 
-    if _IS_32BIT:
+    # MLX uses 32-bit integers by default on all platforms.
+    if _IS_32BIT or namespace == "mlx.core":
         assert indexing_dtype(xp) == xp.int32
     else:
         assert indexing_dtype(xp) == xp.int64
@@ -862,7 +863,7 @@ def test_median(namespace, device_name, dtype_name, axis):
             # We convert array-api-strict arrays to numpy arrays as `median` is not
             # part of the Array API spec
             assert get_namespace(result_xp)[0] == xp
-            assert result_xp.device == X_xp.device
+            assert array_device(result_xp) == array_device(X_xp)
     assert_allclose(result_np, move_to(result_xp, xp=numpy, device="cpu"))
 
 

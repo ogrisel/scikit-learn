@@ -391,7 +391,7 @@ def calinski_harabasz_score(X, labels):
     extra_disp, intra_disp = 0.0, 0.0
     mean = xp.mean(X, axis=0)
     for k in range(n_labels):
-        cluster_k = X[labels == k]
+        cluster_k = xpx.compress(labels == k, X, axis=0, xp=xp)
         mean_k = xp.mean(cluster_k, axis=0)
         extra_disp += cluster_k.shape[0] * xp.sum((mean_k - mean) ** 2)
         intra_disp += xp.sum((cluster_k - mean_k) ** 2)
@@ -479,7 +479,7 @@ def davies_bouldin_score(X, labels):
     ):
         return 0.0
 
-    centroid_distances[centroid_distances == 0] = xp.inf
+    centroid_distances = xp.where(centroid_distances == 0, xp.inf, centroid_distances)
     combined_intra_dists = intra_dists[:, None] + intra_dists
     scores = xp.max(combined_intra_dists / centroid_distances, axis=1)
     return float(_average(scores, xp=xp))

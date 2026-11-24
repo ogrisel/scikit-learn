@@ -33,6 +33,7 @@ from sklearn.utils._array_api import (
     _average,
     _interp,
     _max_precision_float_dtype,
+    _scipy_supports_namespace,
     get_namespace,
     get_namespace_and_device,
     move_to,
@@ -112,7 +113,10 @@ def auc(x, y):
         else:
             raise ValueError("x is neither increasing nor decreasing : {}.".format(x))
 
-    area = direction * trapezoid(y, x)
+    if _scipy_supports_namespace(xp):
+        area = direction * trapezoid(y, x)
+    else:
+        area = direction * xp.sum(dx * (y[1:] + y[:-1])) / 2
     if isinstance(area, np.memmap):
         # Reductions such as .sum used internally in trapezoid do not return a
         # scalar by default for numpy.memmap instances contrary to
@@ -449,13 +453,10 @@ def det_curve(
     n_count = fps[-1]
 
     # start with false positives zero, which may be at a finite threshold
-    first_ind = (
-        xp.searchsorted(fps, fps[0], side="right") - 1
-        if xp.searchsorted(fps, fps[0], side="right") > 0
-        else None
-    )
+    first_ind = int(xp.searchsorted(fps, fps[0], side="right"))
+    first_ind = first_ind - 1 if first_ind > 0 else None
     # stop with false negatives zero
-    last_ind = xp.searchsorted(tps, tps[-1]) + 1
+    last_ind = int(xp.searchsorted(tps, tps[-1])) + 1
     sl = slice(first_ind, last_ind)
 
     # reverse the output such that list of false positives is decreasing
@@ -489,7 +490,7 @@ def _binary_roc_auc_score(y_true, y_score, sample_weight=None, max_fpr=None):
 
     max_fpr_xp = xp.asarray(max_fpr, dtype=fpr.dtype, device=device)
     # Add a single point at max_fpr by linear interpolation
-    stop = xp.searchsorted(fpr, max_fpr_xp, side="right")
+    stop = int(xp.searchsorted(fpr, max_fpr_xp, side="right"))
     x_interp = xp.stack([fpr[stop - 1], fpr[stop]])
     y_interp = xp.stack([tpr[stop - 1], tpr[stop]])
     interp_tpr = _interp(x=max_fpr, xp=x_interp, fp=y_interp)
@@ -932,9 +933,9 @@ def _sort_inputs_and_compute_classification_thresholds(
         sample_weight = column_or_1d(sample_weight)
         sample_weight = _check_sample_weight(sample_weight, y_true)
         nonzero_weight_mask = sample_weight != 0
-        y_true = y_true[nonzero_weight_mask]
-        y_score = y_score[nonzero_weight_mask]
-        sample_weight = sample_weight[nonzero_weight_mask]
+        y_true = xpx.compress(nonzero_weight_mask, y_true, xp=xp)
+        y_score = xpx.compress(nonzero_weight_mask, y_score, xp=xp)
+        sample_weight = xpx.compress(nonzero_weight_mask, sample_weight, xp=xp)
 
     # sort scores and corresponding truth values
     desc_score_indices = xp.argsort(y_score, stable=True, descending=True)
@@ -1377,9 +1378,9 @@ def roc_curve(
                 xp.asarray([True], device=device),
             ]
         )
-        fps = fps[mask]
-        tps = tps[mask]
-        thresholds = thresholds[mask]
+        fps = xpx.compress(mask, fps, xp=xp)
+        tps = xpx.compress(mask, tps, xp=xp)
+        thresholds = xpx.compress(mask, thresholds, xp=xp)
 
     # Add an extra threshold position
     # to make sure that the curve starts at (0, 0)

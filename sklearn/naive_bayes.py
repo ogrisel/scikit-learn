@@ -494,10 +494,10 @@ class GaussianNB(_BaseNB):
         for y_i in unique_y:
             i = int(xp_y.searchsorted(classes, y_i))
             y_i_mask = xp.asarray(y == y_i, device=device)
-            X_i = X[y_i_mask]
+            X_i = xpx.compress(y_i_mask, X, axis=0, xp=xp)
 
             if sample_weight is not None:
-                sw_i = sample_weight[y_i_mask]
+                sw_i = xpx.compress(y_i_mask, sample_weight, xp=xp)
                 N_i = xp.sum(sw_i)
             else:
                 sw_i = None

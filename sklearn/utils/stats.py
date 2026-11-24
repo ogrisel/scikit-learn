@@ -6,6 +6,7 @@ import numpy as np
 from sklearn.utils._array_api import (
     _find_matching_floating_dtype,
     get_namespace_and_device,
+    xpx,
 )
 from sklearn.utils._indexing import _safe_indexing
 
@@ -154,7 +155,7 @@ def _weighted_percentile(
     # NaN values get sorted to end (largest value)
     if xp.any(xp.isnan(largest_value_per_column)):
         sorted_nan_mask = xp.take_along_axis(xp.isnan(array), sorted_idx, axis=0)
-        sorted_weights[sorted_nan_mask] = 0
+        sorted_weights = xp.where(sorted_nan_mask, 0, sorted_weights)
 
     # Compute the weighted cumulative distribution function (CDF) based on
     # `sample_weight` and scale `percentile_rank` along it.
@@ -173,9 +174,10 @@ def _weighted_percentile(
 
         # Ignore leading `sample_weight=0` observations
         # when `percentile_rank=0` (#20528)
-        mask = adjusted_percentile_rank == 0
-        adjusted_percentile_rank[mask] = xp.nextafter(
-            adjusted_percentile_rank[mask], adjusted_percentile_rank[mask] + 1
+        adjusted_percentile_rank = xp.where(
+            adjusted_percentile_rank == 0,
+            xp.nextafter(adjusted_percentile_rank, adjusted_percentile_rank + 1),
+            adjusted_percentile_rank,
         )
         # For each feature with index j, find sample index i of the scalar value
         # `adjusted_percentile_rank[j]` in 1D array `weight_cdf[j]`, such that:
@@ -209,9 +211,11 @@ def _weighted_percentile(
                 percentile_plus_one_indices, col_indices
             ]
             # Handle case when next index ('plus one') has sample weight of 0
-            zero_weight_cols = col_indices[
-                sorted_weights[percentile_plus_one_indices, col_indices] == 0
-            ]
+            zero_weight_cols = xpx.compress(
+                sorted_weights[percentile_plus_one_indices, col_indices] == 0,
+                col_indices,
+                xp=xp,
+            )
             for col_idx in zero_weight_cols:
                 cdf_val = weight_cdf[col_idx, percentile_indices[col_idx]]
                 # Search for next index where `weighted_cdf` is greater

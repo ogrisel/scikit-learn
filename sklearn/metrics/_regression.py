@@ -978,17 +978,19 @@ def _assemble_fraction_of_explained_deviance(
         nonzero_numerator = numerator != 0
         # Default = Zero Numerator = perfect predictions. Set to 1.0
         # (note: even if denominator is zero, thus avoiding NaN scores)
-        output_scores = xp.ones([n_outputs], device=device, dtype=dtype)
+        one = xp.ones([n_outputs], device=device, dtype=dtype)
         # Non-zero Numerator and Non-zero Denominator: use the formula
         valid_score = nonzero_denominator & nonzero_numerator
-
-        output_scores[valid_score] = 1 - (
-            numerator[valid_score] / denominator[valid_score]
-        )
+        safe_denominator = xp.where(nonzero_denominator, denominator, one)
+        output_scores = xp.where(valid_score, 1 - (numerator / safe_denominator), one)
 
         # Non-zero Numerator and Zero Denominator:
         # arbitrary set to 0.0 to avoid -inf scores
-        output_scores[nonzero_numerator & ~nonzero_denominator] = 0.0
+        output_scores = xp.where(
+            nonzero_numerator & ~nonzero_denominator,
+            xp.zeros_like(output_scores),
+            output_scores,
+        )
 
     if isinstance(multioutput, str):
         if multioutput == "raw_values":

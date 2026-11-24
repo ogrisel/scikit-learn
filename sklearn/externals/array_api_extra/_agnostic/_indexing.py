@@ -1,8 +1,26 @@
 """Array-agnostic implementations for indexing functions."""
 
+from .._lib import _helpers
 from .._lib._typing import Array, ArrayNamespace, Device
 
-__all__ = ["diag_indices", "tril_indices", "triu_indices", "unravel_index"]
+__all__ = [
+    "compress",
+    "diag_indices",
+    "tril_indices",
+    "triu_indices",
+    "unravel_index",
+]
+
+
+def compress(
+    condition: Array, x: Array, /, *, axis: int, xp: ArrayNamespace
+) -> Array:  # numpydoc ignore=PR01,RT01
+    """See docstring in `array_api_extra._indexing`."""
+    # The standard only allows boolean arrays as the sole index.
+    if x.ndim == 1 and _helpers.capabilities(xp, x)["boolean indexing"]:
+        return x[condition]
+    (indices,) = xp.nonzero(condition)
+    return xp.take(x, indices, axis=axis)
 
 
 def diag_indices(

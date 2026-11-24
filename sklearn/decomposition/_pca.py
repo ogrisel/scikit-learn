@@ -107,7 +107,7 @@ def _infer_dimension(spectrum, n_samples):
     ll[0] = -xp.inf  # we don't want to return n_components = 0
     for rank in range(1, spectrum.shape[0]):
         ll[rank] = _assess_dimension(spectrum, rank, n_samples)
-    return xp.argmax(ll)
+    return int(xp.argmax(ll))
 
 
 class PCA(_BasePCA):
@@ -625,10 +625,12 @@ class PCA(_BasePCA):
             # passed. More discussion in issue: #15669
             ratio_cumsum = xp.cumulative_sum(explained_variance_ratio_)
             n_components = (
-                xp.searchsorted(
-                    ratio_cumsum,
-                    xp.asarray(n_components, device=array_device(ratio_cumsum)),
-                    side="right",
+                int(
+                    xp.searchsorted(
+                        ratio_cumsum,
+                        xp.asarray(n_components, device=array_device(ratio_cumsum)),
+                        side="right",
+                    )
                 )
                 + 1
             )

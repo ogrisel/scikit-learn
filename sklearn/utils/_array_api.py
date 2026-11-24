@@ -60,6 +60,7 @@ def yield_namespaces(include_numpy_namespaces=True):
         "cupy",
         "torch",
         "dpnp",
+        "mlx.core",
     ]:
         if not include_numpy_namespaces and array_namespace in _NUMPY_NAMESPACE_NAMES:
             continue
@@ -113,6 +114,10 @@ def yield_namespace_device_dtype_combinations(include_numpy_namespaces=True):
             # creates Device objects when needed.
             yield array_namespace, "CPU_DEVICE", "float64"
             yield array_namespace, "device1", "float32"
+        elif array_namespace == "mlx.core":
+            # MLX only supports float64 on the CPU device.
+            yield array_namespace, "gpu", "float32"
+            yield array_namespace, "cpu", "float64"
         else:
             yield array_namespace, None, None
 
@@ -194,6 +199,9 @@ def _check_array_api_dispatch(array_api_dispatch):
 
 def _single_array_device(array):
     """Hardware device where the array data resides on."""
+    if array_api_compat.is_mlx_array(array) and get_config()["array_api_dispatch"]:
+        # MLX arrays have no `device` attribute: they live in unified memory.
+        return array_api_compat.device(array)
     if (
         not hasattr(array, "device")
         # When array API dispatch is disabled, we expect the scikit-learn code
@@ -943,6 +951,25 @@ def _median(x, axis=None, keepdims=False, xp=None):
     return xp.asarray(numpy.median(x_np, axis=axis, keepdims=keepdims), device=device)
 
 
+def _scipy_supports_namespace(xp):
+    """Return True if SciPy's array API dispatch can handle arrays from `xp`.
+
+    SciPy's vendored array-api-compat does not wrap MLX, and `mlx.core.array`
+    advertises the raw (not fully compliant) `mlx.core` module via
+    `__array_namespace__`.
+    """
+    return not array_api_compat.is_mlx_namespace(xp)
+
+
+def _supports_threading(xp):
+    """Return False if arrays from `xp` cannot be shared across host threads.
+
+    MLX streams are thread-local: a lazy MLX array built in one thread cannot
+    be evaluated in another thread.
+    """
+    return not array_api_compat.is_mlx_namespace(xp)
+
+
 def _xlogy(x, y, xp=None):
     # TODO: Remove this once https://github.com/scipy/scipy/issues/21736 is fixed
     xp, _, device = get_namespace_and_device(x, y, xp=xp)
@@ -1244,13 +1271,17 @@ def _bincount(array, weights=None, minlength=0, xp=None):
     if hasattr(xp, "bincount"):
         return xp.bincount(array, weights=weights, minlength=minlength)
 
+    device = array_device(array)
     array_np = move_to(array, xp=numpy, device="cpu")
+    dtype = None
     if weights is not None:
         weights_np = move_to(weights, xp=numpy, device="cpu")
+        # numpy.bincount always returns float64 for weighted counts.
+        dtype = _max_precision_float_dtype(xp, device)
     else:
         weights_np = None
     bin_out = numpy.bincount(array_np, weights=weights_np, minlength=minlength)
-    return xp.asarray(bin_out, device=array_device(array))
+    return xp.asarray(bin_out, dtype=dtype, device=device)
 
 
 def _logsumexp(array, axis=None, xp=None):

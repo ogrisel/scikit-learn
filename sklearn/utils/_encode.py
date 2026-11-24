@@ -8,7 +8,7 @@ from typing import NamedTuple, cast
 
 import numpy as np
 
-from sklearn.utils._array_api import array_device, get_namespace, size
+from sklearn.utils._array_api import array_device, get_namespace, size, xpx
 from sklearn.utils._missing import is_scalar_nan
 
 
@@ -303,10 +303,10 @@ def _encode(values, *, uniques, return_diff=False):
                 matches |= xp.isnan(values)
         else:
             matches = xp.zeros_like(encoded, dtype=xp.bool)
-        encoded[~matches] = -1
+        encoded = xp.where(matches, encoded, -1)
 
     if return_diff:
-        diff = _unique(values[encoded == -1])
+        diff = _unique(xpx.compress(encoded == -1, values, xp=xp))
         return encoded, diff
 
     return encoded
