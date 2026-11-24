@@ -1246,7 +1246,9 @@ def _incremental_mean_and_var(
             )
 
         zeros = last_sample_count == 0
-        updated_unnormalized_variance[zeros] = new_unnormalized_variance[zeros]
+        updated_unnormalized_variance = xp.where(
+            zeros, new_unnormalized_variance, updated_unnormalized_variance
+        )
         updated_variance = updated_unnormalized_variance / updated_sample_count
 
     return updated_mean, updated_variance, updated_sample_count
@@ -1310,7 +1312,8 @@ def _nanaverage(a, weights=None):
         return xpx.nanmean(a, xp=xp)
 
     weights = xp.asarray(weights)
-    a, weights = a[~mask], weights[~mask]
+    a = xpx.compress(~mask, a, xp=xp)
+    weights = xpx.compress(~mask, weights, xp=xp)
     try:
         return _average(a, weights=weights)
     except ZeroDivisionError:

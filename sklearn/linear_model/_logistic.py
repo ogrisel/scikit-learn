@@ -2572,18 +2572,14 @@ class LogisticRegressionCV(LogisticRegression, LinearClassifierMixin, BaseEstima
             use_alpha = True
             self.alphas_ = alphas[0]  # the same for all folds and l1_ratios
             # self._Cs_ = 1 / self.alphas_, protect against alpha = 0
-            self._Cs_ = xp.asarray(self.alphas_, copy=True)
-            mask = self._Cs_ != 0
-            self._Cs_[mask] = 1 / self._Cs_[mask]
-            self._Cs_[~mask] = xp.inf
+            mask = self.alphas_ != 0
+            self._Cs_ = xp.where(mask, 1 / xp.where(mask, self.alphas_, 1.0), xp.inf)
         else:
             use_alpha = False
             self._Cs_ = Cs[0]  # the same for all folds and l1_ratios
             # self.alphas_ = 1 / self._Cs_, protect against C = inf
-            self.alphas_ = xp.asarray(self._Cs_, copy=True)
-            mask = xp.isfinite(self.alphas_)
-            self.alphas_[mask] = 1 / self.alphas_[mask]
-            self.alphas_[~mask] = 0
+            mask = xp.isfinite(self._Cs_)
+            self.alphas_ = xp.where(mask, 1 / xp.where(mask, self._Cs_, 1.0), 0.0)
         n_folds = len(folds)
         n_alphas = size(self.alphas_)
         n_l1_ratios = size(l1_ratios)
@@ -2737,7 +2733,7 @@ class LogisticRegressionCV(LogisticRegression, LinearClassifierMixin, BaseEstima
         else:
             self._C_ = xp.asarray(self._C_)
             self.alpha_ = 1 / self._C_
-        self.l1_ratio_ = xp.asarray(self.l1_ratio_)
+        self.l1_ratio_ = xp.asarray(self.l1_ratio_, device=device, dtype=X.dtype)
         self.l1_ratios_ = xp.asarray(l1_ratios, device=device, dtype=X.dtype)
 
         if not use_legacy_attributes:

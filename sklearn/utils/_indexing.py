@@ -48,8 +48,7 @@ def _array_indexing(array, key, key_dtype, axis):
             elif xp.isdtype(key.dtype, "bool"):
                 # Array API does not support boolean indexing for n-dim arrays
                 # yet hence the need to turn to equivalent integer indexing.
-                indices = xp.arange(array.shape[axis], device=device)
-                return xp.take(array, indices[key], axis=axis)
+                return xp.take(array, xp.nonzero(key)[0], axis=axis)
 
     if issparse(array):
         if key_dtype == "bool":

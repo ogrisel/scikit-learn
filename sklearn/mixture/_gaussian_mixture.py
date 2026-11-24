@@ -192,8 +192,11 @@ def _estimate_gaussian_covariances_full(resp, X, nk, means, reg_covar, xp=None):
     )
     for k in range(n_components):
         diff = X - means[k, :]
-        covariances[k, :, :] = ((resp[:, k] * diff.T) @ diff) / nk[k]
-        _add_to_diagonal(covariances[k, :, :], reg_covar, xp)
+        covariance = ((resp[:, k] * diff.T) @ diff) / nk[k]
+        # Basic indexing is not guaranteed to return a view (e.g. with MLX):
+        # regularize before writing into `covariances`.
+        _add_to_diagonal(covariance, reg_covar, xp)
+        covariances[k, :, :] = covariance
     return covariances
 
 

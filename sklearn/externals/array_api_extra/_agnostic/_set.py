@@ -2,7 +2,7 @@
 
 from .._lib import _compat, _helpers
 from .._lib._typing import Array, ArrayNamespace
-from . import _inspection
+from . import _indexing, _inspection
 
 __all__ = ["isin", "nunique", "setdiff1d", "union1d"]
 
@@ -75,7 +75,8 @@ def setdiff1d(
         x1_ = xp.unique_values(x1_)
         x2_ = xp.unique_values(x2_)
 
-    return x1_[_helpers.in1d(x1_, x2_, assume_unique=True, invert=True, xp=xp)]
+    mask = _helpers.in1d(x1_, x2_, assume_unique=True, invert=True, xp=xp)
+    return _indexing.compress(mask, x1_, axis=0, xp=xp)
 
 
 def union1d(a: Array, b: Array, /, *, xp: ArrayNamespace) -> Array:

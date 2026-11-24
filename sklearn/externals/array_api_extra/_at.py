@@ -286,7 +286,11 @@ class at:  # pylint: disable=invalid-name  # numpydoc ignore=PR02
         # We can handle the common special case of 0-dimensional y
         # with where(idx, y, x) instead.
         if (
-            (_compat.is_dask_array(idx) or _compat.is_jax_array(idx))
+            (
+                _compat.is_dask_array(idx)
+                or _compat.is_jax_array(idx)
+                or _compat.is_mlx_array(idx)
+            )
             and idx.dtype == xp.bool
             and idx.shape == x.shape
         ):
@@ -341,6 +345,14 @@ class at:  # pylint: disable=invalid-name  # numpydoc ignore=PR02
         # https://github.com/pytorch/pytorch/issues/150017
         if _compat.is_torch_array(y):
             y = xp.astype(y, x.dtype, copy=False)
+
+        # MLX supports integer array indices but not boolean masks
+        if (
+            _compat.is_mlx_array(x)
+            and _compat.is_mlx_array(idx)
+            and idx.dtype == xp.bool
+        ):
+            idx = xp.nonzero(idx)
 
         # Backends without boolean indexing (other than JAX) crash here
         if in_place_op:  # add(), subtract(), ...

@@ -179,6 +179,31 @@ def is_torch_array(x: object) -> TypeIs[torch.Tensor]:
     return _issubclass_fast(cls, "torch", "Tensor")
 
 
+def is_mlx_array(x: object) -> bool:
+    """
+    Return True if `x` is an MLX array.
+
+    This function does not import MLX if it has not already been imported
+    and is therefore cheap to use.
+
+    See Also
+    --------
+
+    array_namespace
+    is_array_api_obj
+    is_numpy_array
+    is_cupy_array
+    is_torch_array
+    is_dask_array
+    is_jax_array
+    is_pydata_sparse_array
+    is_dpnp_array
+    is_mparray_array
+    """
+    cls = cast(Hashable, type(x))
+    return _issubclass_fast(cls, "mlx.core", "array")
+
+
 def is_ndonnx_array(x: object) -> TypeIs[ndx.Array]:
     """
     Return True if `x` is a ndonnx Array.
@@ -384,6 +409,7 @@ def _is_array_api_cls(cls: type) -> bool:
         or _issubclass_fast(cls, "numpy", "generic")
         or _issubclass_fast(cls, "cupy", "ndarray")
         or _issubclass_fast(cls, "torch", "Tensor")
+        or _issubclass_fast(cls, "mlx.core", "array")
         or _issubclass_fast(cls, "dask.array", "Array")
         or _issubclass_fast(cls, "sparse", "SparseArray")
         # TODO: drop support for jax<0.4.32 which didn't have __array_namespace__
@@ -467,6 +493,32 @@ def is_torch_namespace(xp: Namespace) -> bool:
     is_array_api_strict_namespace
     """
     return xp.__name__ in {"torch", _compat_module_name() + ".torch"}
+
+
+@lru_cache(100)
+def is_mlx_namespace(xp: Namespace) -> bool:
+    """
+    Returns True if `xp` is an MLX namespace.
+
+    This includes both ``mlx.core`` itself and the version wrapped by
+    array-api-compat.
+
+    See Also
+    --------
+
+    array_namespace
+    is_numpy_namespace
+    is_cupy_namespace
+    is_torch_namespace
+    is_ndonnx_namespace
+    is_dask_namespace
+    is_jax_namespace
+    is_pydata_sparse_namespace
+    is_dpnp_namespace
+    is_mparray_namespace
+    is_array_api_strict_namespace
+    """
+    return xp.__name__ in {"mlx.core", _compat_module_name() + ".mlx"}
 
 
 def is_ndonnx_namespace(xp: Namespace) -> bool:
@@ -687,6 +739,14 @@ def _cls_to_namespace(
             import torch as xp  # type: ignore[no-redef]
         return xp, None
 
+    if _issubclass_fast(cls_, "mlx.core", "array"):
+        if _use_compat:
+            _check_api_version(api_version)
+            from .. import mlx as xp  # type: ignore[no-redef]
+        else:
+            import mlx.core as xp  # type: ignore[no-redef]
+        return xp, None
+
     if _issubclass_fast(cls_, "dask.array", "Array"):
         if _use_compat:
             _check_api_version(api_version)
@@ -901,6 +961,12 @@ def device(x: _ArrayApiObj, /) -> Device:
     For NumPy the device is always `"cpu"`. For Dask, the device is always a
     special `DASK_DEVICE` object.
 
+    MLX arrays live in unified memory and are not attached to a device:
+    the device is a property of the stream that evaluates an operation. For
+    MLX, the current default device (``mlx.core.default_device()``) is
+    returned as a ``"cpu"`` or ``"gpu"`` string, that is the device on which
+    operations involving `x` would run.
+
     See Also
     --------
 
@@ -909,6 +975,10 @@ def device(x: _ArrayApiObj, /) -> Device:
     """
     if is_numpy_array(x):
         return "cpu"
+    elif is_mlx_array(x):
+        from ..mlx._aliases import _default_device_name
+
+        return _default_device_name()
     elif is_dask_array(x):
         # Peek at the metadata of the Dask array to determine type
         if is_numpy_array(x._meta):
@@ -1049,6 +1119,15 @@ def to_device(x: Array, device: Device, /, *, stream: int | Any | None = None) -
         return _cupy_to_device(x, device, stream=stream)
     elif is_torch_array(x):
         return _torch_to_device(x, device, stream=stream)
+    elif is_mlx_array(x):
+        # Unified memory: there is no data to move, the device is chosen
+        # by the stream used to evaluate subsequent operations.
+        if stream is not None:
+            raise ValueError("The stream argument to to_device() is not supported")
+        from ..mlx._aliases import _normalize_device
+
+        _normalize_device(device)
+        return x
     elif is_dask_array(x):
         if stream is not None:
             raise ValueError("The stream argument to to_device() is not supported")
@@ -1138,6 +1217,9 @@ def _is_lazy_cls(cls: type) -> bool | None:
         or _issubclass_fast(cls, "torch", "Tensor")
         or _issubclass_fast(cls, "sparse", "SparseArray")
         or _issubclass_fast(cls, "mparray", "MPArray")
+        # MLX builds a lazy graph but bool(x), float(x)... trigger a cheap
+        # evaluation of the graph, similar to a device sync for CUDA arrays.
+        or _issubclass_fast(cls, "mlx.core", "array")
     ):
         return False
     if (
@@ -1220,6 +1302,8 @@ __all__ = [
     "is_dpnp_namespace",
     "is_jax_array",
     "is_jax_namespace",
+    "is_mlx_array",
+    "is_mlx_namespace",
     "is_mparray_array",
     "is_mparray_namespace",
     "is_numpy_array",

@@ -4,7 +4,80 @@ from . import _agnostic
 from ._lib import _compat
 from ._lib._typing import Array, ArrayNamespace, Device
 
-__all__ = ["diag_indices", "tril_indices", "triu_indices", "unravel_index"]
+__all__ = [
+    "compress",
+    "diag_indices",
+    "tril_indices",
+    "triu_indices",
+    "unravel_index",
+]
+
+
+def compress(
+    condition: Array,
+    x: Array,
+    /,
+    *,
+    axis: int | None = None,
+    xp: ArrayNamespace | None = None,
+) -> Array:
+    """
+    Return the slices of `x` along `axis` for which `condition` is True.
+
+    Equivalent to :func:`numpy.compress`, except that the length of
+    `condition` must match the length of `x` along `axis`. It is a portable
+    alternative to boolean mask indexing (``x[condition]`` when `x` is 1-D or
+    ``x[condition, ...]`` along the first axis), which is not supported by all
+    namespaces (see the ``"boolean indexing"`` key of
+    ``__array_namespace_info__().capabilities()``).
+
+    Parameters
+    ----------
+    condition : array
+        1-D boolean array selecting the slices of `x` to keep.
+    x : array
+        Input array.
+    axis : int, optional
+        Axis along which to take slices. If None (default), work on the
+        flattened array.
+    xp : array_namespace, optional
+        The standard-compatible namespace for `condition` and `x`. Default:
+        infer.
+
+    Returns
+    -------
+    array
+        A copy of `x` without the slices along `axis` for which `condition`
+        is False.
+
+    Examples
+    --------
+    >>> import array_api_strict as xp
+    >>> import array_api_extra as xpx
+    >>> x = xp.asarray([[1, 2], [3, 4], [5, 6]])
+    >>> xpx.compress(xp.asarray([True, False, True]), x, axis=0, xp=xp)
+    Array([[1, 2],
+           [5, 6]], dtype=array_api_strict.int64)
+    """
+    if xp is None:
+        xp = _compat.array_namespace(condition, x)
+    if condition.ndim != 1:
+        msg = f"`condition` must be 1-D, got {condition.ndim}-D"
+        raise ValueError(msg)
+    if axis is None:
+        x = xp.reshape(x, (-1,))
+        axis = 0
+    axis %= x.ndim
+    if condition.shape[0] != x.shape[axis]:
+        msg = (
+            f"`condition` has length {condition.shape[0]} but `x` has length "
+            f"{x.shape[axis]} along axis {axis}"
+        )
+        raise ValueError(msg)
+
+    if _compat.is_numpy_namespace(xp) or _compat.is_cupy_namespace(xp):
+        return xp.compress(condition, x, axis=axis)
+    return _agnostic._indexing.compress(condition, x, axis=axis, xp=xp)
 
 
 def diag_indices(

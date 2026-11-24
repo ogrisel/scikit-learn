@@ -55,6 +55,7 @@ from sklearn.exceptions import (
     NotFittedError,
     SkipTestWarning,
 )
+from sklearn.externals import array_api_compat
 from sklearn.linear_model._base import LinearClassifierMixin
 from sklearn.metrics import accuracy_score, adjusted_rand_score, f1_score
 from sklearn.metrics.pairwise import linear_kernel, pairwise_distances, rbf_kernel
@@ -1266,7 +1267,10 @@ def check_array_api_input(
         # all the array API libraries (PyTorch, jax, CuPy) accept indexing with a
         # numpy array. This is probably not worth doing anything about for
         # now since array-api-strict seems a bit too strict ...
-        numpy_asarray_works = xp_X.__name__ != "array_api_strict"
+        # MLX does not accept NumPy integer arrays as indices either.
+        numpy_asarray_works = xp_X.__name__ != "array_api_strict" and not (
+            array_api_compat.is_mlx_namespace(xp_X)
+        )
 
     except (TypeError, RuntimeError, ValueError):
         # PyTorch with CUDA device and CuPy raise TypeError consistently.

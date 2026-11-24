@@ -11,7 +11,12 @@ from math import ulp
 
 from scipy.stats import gmean
 
-from sklearn.utils._array_api import _expit, _logit, get_namespace
+from sklearn.utils._array_api import (
+    _expit,
+    _logit,
+    _scipy_supports_namespace,
+    get_namespace,
+)
 from sklearn.utils.extmath import softmax
 
 
@@ -264,7 +269,10 @@ class MultinomialLogit(BaseLink):
     def link(self, y_pred):
         xp, _ = get_namespace(y_pred)
         # geometric mean as reference category
-        gm = gmean(y_pred, axis=1)
+        if _scipy_supports_namespace(xp):
+            gm = gmean(y_pred, axis=1)
+        else:
+            gm = xp.exp(xp.mean(xp.log(y_pred), axis=1))
         return xp.log(y_pred / gm[:, None])
 
     def inverse(self, raw_prediction):

@@ -593,7 +593,8 @@ def confusion_matrix(
     if sample_weight.dtype.kind in {"i", "u", "b"}:
         dtype = np.int64
     else:
-        dtype = np.float32 if str(device).startswith("mps") else np.float64
+        max_float_dtype = _max_precision_float_dtype(xp, device)
+        dtype = np.float64 if max_float_dtype == xp.float64 else np.float32
 
     cm = coo_array(
         (sample_weight, (y_true, y_pred)),
@@ -767,9 +768,9 @@ def multilabel_confusion_matrix(
 
         # labels are now from 0 to len(labels) - 1 -> use bincount
         tp = y_true == y_pred
-        tp_bins = y_true[tp]
+        tp_bins = xpx.compress(tp, y_true, xp=xp)
         if sample_weight is not None:
-            tp_bins_weights = sample_weight[tp]
+            tp_bins_weights = xpx.compress(tp, sample_weight, xp=xp)
         else:
             tp_bins_weights = None
 
@@ -2943,7 +2944,7 @@ def balanced_accuracy_score(y_true, y_pred, *, sample_weight=None, adjusted=Fals
         per_class = xp.linalg.diagonal(C) / xp.sum(C, axis=1)
     if xp.any(xp.isnan(per_class)):
         warnings.warn("y_pred contains classes not in y_true")
-        per_class = per_class[~xp.isnan(per_class)]
+        per_class = xpx.compress(~xp.isnan(per_class), per_class, xp=xp)
     score = xp.mean(per_class)
     if adjusted:
         n_classes = per_class.shape[0]

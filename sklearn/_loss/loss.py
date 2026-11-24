@@ -51,6 +51,7 @@ from sklearn.utils._array_api import (
     _average,
     _logsumexp,
     _ravel,
+    _xlogy,
 )
 from sklearn.utils.extmath import softmax
 from sklearn.utils.stats import _weighted_percentile
@@ -777,7 +778,7 @@ class HalfPoissonLoss(BaseLoss):
         self.interval_y_true = Interval(0, np.inf, True, False)
 
     def constant_to_optimal_zero(self, y_true, sample_weight=None):
-        term = xlogy(y_true, y_true) - y_true
+        term = _xlogy(y_true, y_true) - y_true
         if sample_weight is not None:
             term *= sample_weight
         return term

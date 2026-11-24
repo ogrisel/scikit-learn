@@ -1425,6 +1425,13 @@ def _array_api_for_tests(array_namespace, device_name=None, dtype_name=None):
         # from yield_mixed_namespace_input_permutations
         if device_name is not None:
             device = xp.Device(device_name)
+    elif array_namespace == "mlx.core":
+        if device_name == "gpu" and not array_mod.metal.is_available():
+            raise SkipTest("Skipping MLX GPU test because Metal is not available")
+        if device_name is not None:
+            # MLX arrays are not attached to a device: operations run on the
+            # default device.
+            array_mod.set_default_device(getattr(array_mod, device_name))
 
     # Right now only array_api_strict uses a library specific device
     # object. For all other libraries we return a string or `None`.

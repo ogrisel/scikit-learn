@@ -6,7 +6,13 @@ from ._agnostic._inspection import default_dtype
 from ._at import at
 from ._creation import create_diagonal, one_hot
 from ._elementwise import deg2rad, isclose, nan_to_num, rad2deg, sinc
-from ._indexing import diag_indices, tril_indices, triu_indices, unravel_index
+from ._indexing import (
+    compress,
+    diag_indices,
+    tril_indices,
+    triu_indices,
+    unravel_index,
+)
 from ._lazy import lazy_apply
 from ._linalg import kron
 from ._manipulation import atleast_nd, broadcast_shapes, expand_dims, pad
@@ -25,6 +31,7 @@ __all__ = [
     "at",
     "atleast_nd",
     "broadcast_shapes",
+    "compress",
     "cov",
     "create_diagonal",
     "default_dtype",
