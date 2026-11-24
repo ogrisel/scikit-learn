@@ -1,0 +1,1996 @@
+<!DOCTYPE html>
+<html xmlns="http://www.w3.org/1999/xhtml" lang="en" xml:lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="generator" content="pandoc 3.14" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes" />
+  <title>MLX array API support in scikit-learn: first benchmarks</title>
+  <style>
+    /* Default styles provided by pandoc.
+    ** See https://pandoc.org/MANUAL.html#variables-for-html for config info.
+    */
+    span.smallcaps{font-variant: small-caps;}
+    em, em em em, em em em em em {
+      font-style: italic;
+    }
+    em em, em em em em {
+      font-style: normal;
+    }
+    div.columns{display: flex; gap: 1.5em;}
+    div.column{flex: auto;}
+    @media screen {
+    div.columns{gap: min(4vw, 1.5em);}
+    div.column{overflow-x: auto;}
+    }
+    div.hanging-indent{margin-left: 1.5em; text-indent: -1.5em;}
+    /* The extra [class] is a hack that increases specificity enough to
+       override a similar rule in reveal.js */
+    ul.task-list[class]{list-style: none;}
+    ul.task-list li input[type="checkbox"] {
+      font-size: inherit;
+      width: 0.8em;
+      margin: 0 0.8em 0.2em -1.6em;
+      vertical-align: middle;
+    }
+    @media print {
+      html {
+        color-scheme: light only;
+      }
+      html, body, pre, code {
+        background-color: transparent;
+      }
+      body, a, a:visited, blockquote {
+        color: black;
+      }
+      pre, code {
+        padding: 0;
+      }
+      p, h2, h3 {
+        orphans: 3;
+        widows: 3;
+      }
+      h2, h3, h4 {
+        page-break-after: avoid;
+      }
+    }  </style>
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+<header id="title-block-header">
+<h1 class="title">MLX array API support in scikit-learn: first
+benchmarks</h1>
+</header>
+<nav id="TOC" role="doc-toc">
+<ul>
+<li><a href="#tldr" id="toc-tldr">TL;DR</a></li>
+<li><a href="#methodology" id="toc-methodology">Methodology</a></li>
+<li><a href="#how-mlx-support-works" id="toc-how-mlx-support-works">How
+MLX support works</a></li>
+<li><a href="#things-worth-reporting-upstream"
+id="toc-things-worth-reporting-upstream">Things worth reporting
+upstream</a></li>
+<li><a href="#caveats" id="toc-caveats">Caveats</a></li>
+<li><a href="#summary-at-the-largest-size-run-by-all-backends"
+id="toc-summary-at-the-largest-size-run-by-all-backends">Summary at the
+largest size run by all backends</a></li>
+<li><a href="#fit-time-vs.-number-of-samples"
+id="toc-fit-time-vs.-number-of-samples">Fit time vs. number of
+samples</a></li>
+<li><a href="#raw-results" id="toc-raw-results">Raw results</a></li>
+</ul>
+</nav>
+<blockquote>
+<p>This report includes code written with the assistance of AI. The code
+has <strong>not yet been reviewed</strong> by a human.</p>
+</blockquote>
+<p><strong>Setup</strong>: Apple M4, 32 GB unified memory, macOS 26.6.2;
+Python 3.14.10, NumPy 2.5.5, SciPy 1.18.1, PyTorch 2.14.1, MLX 0.32.4,
+scikit-learn 1.10.dev0 (this branch).</p>
+<h2 id="tldr">TL;DR</h2>
+<ul>
+<li><strong>All 25 estimators tagged
+<code>array_api_support</code></strong> work with MLX arrays under
+<code>sklearn.set_config(array_api_dispatch=True)</code>, on both the
+<code>"gpu"</code> (float32) and <code>"cpu"</code> (float64) devices.
+So do <code>GaussianMixture</code>, the calibration helpers, and the
+array API metrics. The whole <code>pytest sklearn -k mlx</code>
+selection passes: 1647 passed, 15 skipped. Peak memory during the run
+was 0.6 GB.</li>
+<li>The changes don’t regress the other namespaces. All
+<code>array_api or torch or strict</code> tests pass, as do the full
+test files of every touched module, apart from 18 pre-existing torch MPS
+failures (<code>torch.unique</code> does not support unsigned dtypes on
+MPS).</li>
+<li>For matmul-bound solvers (<code>Ridge(solver="cholesky")</code>,
+<code>LogisticRegression</code> lbfgs and newton-cg,
+<code>RidgeCV</code> at p=1000), MLX on the GPU is <strong>0.87–1.16x
+the speed of PyTorch MPS</strong>, so roughly on par. Against NumPy on
+the 10-core CPU, both GPU backends are 1.8–4x faster for cholesky and
+logistic regression, and 6.6–8.7x faster for <code>RidgeCV</code>.</li>
+<li>For SVD-based solvers, MLX is <strong>1.5–1.8x faster than torch
+MPS</strong>: <code>Ridge(solver="svd")</code>, and <code>RidgeCV</code>
+at p=200 (1.23x). This is despite MLX linalg running on the CPU stream.
+The gain mostly comes from the QR-first thin SVD, see below.</li>
+<li><strong>Memory</strong>: the MLX process baseline is about 0.2 GB,
+against about 0.35–1.35 GB for torch MPS. MLX peaks are much lower for
+SVD-based solvers. For example, <code>Ridge(svd)</code> at p=200, n=1M
+peaks at 3.2 GB on MLX against 6.3 GB on torch. For the largest cholesky
+and logistic runs, the peaks are similar, and somewhat higher for MLX
+<code>Ridge(cholesky)</code>.</li>
+<li>MLX support required:
+<ul>
+<li>a new <code>array_api_compat.mlx</code> wrapper (about 1250
+lines);</li>
+<li>a new <code>array_api_extra.compress</code> helper and a few small
+<code>array_api_extra</code> fixes;</li>
+<li>about 30 small, namespace-agnostic rewrites in scikit-learn, mostly
+replacing boolean-mask indexing, see below.</li>
+</ul></li>
+<li><strong>Correction to the first version of this report.</strong> The
+NumPy baseline numbers in that version were wrong. The editable
+scikit-learn build was linked against Homebrew’s <code>libomp</code>,
+while conda’s OpenBLAS loaded conda’s <code>libomp</code>. Having two
+OpenMP runtimes in one process slowed down the OpenMP-parallel NumPy
+path (<code>LogisticRegression</code> at p=200: 1.9 s, against 0.7 s
+now) and segfaulted <code>PoissonRegressor</code>. Rebuilding with the
+conda-forge compilers fixed this, and all numbers below come from the
+rebuilt version.</li>
+</ul>
+<h2 id="methodology">Methodology</h2>
+<ul>
+<li>Synthetic float32 data. Regression is a linear model plus noise.
+Classification has 3 classes, sampled from the argmax of logits plus
+Gumbel noise. <code>n_features</code> is 200 or 1000, and
+<code>n_samples</code> takes values from 10k up to 1M.</li>
+<li>Each (estimator, backend, n_samples) configuration runs in
+<strong>its own process</strong> under an external watchdog
+(<code>scratch_mlx/watchdog.py</code>). The watchdog SIGKILLs the
+process tree if any of these happen:
+<ul>
+<li>the wall time exceeds 60 s;</li>
+<li>the macOS <em>physical footprint</em> exceeds 8 GB. The footprint is
+read with <code>proc_pid_rusage(...).ri_phys_footprint</code>, which,
+unlike RSS, includes Metal/GPU buffers in unified memory;</li>
+<li>system available memory drops below 5 GB.</li>
+</ul></li>
+<li>In-process caps: <code>mx.set_memory_limit(6 GB)</code>,
+<code>mx.set_cache_limit(1 GB)</code>, and
+<code>torch.mps.set_per_process_memory_fraction</code>.</li>
+<li>The driver skips sizes whose predicted fit time (extrapolated
+linearly from the previous size) exceeds 7 s, or whose raw
+<code>X</code> would exceed 1.5 GB. It stops a backend’s sweep as soon
+as one fit takes more than 5 s. No run was killed in either sweep.</li>
+<li>Each configuration does one warm-up fit on a 2000-sample problem
+(kernel compilation and caches), then up to 3 timed fits. The best time
+is reported. The fitted attributes are synchronised
+(<code>mx.eval</code> / <code>torch.mps.synchronize()</code>) before the
+clock stops. Host-to-device transfer time is measured separately
+(<code>transfer_s</code>) and is not included in the fit time.</li>
+<li>Solver settings: <code>RidgeCV(alphas=np.logspace(-3, 3, 10))</code>
+uses the default efficient leave-one-out (GCV) path.
+<code>LogisticRegression</code> uses the default <code>C=1.0</code> and
+<code>tol</code>.</li>
+</ul>
+<h2 id="how-mlx-support-works">How MLX support works</h2>
+<p>MLX (<code>mlx.core</code>) is close to the array API but differs in
+several ways that matter to scikit-learn. All of these are handled in
+the vendored <code>array_api_compat.mlx</code> wrapper unless noted
+otherwise:</p>
+<table>
+<colgroup>
+<col style="width: 50%" />
+<col style="width: 50%" />
+</colgroup>
+<thead>
+<tr>
+<th>MLX gap</th>
+<th>Workaround</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>No boolean-mask indexing (<code>x[mask]</code>)</td>
+<td><code>xp.where</code> rewrites in sklearn; new
+<code>xpx.compress(cond, x, axis=)</code> (take + nonzero);
+<code>xpx.at(...).set</code> converts boolean masks</td>
+</tr>
+<tr>
+<td>No device on arrays; devices are not picklable/deep-copyable;
+<code>Device == None</code> and <code>Dtype == None</code> raise</td>
+<td>Devices exposed as the strings <code>"cpu"</code> /
+<code>"gpu"</code> (the current default device); mapped to
+<code>stream=</code> internally</td>
+</tr>
+<tr>
+<td>float64 is CPU only, and the GPU fails late with an obscure
+error</td>
+<td>Eager <code>TypeError</code> on GPU float64 (same as torch MPS);
+<code>info.dtypes(device="gpu")</code> omits float64 so
+<code>move_to</code> downcasts</td>
+</tr>
+<tr>
+<td>float64 <code>exp</code>, <code>sin</code>, <code>cos</code>,
+<code>logaddexp</code> on the CPU device are not accurate to float64
+precision</td>
+<td>Route to NumPy for float64 inputs; this fixed a 5e-3 relative
+coefficient error in float64 <code>LogisticRegression</code></td>
+</tr>
+<tr>
+<td><code>linalg</code> is CPU-stream only, lazy, and errors surface at
+<code>eval</code> time; non-PD <code>cholesky</code> silently returns
+garbage</td>
+<td>Run on <code>mx.cpu</code>, <code>mx.eval</code> eagerly, raise
+<code>LinAlgError</code>; explicit positive-diagonal check after
+cholesky</td>
+</tr>
+<tr>
+<td><code>svd</code> has no <code>full_matrices=False</code> (full
+<code>U</code> is O(n²) memory: this is what crashed a previous
+iteration)</td>
+<td>Thin SVD emulated via QR followed by SVD of the small R factor</td>
+</tr>
+<tr>
+<td>No <code>nonzero</code>, <code>unique_*</code>, <code>det</code>,
+<code>slogdet</code>, <code>nextafter</code>; data-dependent shapes</td>
+<td>Round-trip through NumPy on the host</td>
+</tr>
+<tr>
+<td>Default integer dtype is int32;
+<code>argmax</code>/<code>argsort</code> return uint32</td>
+<td>Cast to int32 (index dtype reported as int32)</td>
+</tr>
+<tr>
+<td>Missing or differently named keywords: <code>correction</code>,
+<code>include_initial</code>, <code>descending</code>,
+<code>stable</code>, <code>copy</code>, <code>device</code>,
+<code>dtype</code> on reductions,
+<code>prepend</code>/<code>append</code>, …</td>
+<td>Thin wrappers</td>
+</tr>
+<tr>
+<td><code>mx.array(x)</code> silently downcasts float64 inputs,
+including NumPy scalars such as <code>np.float64</code>;
+<code>from_dlpack</code> does too</td>
+<td>Dtype-preserving <code>asarray</code> from foreign arrays and NumPy
+scalars</td>
+</tr>
+<tr>
+<td>Basic indexing returns copies, not views</td>
+<td>Fixed the one sklearn call site (<code>GaussianMixture</code>) that
+relied on mutating a view</td>
+</tr>
+<tr>
+<td>Streams are thread-local: a lazy array built in one thread cannot be
+evaluated in another</td>
+<td>Skip host threading for MLX in <code>_parallel_pairwise</code> (new
+<code>_supports_threading(xp)</code> helper)</td>
+</tr>
+<tr>
+<td><code>mlx.core.array.__array_namespace__</code> returns raw
+<code>mlx.core</code>, so SciPy’s array API dispatch uses it and
+fails</td>
+<td>New <code>_scipy_supports_namespace(xp)</code> helper; array API
+fallbacks for <code>trapezoid</code> (<code>auc</code>) and
+<code>gmean</code> (multinomial link); <code>_xlogy</code> for
+<code>HalfPoissonLoss</code></td>
+</tr>
+</tbody>
+</table>
+<p>Changes needed in scikit-learn itself. All of them are
+namespace-agnostic, and the NumPy, array-api-strict and torch tests
+still pass:</p>
+<ul>
+<li><strong>Boolean-mask indexing.</strong> Rewritten with
+<code>xp.where</code> or <code>xpx.compress</code> in:
+<ul>
+<li><code>_ridge._solve_svd</code>, <code>_encode._check_unknown</code>,
+and <code>label_binarize</code>;</li>
+<li><code>r2_score</code> / <code>d2_*</code>,
+<code>multilabel_confusion_matrix</code>, and
+<code>balanced_accuracy_score</code>;</li>
+<li><code>roc_curve</code> and the threshold computation shared by the
+ranking metrics;</li>
+<li><code>calinski_harabasz_score</code> and
+<code>davies_bouldin_score</code>;</li>
+<li><code>_weighted_percentile</code>,
+<code>_incremental_mean_and_var</code>, and
+<code>_nanaverage</code>;</li>
+<li><code>_safe_indexing</code> with boolean keys;</li>
+<li><code>GaussianNB.partial_fit</code>;</li>
+<li><code>LinearDiscriminantAnalysis</code>: class means, the
+<code>svd</code> solver, and <code>predict_log_proba</code>;</li>
+<li><code>LogisticRegressionCV</code>: the <code>Cs_</code>
+reciprocals.</li>
+</ul></li>
+<li><strong>0-d arrays used as slice bounds or Python ints.</strong> MLX
+rejects them. Wrapped with <code>int(...)</code> in
+<code>det_curve</code>, partial <code>roc_auc_score</code>, the LDA
+rank, <code>PCA</code> with a float <code>n_components</code>, and
+<code>PCA(n_components="mle")</code>.</li>
+<li><strong>Float dtypes.</strong> <code>confusion_matrix</code> used to
+pick its float accumulator with a hard-coded
+<code>str(device).startswith("mps")</code> check, and now uses
+<code>_max_precision_float_dtype</code>. The <code>_bincount</code>
+NumPy fallback for weighted counts uses the same helper.</li>
+<li><strong>Latent bug.</strong>
+<code>LogisticRegressionCV.l1_ratio_</code> was created without
+<code>device</code> / <code>dtype</code>. This also affects torch.</li>
+<li><strong>Tests.</strong>
+<ul>
+<li><code>yield_namespaces</code> gains
+<code>("mlx.core", "gpu", "float32")</code> and
+<code>("mlx.core", "cpu", "float64")</code>.</li>
+<li>A few tests compared <code>x.device</code> attributes and now use
+<code>array_device</code>.</li>
+<li><code>check_array_api_input</code> skips the dispatch-disabled
+NumPy-indexing smoke test for MLX, as it already does for
+array-api-strict.</li>
+</ul></li>
+</ul>
+<h2 id="things-worth-reporting-upstream">Things worth reporting
+upstream</h2>
+<ul>
+<li><strong>MLX</strong>:
+<ul>
+<li>float64 accuracy of <code>exp</code>, <code>sin</code>,
+<code>cos</code>, <code>erf</code>, <code>erfinv</code>,
+<code>sigmoid</code>, <code>logsumexp</code>, <code>logaddexp</code>,
+and <code>softmax</code> on the CPU: about 1e-7 relative error, see
+<code>scratch_mlx/audit_float64.py</code>;</li>
+<li><code>mx.array</code> / <code>from_dlpack</code> downcasting
+float64;</li>
+<li><code>__array_namespace__</code> advertising non-compliant
+<code>mlx.core</code>;</li>
+<li><code>Device</code> / <code>Dtype</code> <code>__eq__(None)</code>
+raising;</li>
+<li><code>Device</code> not picklable;</li>
+<li><code>svd(full_matrices=False)</code> missing;</li>
+<li>silent garbage from non-PD <code>cholesky</code>;</li>
+<li>lazy linalg errors;</li>
+<li>boolean-mask indexing missing.</li>
+</ul></li>
+<li><strong>array-api-compat</strong>: the new <code>mlx</code> wrapper
+as a whole, plus <code>is_mlx_array</code> /
+<code>is_mlx_namespace</code>.</li>
+<li><strong>array-api-extra</strong>:
+<ul>
+<li><code>compress</code>;</li>
+<li>the <code>at</code> boolean-mask path for namespaces without boolean
+indexing;</li>
+<li><code>setdiff1d</code> without boolean indexing.</li>
+</ul></li>
+<li><strong>SciPy</strong>: array API dispatch for MLX would require
+SciPy’s vendored array-api-compat to include the new wrapper.</li>
+</ul>
+<h2 id="caveats">Caveats</h2>
+<ul>
+<li>MLX has no per-array device. An MLX “device” in scikit-learn is the
+process-wide default device at the time of the call. Mixing CPU and GPU
+MLX arrays in one process is therefore not meaningfully supported.</li>
+<li>Linear algebra (cholesky, eigh, qr, svd) runs on the MLX CPU stream,
+not the GPU. The MLX <code>Ridge(svd)</code> and <code>RidgeCV</code>
+speedups come from the GPU matmuls around the decomposition and from the
+QR-first thin SVD trick.</li>
+<li>Two runs exceeded the 5 s budget: NumPy <code>RidgeCV</code> at
+p=200, n=1M (7.7 s), and MLX <code>Ridge(svd)</code> at p=1000, n=300k
+(6.6 s). The linear extrapolation from the previous size predicted less
+than 7 s, so the driver allowed them.</li>
+<li>At small n (≤ 30k), the GPU timings are dominated by dispatch
+overhead and are noisy. For example, torch newton-cg at p=200 is slower
+at n=30k (0.115 s) than at n=100k (0.066 s).</li>
+<li>Only the 5 estimator configurations above were benchmarked. The
+other array API estimators were validated for correctness by the test
+suite, but not timed.</li>
+</ul>
+<h2 id="summary-at-the-largest-size-run-by-all-backends">Summary at the
+largest size run by all backends</h2>
+<p>Times are best-of-3 <code>fit</code> wall-clock seconds, after a
+warm-up fit and with an explicit device sync (<code>mx.eval</code> /
+<code>torch.mps.synchronize</code>). Footprint is the peak physical
+footprint of the benchmark process (includes GPU allocations in unified
+memory) sampled every 100 ms by the external watchdog.</p>
+<table style="width:99%;">
+<colgroup>
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+<col style="width: 10%" />
+</colgroup>
+<thead>
+<tr>
+<th>estimator</th>
+<th>n_features</th>
+<th>n_samples</th>
+<th>numpy_s</th>
+<th>torch_mps_s</th>
+<th>mlx_s</th>
+<th>mlx_vs_mps</th>
+<th>mlx_vs_numpy</th>
+<th>mps_footprint_gb</th>
+<th>mlx_footprint_gb</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>0.396</td>
+<td>0.191</td>
+<td>0.220</td>
+<td>0.87</td>
+<td>1.80</td>
+<td>2.61</td>
+<td>3.17</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>200</td>
+<td>300,000</td>
+<td>2.118</td>
+<td>1.061</td>
+<td>0.697</td>
+<td>1.52</td>
+<td>3.04</td>
+<td>2.54</td>
+<td>1.07</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>7.666</td>
+<td>1.422</td>
+<td>1.158</td>
+<td>1.23</td>
+<td>6.62</td>
+<td>3.42</td>
+<td>3.18</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>0.701</td>
+<td>0.245</td>
+<td>0.216</td>
+<td>1.14</td>
+<td>3.24</td>
+<td>2.59</td>
+<td>2.47</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>1.658</td>
+<td>0.494</td>
+<td>0.424</td>
+<td>1.16</td>
+<td>3.91</td>
+<td>2.34</td>
+<td>2.45</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>1000</td>
+<td>300,000</td>
+<td>1.148</td>
+<td>0.576</td>
+<td>0.596</td>
+<td>0.97</td>
+<td>1.93</td>
+<td>3.74</td>
+<td>4.64</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>1000</td>
+<td>30,000</td>
+<td>2.413</td>
+<td>1.071</td>
+<td>0.585</td>
+<td>1.83</td>
+<td>4.13</td>
+<td>1.70</td>
+<td>0.66</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>1000</td>
+<td>30,000</td>
+<td>3.436</td>
+<td>0.382</td>
+<td>0.395</td>
+<td>0.97</td>
+<td>8.70</td>
+<td>1.37</td>
+<td>0.66</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>1000</td>
+<td>300,000</td>
+<td>0.683</td>
+<td>0.235</td>
+<td>0.236</td>
+<td>1.00</td>
+<td>2.90</td>
+<td>3.76</td>
+<td>3.56</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>1000</td>
+<td>300,000</td>
+<td>1.883</td>
+<td>0.589</td>
+<td>0.615</td>
+<td>0.96</td>
+<td>3.06</td>
+<td>3.76</td>
+<td>3.70</td>
+</tr>
+</tbody>
+</table>
+<p><img src="speedup.png" /></p>
+<h2 id="fit-time-vs.-number-of-samples">Fit time vs. number of
+samples</h2>
+<p><img src="fit_time_p200.png" /></p>
+<p><img src="fit_time_p1000.png" /></p>
+<h2 id="raw-results">Raw results</h2>
+<table style="width:99%;">
+<colgroup>
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+<col style="width: 11%" />
+</colgroup>
+<thead>
+<tr>
+<th>estimator</th>
+<th>backend</th>
+<th>n_features</th>
+<th>n_samples</th>
+<th>fit_time_s</th>
+<th>transfer_s</th>
+<th>n_iter</th>
+<th>train_score</th>
+<th>peak_footprint_gb</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>numpy</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.004</td>
+<td>0.000</td>
+<td></td>
+<td>0.9955</td>
+<td>0.10</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>numpy</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.011</td>
+<td>0.000</td>
+<td></td>
+<td>0.9960</td>
+<td>0.12</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>numpy</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.038</td>
+<td>0.000</td>
+<td></td>
+<td>0.9942</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>numpy</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.115</td>
+<td>0.000</td>
+<td></td>
+<td>0.9950</td>
+<td>0.33</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>numpy</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>0.396</td>
+<td>0.000</td>
+<td></td>
+<td>0.9951</td>
+<td>1.60</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.007</td>
+<td>0.001</td>
+<td></td>
+<td>0.9955</td>
+<td>0.32</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.014</td>
+<td>0.003</td>
+<td></td>
+<td>0.9960</td>
+<td>1.34</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.022</td>
+<td>0.030</td>
+<td></td>
+<td>0.9942</td>
+<td>1.33</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.064</td>
+<td>0.050</td>
+<td></td>
+<td>0.9950</td>
+<td>1.34</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>0.191</td>
+<td>0.048</td>
+<td></td>
+<td>0.9951</td>
+<td>2.61</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.006</td>
+<td>0.000</td>
+<td></td>
+<td>0.9955</td>
+<td>0.19</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.011</td>
+<td>0.001</td>
+<td></td>
+<td>0.9960</td>
+<td>0.28</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.018</td>
+<td>0.005</td>
+<td></td>
+<td>0.9942</td>
+<td>0.47</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.048</td>
+<td>0.015</td>
+<td></td>
+<td>0.9950</td>
+<td>1.07</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>0.220</td>
+<td>0.043</td>
+<td></td>
+<td>0.9951</td>
+<td>3.17</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>numpy</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.075</td>
+<td>0.000</td>
+<td></td>
+<td>0.9955</td>
+<td>0.14</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>numpy</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.183</td>
+<td>0.000</td>
+<td></td>
+<td>0.9960</td>
+<td>0.24</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>numpy</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.605</td>
+<td>0.000</td>
+<td></td>
+<td>0.9942</td>
+<td>0.85</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>numpy</td>
+<td>200</td>
+<td>300,000</td>
+<td>2.118</td>
+<td>0.000</td>
+<td></td>
+<td>0.9950</td>
+<td>2.35</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.049</td>
+<td>0.001</td>
+<td></td>
+<td>0.9955</td>
+<td>0.35</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.101</td>
+<td>0.002</td>
+<td></td>
+<td>0.9960</td>
+<td>1.37</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.322</td>
+<td>0.029</td>
+<td></td>
+<td>0.9942</td>
+<td>1.46</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>300,000</td>
+<td>1.061</td>
+<td>0.042</td>
+<td></td>
+<td>0.9950</td>
+<td>2.54</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>3.998</td>
+<td>0.049</td>
+<td></td>
+<td>0.9951</td>
+<td>6.26</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.024</td>
+<td>0.001</td>
+<td></td>
+<td>0.9955</td>
+<td>0.20</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.059</td>
+<td>0.001</td>
+<td></td>
+<td>0.9960</td>
+<td>0.29</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.201</td>
+<td>0.005</td>
+<td></td>
+<td>0.9942</td>
+<td>0.46</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.697</td>
+<td>0.013</td>
+<td></td>
+<td>0.9950</td>
+<td>1.07</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>2.533</td>
+<td>0.043</td>
+<td></td>
+<td>0.9951</td>
+<td>3.15</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>numpy</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.063</td>
+<td>0.000</td>
+<td></td>
+<td>0.9955</td>
+<td>0.16</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>numpy</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.201</td>
+<td>0.000</td>
+<td></td>
+<td>0.9960</td>
+<td>0.21</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>numpy</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.644</td>
+<td>0.000</td>
+<td></td>
+<td>0.9942</td>
+<td>0.40</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>numpy</td>
+<td>200</td>
+<td>300,000</td>
+<td>1.981</td>
+<td>0.000</td>
+<td></td>
+<td>0.9950</td>
+<td>1.22</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>numpy</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>7.666</td>
+<td>0.000</td>
+<td></td>
+<td>0.9951</td>
+<td>5.44</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.021</td>
+<td>0.002</td>
+<td></td>
+<td>0.9955</td>
+<td>0.36</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.042</td>
+<td>0.002</td>
+<td></td>
+<td>0.9960</td>
+<td>1.35</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.146</td>
+<td>0.029</td>
+<td></td>
+<td>0.9942</td>
+<td>1.35</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.437</td>
+<td>0.033</td>
+<td></td>
+<td>0.9950</td>
+<td>1.34</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>1.422</td>
+<td>0.048</td>
+<td></td>
+<td>0.9951</td>
+<td>3.42</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.019</td>
+<td>0.001</td>
+<td></td>
+<td>0.9955</td>
+<td>0.19</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.046</td>
+<td>0.001</td>
+<td></td>
+<td>0.9960</td>
+<td>0.28</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.114</td>
+<td>0.005</td>
+<td></td>
+<td>0.9942</td>
+<td>0.47</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.331</td>
+<td>0.013</td>
+<td></td>
+<td>0.9950</td>
+<td>1.08</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>1.158</td>
+<td>0.043</td>
+<td></td>
+<td>0.9951</td>
+<td>3.18</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>numpy</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.008</td>
+<td>0.000</td>
+<td>7.000</td>
+<td>0.6198</td>
+<td>0.14</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>numpy</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.021</td>
+<td>0.000</td>
+<td>6.000</td>
+<td>0.5979</td>
+<td>0.17</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>numpy</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.069</td>
+<td>0.000</td>
+<td>6.000</td>
+<td>0.5915</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>numpy</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.207</td>
+<td>0.000</td>
+<td>6.000</td>
+<td>0.5959</td>
+<td>0.40</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>numpy</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>0.701</td>
+<td>0.000</td>
+<td>6.000</td>
+<td>0.5900</td>
+<td>2.02</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.020</td>
+<td>0.001</td>
+<td>7.000</td>
+<td>0.6198</td>
+<td>0.35</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.024</td>
+<td>0.002</td>
+<td>6.000</td>
+<td>0.5979</td>
+<td>0.38</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.038</td>
+<td>0.027</td>
+<td>6.000</td>
+<td>0.5915</td>
+<td>1.35</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.083</td>
+<td>0.034</td>
+<td>6.000</td>
+<td>0.5959</td>
+<td>1.35</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>0.245</td>
+<td>0.047</td>
+<td>6.000</td>
+<td>0.5900</td>
+<td>2.59</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.021</td>
+<td>0.001</td>
+<td>7.000</td>
+<td>0.6198</td>
+<td>0.20</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.018</td>
+<td>0.001</td>
+<td>6.000</td>
+<td>0.5979</td>
+<td>0.26</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.035</td>
+<td>0.004</td>
+<td>6.000</td>
+<td>0.5915</td>
+<td>0.32</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.071</td>
+<td>0.013</td>
+<td>6.000</td>
+<td>0.5959</td>
+<td>0.67</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>0.216</td>
+<td>0.049</td>
+<td>6.000</td>
+<td>0.5900</td>
+<td>2.47</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>numpy</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.021</td>
+<td>0.000</td>
+<td>5.000</td>
+<td>0.6199</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>numpy</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.059</td>
+<td>0.000</td>
+<td>5.000</td>
+<td>0.5979</td>
+<td>0.18</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>numpy</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.175</td>
+<td>0.000</td>
+<td>4.000</td>
+<td>0.5915</td>
+<td>0.26</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>numpy</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.487</td>
+<td>0.000</td>
+<td>4.000</td>
+<td>0.5959</td>
+<td>0.40</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>numpy</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>1.658</td>
+<td>0.000</td>
+<td>4.000</td>
+<td>0.5900</td>
+<td>2.41</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.077</td>
+<td>0.001</td>
+<td>5.000</td>
+<td>0.6199</td>
+<td>0.35</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.115</td>
+<td>0.002</td>
+<td>5.000</td>
+<td>0.5979</td>
+<td>0.38</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.066</td>
+<td>0.029</td>
+<td>4.000</td>
+<td>0.5915</td>
+<td>1.35</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.184</td>
+<td>0.035</td>
+<td>4.000</td>
+<td>0.5959</td>
+<td>1.38</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>torch-mps</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>0.494</td>
+<td>0.049</td>
+<td>4.000</td>
+<td>0.5900</td>
+<td>2.34</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>10,000</td>
+<td>0.028</td>
+<td>0.001</td>
+<td>5.000</td>
+<td>0.6199</td>
+<td>0.20</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>30,000</td>
+<td>0.039</td>
+<td>0.001</td>
+<td>5.000</td>
+<td>0.5979</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>100,000</td>
+<td>0.051</td>
+<td>0.004</td>
+<td>4.000</td>
+<td>0.5915</td>
+<td>0.32</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>300,000</td>
+<td>0.126</td>
+<td>0.013</td>
+<td>4.000</td>
+<td>0.5959</td>
+<td>0.49</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>mlx-gpu</td>
+<td>200</td>
+<td>1,000,000</td>
+<td>0.424</td>
+<td>0.050</td>
+<td>4.000</td>
+<td>0.5900</td>
+<td>2.45</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.046</td>
+<td>0.000</td>
+<td></td>
+<td>0.9991</td>
+<td>0.15</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.134</td>
+<td>0.000</td>
+<td></td>
+<td>0.9991</td>
+<td>0.34</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>100,000</td>
+<td>0.381</td>
+<td>0.000</td>
+<td></td>
+<td>0.9990</td>
+<td>0.86</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>300,000</td>
+<td>1.148</td>
+<td>0.000</td>
+<td></td>
+<td>0.9990</td>
+<td>2.36</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.024</td>
+<td>0.026</td>
+<td></td>
+<td>0.9991</td>
+<td>1.35</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.053</td>
+<td>0.029</td>
+<td></td>
+<td>0.9991</td>
+<td>1.46</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>100,000</td>
+<td>0.174</td>
+<td>0.039</td>
+<td></td>
+<td>0.9990</td>
+<td>2.35</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>300,000</td>
+<td>0.576</td>
+<td>0.068</td>
+<td></td>
+<td>0.9990</td>
+<td>3.74</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.023</td>
+<td>0.002</td>
+<td></td>
+<td>0.9991</td>
+<td>0.35</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.054</td>
+<td>0.007</td>
+<td></td>
+<td>0.9991</td>
+<td>0.65</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>100,000</td>
+<td>0.184</td>
+<td>0.021</td>
+<td></td>
+<td>0.9990</td>
+<td>1.70</td>
+</tr>
+<tr>
+<td>Ridge(cholesky)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>300,000</td>
+<td>0.596</td>
+<td>0.063</td>
+<td></td>
+<td>0.9990</td>
+<td>4.64</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.985</td>
+<td>0.000</td>
+<td></td>
+<td>0.9991</td>
+<td>0.41</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>30,000</td>
+<td>2.413</td>
+<td>0.000</td>
+<td></td>
+<td>0.9991</td>
+<td>1.04</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.448</td>
+<td>0.031</td>
+<td></td>
+<td>0.9991</td>
+<td>1.49</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>30,000</td>
+<td>1.071</td>
+<td>0.028</td>
+<td></td>
+<td>0.9991</td>
+<td>1.70</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>100,000</td>
+<td>3.306</td>
+<td>0.038</td>
+<td></td>
+<td>0.9990</td>
+<td>3.74</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.234</td>
+<td>0.002</td>
+<td></td>
+<td>0.9991</td>
+<td>0.37</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.585</td>
+<td>0.007</td>
+<td></td>
+<td>0.9991</td>
+<td>0.66</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>100,000</td>
+<td>1.846</td>
+<td>0.022</td>
+<td></td>
+<td>0.9990</td>
+<td>1.71</td>
+</tr>
+<tr>
+<td>Ridge(svd)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>300,000</td>
+<td>6.551</td>
+<td>0.069</td>
+<td></td>
+<td>0.9990</td>
+<td>4.69</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>numpy</td>
+<td>1000</td>
+<td>10,000</td>
+<td>1.265</td>
+<td>0.000</td>
+<td></td>
+<td>0.9991</td>
+<td>0.29</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>numpy</td>
+<td>1000</td>
+<td>30,000</td>
+<td>3.436</td>
+<td>0.000</td>
+<td></td>
+<td>0.9991</td>
+<td>0.70</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.168</td>
+<td>0.025</td>
+<td></td>
+<td>0.9991</td>
+<td>1.36</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.382</td>
+<td>0.028</td>
+<td></td>
+<td>0.9991</td>
+<td>1.37</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>100,000</td>
+<td>1.430</td>
+<td>0.046</td>
+<td></td>
+<td>0.9990</td>
+<td>2.43</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>300,000</td>
+<td>4.091</td>
+<td>0.070</td>
+<td></td>
+<td>0.9990</td>
+<td>4.95</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.165</td>
+<td>0.002</td>
+<td></td>
+<td>0.9991</td>
+<td>0.36</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.395</td>
+<td>0.007</td>
+<td></td>
+<td>0.9991</td>
+<td>0.66</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>100,000</td>
+<td>1.243</td>
+<td>0.022</td>
+<td></td>
+<td>0.9990</td>
+<td>1.71</td>
+</tr>
+<tr>
+<td>RidgeCV</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>300,000</td>
+<td>4.024</td>
+<td>0.065</td>
+<td></td>
+<td>0.9990</td>
+<td>4.69</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.028</td>
+<td>0.000</td>
+<td>7.000</td>
+<td>0.6567</td>
+<td>0.20</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.075</td>
+<td>0.000</td>
+<td>6.000</td>
+<td>0.6198</td>
+<td>0.36</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>100,000</td>
+<td>0.230</td>
+<td>0.000</td>
+<td>6.000</td>
+<td>0.6012</td>
+<td>0.72</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>300,000</td>
+<td>0.683</td>
+<td>0.000</td>
+<td>6.000</td>
+<td>0.6000</td>
+<td>3.64</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.028</td>
+<td>0.026</td>
+<td>7.000</td>
+<td>0.6567</td>
+<td>1.38</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.047</td>
+<td>0.030</td>
+<td>6.000</td>
+<td>0.6198</td>
+<td>1.40</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>100,000</td>
+<td>0.090</td>
+<td>0.038</td>
+<td>6.000</td>
+<td>0.6012</td>
+<td>1.41</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>300,000</td>
+<td>0.235</td>
+<td>0.067</td>
+<td>6.000</td>
+<td>0.6000</td>
+<td>3.76</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.020</td>
+<td>0.002</td>
+<td>7.000</td>
+<td>0.6567</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.031</td>
+<td>0.007</td>
+<td>6.000</td>
+<td>0.6198</td>
+<td>0.45</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>100,000</td>
+<td>0.082</td>
+<td>0.021</td>
+<td>6.000</td>
+<td>0.6012</td>
+<td>1.40</td>
+</tr>
+<tr>
+<td>LogisticRegression(lbfgs)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>300,000</td>
+<td>0.236</td>
+<td>0.079</td>
+<td>6.000</td>
+<td>0.6000</td>
+<td>3.56</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.067</td>
+<td>0.000</td>
+<td>5.000</td>
+<td>0.6564</td>
+<td>0.20</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.216</td>
+<td>0.000</td>
+<td>6.000</td>
+<td>0.6199</td>
+<td>0.35</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>100,000</td>
+<td>0.627</td>
+<td>0.000</td>
+<td>5.000</td>
+<td>0.6012</td>
+<td>0.84</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>numpy</td>
+<td>1000</td>
+<td>300,000</td>
+<td>1.883</td>
+<td>0.000</td>
+<td>5.000</td>
+<td>0.6000</td>
+<td>3.64</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.045</td>
+<td>0.027</td>
+<td>5.000</td>
+<td>0.6564</td>
+<td>1.38</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.092</td>
+<td>0.031</td>
+<td>6.000</td>
+<td>0.6199</td>
+<td>1.40</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>100,000</td>
+<td>0.207</td>
+<td>0.037</td>
+<td>5.000</td>
+<td>0.6011</td>
+<td>1.52</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>torch-mps</td>
+<td>1000</td>
+<td>300,000</td>
+<td>0.589</td>
+<td>0.066</td>
+<td>5.000</td>
+<td>0.6000</td>
+<td>3.76</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>10,000</td>
+<td>0.041</td>
+<td>0.002</td>
+<td>5.000</td>
+<td>0.6564</td>
+<td>0.25</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>30,000</td>
+<td>0.090</td>
+<td>0.007</td>
+<td>6.000</td>
+<td>0.6199</td>
+<td>0.41</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>100,000</td>
+<td>0.214</td>
+<td>0.021</td>
+<td>5.000</td>
+<td>0.6011</td>
+<td>1.46</td>
+</tr>
+<tr>
+<td>LogisticRegression(newton-cg)</td>
+<td>mlx-gpu</td>
+<td>1000</td>
+<td>300,000</td>
+<td>0.615</td>
+<td>0.075</td>
+<td>5.000</td>
+<td>0.6000</td>
+<td>3.70</td>
+</tr>
+</tbody>
+</table>
+</body>
+</html>
