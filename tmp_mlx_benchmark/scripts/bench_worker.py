@@ -15,6 +15,7 @@ import numpy as np
 
 import sklearn
 from sklearn.linear_model import LogisticRegression, Ridge, RidgeCV
+from sklearn.linear_model._linear_loss import LinearModelLoss
 from sklearn.utils._array_api import move_to
 
 DEVICE_MEMORY_LIMIT = 6 * 1024**3
@@ -27,6 +28,24 @@ ESTIMATORS = {
     "LogisticRegression(lbfgs)": lambda: LogisticRegression(solver="lbfgs"),
     "LogisticRegression(newton-cg)": lambda: LogisticRegression(solver="newton-cg"),
 }
+
+
+HESSP_CALLS = [0]
+_orig_ghp = LinearModelLoss.gradient_hessian_product
+
+
+def _counting_ghp(self, *args, **kwargs):
+    """Count Hessian-vector products (inner CG iterations of newton-cg)."""
+    grad, hessp = _orig_ghp(self, *args, **kwargs)
+
+    def counting_hessp(s):
+        HESSP_CALLS[0] += 1
+        return hessp(s)
+
+    return grad, counting_hessp
+
+
+LinearModelLoss.gradient_hessian_product = _counting_ghp
 
 
 def make_data(estimator_name, n_samples, n_features, seed=0):
@@ -119,6 +138,7 @@ def main():
         times = []
         for _ in range(args.repeats):
             est = make_estimator()
+            HESSP_CALLS[0] = 0
             tic = time.perf_counter()
             est.fit(X_b, y_b)
             sync(est)
@@ -126,13 +146,12 @@ def main():
             if times[-1] > TIME_CAP_S:
                 break
         record["fit_times_s"] = times
+        record["n_hessp"] = HESSP_CALLS[0]
         record["fit_time_s"] = float(np.min(times))
         n_iter = getattr(est, "n_iter_", None)
-        record["n_iter"] = (
-            None
-            if n_iter is None
-            else int(np.max(move_to(n_iter, xp=np, device="cpu")))
-        )
+        if n_iter is not None and hasattr(n_iter, "shape"):
+            n_iter = move_to(n_iter, xp=np, device="cpu")
+        record["n_iter"] = None if n_iter is None else int(np.max(n_iter))
         record["train_score"] = float(est.score(X_b, y_b))
         record["peak_device_memory_gb"] = peak_device_memory() / 1024**3
 

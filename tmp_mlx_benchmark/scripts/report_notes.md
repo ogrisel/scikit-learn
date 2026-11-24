@@ -38,15 +38,21 @@
   0.7 s now) and segfaulted `PoissonRegressor`. Rebuilding with the
   conda-forge compilers fixed this, and all numbers below come from the
   rebuilt version.
+- **PoissonRegressor** (`lbfgs`, `newton-cg`; see the dedicated section
+  below): MLX is on par with torch MPS for `lbfgs` (0.73-1.29x, best at
+  small and medium sizes, slower at p=200 with 1M samples) and
+  1.0-1.9x faster than torch for `newton-cg` in most configurations, up to
+  3.5x at p=1000 with 300k samples. Scores are identical across backends.
 
 ## Methodology
 
 - Synthetic float32 data. Regression is a linear model plus noise.
   Classification has 3 classes, sampled from the argmax of logits plus
-  Gumbel noise. `n_features` is 200 or 1000, and `n_samples` takes values
+  Gumbel noise. Poisson targets are drawn from `Poisson(exp(0.5 + X @ w))`
+  with `w ~ N(0, 1/n_features)`. `n_features` is 200 or 1000, and `n_samples` takes values
   from 10k up to 1M.
 - Each (estimator, backend, n_samples) configuration runs in **its own
-  process** under an external watchdog (`scratch_mlx/watchdog.py`). The
+  process** under an external watchdog (`tmp_mlx_benchmark/scripts/watchdog.py`). The
   watchdog SIGKILLs the process tree if any of these happen:
   - the wall time exceeds 60 s;
   - the macOS *physical footprint* exceeds 8 GB. The footprint is read with
@@ -68,6 +74,71 @@
 - Solver settings: `RidgeCV(alphas=np.logspace(-3, 3, 10))` uses the
   default efficient leave-one-out (GCV) path. `LogisticRegression` uses the
   default `C=1.0` and `tol`.
+
+## PoissonRegressor
+
+Only `solver="lbfgs"` (the `"auto"` choice for `l1_ratio == 0`) and
+`solver="newton-cg"` support array API inputs. `newton-cholesky`,
+`newton-cd` and `newton-cd-gram` still convert to NumPy internally, and
+fail on torch MPS arrays as well as on MLX arrays. They are not benchmarked.
+Default parameters are used (`alpha=1`, `tol=1e-4`, `max_iter=100`).
+
+Fit time in seconds (best of 3) and MLX speedup over torch MPS. "hessp" is
+the number of Hessian-vector products, i.e. the number of inner conjugate
+gradient iterations of `newton-cg`. It is identical across backends except
+where noted, which confirms that the three backends follow the same
+optimization path.
+
+| solver | p | n_samples | NumPy | torch MPS | MLX | MLX vs MPS |
+|---|---|---|---|---|---|---|
+| lbfgs | 200 | 10k | 0.004 | 0.027 | 0.010 | 2.59x |
+| lbfgs | 200 | 100k | 0.026 | 0.027 | 0.029 | 0.93x |
+| lbfgs | 200 | 300k | 0.077 | 0.056 | 0.070 | 0.80x |
+| lbfgs | 200 | 1M | 0.330 | 0.179 | 0.246 | 0.73x |
+| lbfgs | 1000 | 10k | 0.016 | 0.027 | 0.021 | 1.29x |
+| lbfgs | 1000 | 100k | 0.107 | 0.089 | 0.080 | 1.11x |
+| lbfgs | 1000 | 300k | 0.344 | 0.247 | 0.223 | 1.11x |
+| newton-cg | 200 | 10k | 0.016 | 0.036 | 0.027 | 1.34x |
+| newton-cg | 200 | 100k | 0.136 | 0.115 | 0.095 | 1.22x |
+| newton-cg | 200 | 300k | 0.450 | 0.250 | 0.257 | 0.97x |
+| newton-cg | 200 | 1M | 1.380 | 0.638 | 0.637 | 1.00x |
+| newton-cg | 1000 | 10k | 0.075 | 0.099 | 0.132 | 0.75x |
+| newton-cg | 1000 | 100k | 0.689 | 0.503 | 0.419 | 1.20x |
+| newton-cg | 1000 | 300k | 6.339 | 4.892 | 1.410 | 3.47x |
+
+(All rows except the last: `n_iter_` is identical on the three backends.
+Train scores agree to 4 digits. Intermediate sizes are in the raw results.)
+
+Observations:
+
+- `lbfgs` does very little work per iteration (one loss + gradient
+  evaluation, 6-9 iterations), and scipy's L-BFGS-B runs on the host, so
+  each iteration forces a device sync and a device-to-host copy of the
+  gradient. Fit times are therefore dominated by dispatch and sync latency
+  at small n, where MLX has lower overhead than torch MPS (2.6x faster at
+  p=200, n=10k). At p=200 and large n (>= 300k) torch MPS is faster (MLX
+  is 0.73x at 1M samples); at p=1000 MLX is 1.1x faster. We did not
+  investigate the p=200 large-n gap.
+- `newton-cg` is dominated by the Hessian-vector products (`X.T @ (w * (X @ s))`).
+  MLX and torch MPS are on par at p=200 for n >= 300k, and MLX is 1.2x
+  faster at 100k. It is slower at p=1000, n=10k (0.75x), where the problem
+  is too small for the GPU to help over NumPy for either backend.
+- **The 3.5x at p=1000, n=300k is partly an artifact.** NumPy and torch MPS
+  needed 14 Hessian-vector products (8 outer iterations), while MLX needed
+  11 (7 outer iterations), most likely because float32 rounding differences
+  changed the CG trajectory. Normalized per Hessian-vector product, the
+  speedup is 2.7x (128 ms for MLX, 350 ms for torch MPS, 453 ms for
+  NumPy). The time per product for NumPy and torch MPS also increases
+  sharply between 100k (46 ms for torch MPS) and 300k samples (350 ms),
+  while MLX scales roughly linearly. This was reproduced in two separate
+  sweeps. It is not explained by the iteration counts. The extra cost may
+  come from line-search loss / gradient evaluations, which are not counted,
+  but we did not verify it. The 100k point (1.2x vs torch MPS, 1.6x vs
+  NumPy) is the more reliable comparison.
+- Memory: MLX peaks are lower than or similar to torch MPS in all
+  configurations (for example 2.7 GB vs 3.7 GB at p=1000, n=300k, and
+  1.6 GB vs 2.6 GB for `lbfgs` at p=200, n=1M). The torch MPS baseline is
+  about 1.3 GB as soon as its allocator is warmed up at 30k-100k samples.
 
 ## How MLX support works
 
@@ -130,7 +201,7 @@ and the NumPy, array-api-strict and torch tests still pass:
 - **MLX**:
   - float64 accuracy of `exp`, `sin`, `cos`, `erf`, `erfinv`, `sigmoid`,
     `logsumexp`, `logaddexp`, and `softmax` on the CPU: about 1e-7 relative
-    error, see `scratch_mlx/audit_float64.py`;
+    error, see `tmp_mlx_benchmark/scripts/audit_float64.py`;
   - `mx.array` / `from_dlpack` downcasting float64;
   - `__array_namespace__` advertising non-compliant `mlx.core`;
   - `Device` / `Dtype` `__eq__(None)` raising;
@@ -156,13 +227,16 @@ and the NumPy, array-api-strict and torch tests still pass:
 - Linear algebra (cholesky, eigh, qr, svd) runs on the MLX CPU stream, not
   the GPU. The MLX `Ridge(svd)` and `RidgeCV` speedups come from the GPU
   matmuls around the decomposition and from the QR-first thin SVD trick.
-- Two runs exceeded the 5 s budget: NumPy `RidgeCV` at p=200, n=1M
-  (7.7 s), and MLX `Ridge(svd)` at p=1000, n=300k (6.6 s). The linear
+- Three runs exceeded the 5 s budget: NumPy `RidgeCV` at p=200, n=1M
+  (7.7 s), MLX `Ridge(svd)` at p=1000, n=300k (6.6 s), and NumPy
+  `PoissonRegressor(newton-cg)` at p=1000, n=300k (6.3 s). The linear
   extrapolation from the previous size predicted less than 7 s, so the
   driver allowed them.
 - At small n (≤ 30k), the GPU timings are dominated by dispatch overhead
   and are noisy. For example, torch newton-cg at p=200 is slower at
   n=30k (0.115 s) than at n=100k (0.066 s).
-- Only the 5 estimator configurations above were benchmarked. The other
+- Only 7 estimator configurations (Ridge cholesky / svd, RidgeCV,
+  LogisticRegression lbfgs / newton-cg, PoissonRegressor lbfgs / newton-cg)
+  were benchmarked. The other
   array API estimators were validated for correctness by the test suite,
   but not timed.
