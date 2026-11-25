@@ -247,9 +247,31 @@ def _estimate_gaussian_covariances_diag(resp, X, nk, means, reg_covar, xp=None):
         The covariance vector of the current components.
     """
     xp, _ = get_namespace(X, xp=xp)
+
+    # Fast path: E[X**2] - mean**2 with a single GEMM. It cancels two nearly
+    # equal terms, so its absolute error scales with eps * E[X**2] and its
+    # relative error with eps * E[X**2] / variance (gh-30382).
     avg_X2 = (resp.T @ (X * X)) / nk[:, xp.newaxis]
-    avg_means2 = means**2
-    return avg_X2 - avg_means2 + reg_covar
+    covariances = avg_X2 - means**2
+
+    # Recompute from the weighted second moment about the mean (the diagonal of
+    # the full estimator) the components where the variance is not safely
+    # above the cancellation error: this is also where the fast path can be
+    # negative or off by orders of magnitude. The threshold is relative to
+    # E[X**2], so it is invariant to the scale of the data.
+    rel_tol = 1e-2 if X.dtype == xp.float32 else 1e-8
+    unstable = xp.any(covariances <= rel_tol * avg_X2, axis=1)
+    if xp.any(unstable):
+        # XXX: consider using thread-based parallelism for this loop
+        # assuming it is low overhead enough.
+        for k in range(means.shape[0]):
+            if unstable[k]:
+                diff = X - means[k, :]
+                diff *= diff
+                covariances[k, :] = (resp[:, k] @ diff) / nk[k]
+                # Free the buffer before the next iteration allocates its own.
+                del diff
+    return covariances + reg_covar
 
 
 def _estimate_gaussian_covariances_spherical(resp, X, nk, means, reg_covar, xp=None):
